@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+*.log
+.env
+.env.local
+.DS_Store
+target/
+src-tauri/target/
+*.sqlite
+*.sqlite-journal
+
+# Vite HMR config snapshot temp files (regenerated on every dev run)
+vite.config.ts.timestamp-*.mjs
+vite.config.js.timestamp-*.mjs
+vite.config.*.timestamp-*.mjs
+
+# Local pharmacare DB + telemetry logs (LAN-only, never commit)
+pharmacare.db*
+*.pre-restore-*.bak
+logs/

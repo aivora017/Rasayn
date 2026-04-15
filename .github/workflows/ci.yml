@@ -1,0 +1,86 @@
+# PharmaCare Pro CI
+# v2.0 Playbook §8.1 — every branch gated on typecheck + vitest + cargo check
+# + SQLite migration dry-run. No merge without green.
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    name: typescript + vitest
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: pharmacare-pro
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pharmacare-pro/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --run
+
+  rust:
+    name: cargo check + clippy + test
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: pharmacare-pro/apps/desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - name: install tauri system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pharmacare-pro/apps/desktop/src-tauri
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo check --all-targets
+      - run: cargo test --all
+
+  migrations:
+    name: sqlite migration dry-run
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: pharmacare-pro
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: apply all migrations in order + smoke-test FKs
+        run: |
+          python3 - <<'PY'
+          import sqlite3, pathlib, sys
+          mig = sorted(pathlib.Path("packages/shared-db/migrations").glob("*.sql"))
+          c = sqlite3.connect(":memory:")
+          c.executescript("PRAGMA foreign_keys=ON;")
+          for m in mig:
+              print("apply", m.name)
+              c.executescript(m.read_text())
+          # mirror ensure_default_shop
+          c.execute("INSERT INTO shops (id,name,gstin,state_code,retail_license,address) VALUES ('shop_local','My Pharmacy','00AAAAA0000A0Z0','00','PENDING','addr')")
+          # FK smoke test: audit_log canonical shape + oauth_accounts FK
+          c.execute("INSERT INTO oauth_accounts (shop_id,provider,account_email,scopes) VALUES ('shop_local','gmail','a@b.c','gmail.readonly')")
+          c.execute("INSERT INTO audit_log (actor_id,entity,entity_id,action,payload) VALUES ('system','oauth:gmail','shop_local','gmail_connect','{}')")
+          c.commit()
+          print("migrations + FK smoke OK")
+          PY
