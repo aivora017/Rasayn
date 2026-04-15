@@ -45,10 +45,16 @@ pub fn is_configured() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Env vars are process-global; cargo runs tests in parallel threads
+    // inside one process, so any test that mutates PHARMACARE_GOOGLE_CLIENT_ID
+    // must hold this mutex for its full duration.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn fallback_is_detected_as_unconfigured() {
-        // Ensure no env override leaks into this test.
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         std::env::remove_var("PHARMACARE_GOOGLE_CLIENT_ID");
         // When compile-time env is unset, we get the REPLACE_ME fallback.
         if option_env!("PHARMACARE_GOOGLE_CLIENT_ID_COMPILE").is_none() {
@@ -59,6 +65,7 @@ mod tests {
 
     #[test]
     fn runtime_env_wins() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         std::env::set_var(
             "PHARMACARE_GOOGLE_CLIENT_ID",
             "abc.apps.googleusercontent.com",
