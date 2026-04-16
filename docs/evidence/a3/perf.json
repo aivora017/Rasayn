@@ -1,0 +1,15 @@
+{
+  "branch": "A3",
+  "package": "@pharmacare/directory-repo",
+  "probe": "lookupCustomerByPhone",
+  "rows": 10000,
+  "iterations": 1000,
+  "hits": 500,
+  "misses": 500,
+  "p50_ms": 0.011,
+  "p95_ms": 0.024,
+  "p99_ms": 0.047,
+  "gate_ms": 10,
+  "seed_ms": 111,
+  "timestamp": "2026-04-16T06:33:39.288Z"
+}
