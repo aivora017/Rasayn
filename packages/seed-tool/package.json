@@ -16,6 +16,7 @@
   "dependencies": {
     "@pharmacare/shared-db": "*",
     "@pharmacare/shared-types": "*",
+    "@pharmacare/search-repo": "*",
     "better-sqlite3": "^11.5.0"
   },
   "devDependencies": {
