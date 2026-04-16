@@ -55,7 +55,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run build -w @pharmacare/desktop
+      # Must build via turbo so @pharmacare/shared-types + @pharmacare/gst-engine
+      # are topo-built BEFORE vite bundles the desktop app. `npm run build -w`
+      # alone runs only vite build, which then fails to resolve workspace
+      # package entries (dist/ not yet created).
+      - run: npx turbo run build --filter=@pharmacare/desktop
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -84,4 +88,14 @@ jobs:
           import sqlite3, pathlib, sys
           mig = sorted(pathlib.Path("packages/shared-db/migrations").glob("*.sql"))
           c = sqlite3.connect(":memory:")
-       
+          c.executescript("PRAGMA foreign_keys=ON;")
+          for m in mig:
+              print("apply", m.name)
+              c.executescript(m.read_text())
+          # mirror ensure_default_shop
+          c.execute("INSERT INTO shops (id,name,gstin,state_code,retail_license,address) VALUES ('shop_local','My Pharmacy','00AAAAA0000A0Z0','00','PENDING','addr')")
+          c.execute("INSERT INTO oauth_accounts (shop_id,provider,account_email,scopes) VALUES ('shop_local','gmail','a@b.c','gmail.readonly')")
+          c.execute("INSERT INTO audit_log (actor_id,entity,entity_id,action,payload) VALUES ('system','oauth:gmail','shop_local','gmail_connect','{}')")
+          c.commit()
+          print("migrations + FK smoke OK")
+          PY
