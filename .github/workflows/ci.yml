@@ -30,14 +30,13 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test -- --run
+      # Each package's "test" is already `vitest run` (one-shot), so no extra
+      # `-- --run` needed. Passing it crashes turbo ("unexpected argument").
+      - run: npm test
 
   rust:
     name: cargo check + clippy + test
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: apps/desktop/src-tauri
     steps:
       - uses: actions/checkout@v4
       - name: install tauri system deps
@@ -46,6 +45,17 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
             libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
+      # Tauri's generate_context!() macro exist-checks frontendDist at compile time.
+      # tauri.conf.json → frontendDist = "../dist" (apps/desktop/dist). Without a
+      # frontend build the macro panics and clippy/check/test all fail with
+      # "proc macro panicked: frontendDist ... doesn't exist". Build it.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build -w @pharmacare/desktop
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -53,9 +63,13 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
       - run: cargo fmt --check
+        working-directory: apps/desktop/src-tauri
       - run: cargo clippy --all-targets -- -D warnings
+        working-directory: apps/desktop/src-tauri
       - run: cargo check --all-targets
+        working-directory: apps/desktop/src-tauri
       - run: cargo test --all
+        working-directory: apps/desktop/src-tauri
 
   migrations:
     name: sqlite migration dry-run
@@ -70,15 +84,4 @@ jobs:
           import sqlite3, pathlib, sys
           mig = sorted(pathlib.Path("packages/shared-db/migrations").glob("*.sql"))
           c = sqlite3.connect(":memory:")
-          c.executescript("PRAGMA foreign_keys=ON;")
-          for m in mig:
-              print("apply", m.name)
-              c.executescript(m.read_text())
-          # mirror ensure_default_shop
-          c.execute("INSERT INTO shops (id,name,gstin,state_code,retail_license,address) VALUES ('shop_local','My Pharmacy','00AAAAA0000A0Z0','00','PENDING','addr')")
-          # FK smoke test: audit_log canonical shape + oauth_accounts FK
-          c.execute("INSERT INTO oauth_accounts (shop_id,provider,account_email,scopes) VALUES ('shop_local','gmail','a@b.c','gmail.readonly')")
-          c.execute("INSERT INTO audit_log (actor_id,entity,entity_id,action,payload) VALUES ('system','oauth:gmail','shop_local','gmail_connect','{}')")
-          c.commit()
-          print("migrations + FK smoke OK")
-          PY
+       

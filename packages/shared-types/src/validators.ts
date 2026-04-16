@@ -7,15 +7,23 @@ import type { Paise } from "./money.js";
 
 export const PHARMA_HSN: readonly string[] = ["3003", "3004", "3005", "3006", "9018"] as const;
 
+/**
+ * India's GSTN accepts pharma HSN at 4, 6, or 8 digits — retailers under
+ * ₹5 Cr turnover file at 4/6, and ≥₹5 Cr must file at 8. What matters for
+ * the whitelist is the CHAPTER PREFIX (first 4 digits). Migration 0008
+ * mirrors this rule in the DB trigger.
+ */
 export function isPharmaHsn(hsn: string): hsn is HSN {
-  return PHARMA_HSN.includes(hsn);
+  if (!/^\d{4}(\d{2})?(\d{2})?$/.test(hsn)) return false;
+  return PHARMA_HSN.includes(hsn.slice(0, 4));
 }
 
 export function validateHsn(hsn: string): string | null {
   if (!hsn) return "HSN is required";
-  if (!/^\d{4}$/.test(hsn)) return "HSN must be a 4-digit code";
+  if (!/^\d{4}(\d{2})?(\d{2})?$/.test(hsn))
+    return "HSN must be 4, 6, or 8 digits";
   if (!isPharmaHsn(hsn))
-    return `HSN must be one of ${PHARMA_HSN.join("/")} for pharma retail`;
+    return `HSN prefix must be one of ${PHARMA_HSN.join("/")} for pharma retail`;
   return null;
 }
 
@@ -68,13 +76,4 @@ export function validateProductWrite(p: ProductWriteInput): readonly string[] {
   if (h) errs.push(h);
   if (!validateGstRate(p.gstRate)) errs.push("gst_rate must be 0/5/12/18/28");
   if (!Number.isInteger(p.packSize) || p.packSize <= 0) errs.push("pack_size must be a positive integer");
-  if (!Number.isInteger(p.mrpPaise) || p.mrpPaise <= 0) errs.push("mrp must be positive paise");
-  if (p.nppaMaxMrpPaise !== null && (!Number.isInteger(p.nppaMaxMrpPaise) || p.nppaMaxMrpPaise <= 0)) {
-    errs.push("nppa_max_mrp must be positive paise or null");
-  }
-  const cap = validateNppaCap(p.mrpPaise, p.nppaMaxMrpPaise);
-  if (cap) errs.push(cap);
-  const img = validateScheduleImage(p.schedule, p.imageSha256);
-  if (img) errs.push(img);
-  return errs;
-}
+  if (!Number.isInteger(p.mrpPaise) || p.mrpPaise <= 0) errs.push("mrp must be positive

@@ -98,9 +98,17 @@ fn validate(p: &ProductInput) -> Result<(), String> {
     if p.manufacturer.trim().is_empty() {
         return Err("manufacturer is required".into());
     }
-    if !PHARMA_HSN.contains(&p.hsn.as_str()) {
+    // India GSTN: HSN may be 4, 6, or 8 digits. Chapter prefix (first 4)
+    // must be in the pharma whitelist. Mirrors migration 0008 trigger.
+    if !matches!(p.hsn.len(), 4 | 6 | 8) || !p.hsn.chars().all(|c| c.is_ascii_digit()) {
         return Err(format!(
-            "HSN must be one of {} (got '{}')",
+            "HSN must be 4, 6, or 8 digits (got '{}')",
+            p.hsn
+        ));
+    }
+    if !PHARMA_HSN.contains(&&p.hsn[..4]) {
+        return Err(format!(
+            "HSN prefix must be one of {} (got '{}')",
             PHARMA_HSN.join("/"),
             p.hsn
         ));
@@ -349,12 +357,4 @@ mod tests {
 
     #[test]
     fn migration_trigger_blocks_mrp_over_nppa() {
-        let c = mem_db();
-        let r = c.execute(
-            "INSERT INTO products (id,name,manufacturer,hsn,gst_rate,schedule,pack_form,pack_size,mrp_paise,nppa_max_mrp_paise) \
-             VALUES ('p1','X','ACME','3004',5,'OTC','tablet',10,500,400)",
-            [],
-        );
-        assert!(r.is_err(), "trigger should reject MRP above NPPA cap");
-    }
-}
+       
