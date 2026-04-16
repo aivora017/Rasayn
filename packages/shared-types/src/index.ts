@@ -9,3 +9,4 @@ export * from "./compliance.js";
 export * from "./product.js";
 export * from "./bill.js";
 export * from "./customer.js";
+export * from "./validators.js";

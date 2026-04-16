@@ -2,6 +2,9 @@
 mod commands;
 mod db;
 mod oauth;
+mod products;
+#[cfg(test)]
+mod products_perf;
 mod telemetry;
 
 use crate::db::{apply_migrations, default_db_path, open_local, DbState};
@@ -50,6 +53,10 @@ fn main() {
             commands::shop_update,
             commands::db_backup,
             commands::db_restore,
+            products::upsert_product,
+            products::get_product,
+            products::list_products,
+            products::deactivate_product,
             oauth::gmail_connect,
             oauth::gmail_status,
             oauth::gmail_disconnect,
