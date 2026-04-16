@@ -1,0 +1,28 @@
+{
+  "fixture": {
+    "products": 500,
+    "batchesPerProduct": 100,
+    "totalBatches": 50000,
+    "seedMs": 847
+  },
+  "singlePick": {
+    "iterations": 1000,
+    "p50Ms": 0.11125700000002325,
+    "p95Ms": 0.45528774999989946,
+    "p99Ms": 0.9949132499999118,
+    "maxMs": 6.018561000000091
+  },
+  "fullAlloc50": {
+    "iterations": 1000,
+    "p50Ms": 0.1061299999998937,
+    "p95Ms": 0.4214058499999965,
+    "p99Ms": 0.7985836400000629,
+    "maxMs": 2.7395480000000134
+  },
+  "ledgerBalanced": true,
+  "gates": {
+    "singlePickP95Ms": 5,
+    "fullAllocP95Ms": 5
+  },
+  "capturedAt": "2026-04-16T05:27:14.880Z"
+}
