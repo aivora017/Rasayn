@@ -32,6 +32,7 @@ fn main() {
             commands::db_version,
             commands::search_products,
             commands::pick_fefo_batch,
+            commands::list_fefo_candidates,
             commands::save_bill,
             commands::list_stock,
             commands::save_grn,

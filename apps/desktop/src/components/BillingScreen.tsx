@@ -3,7 +3,7 @@ import { formatINR, type Paise, type GstRate } from "@pharmacare/shared-types";
 import { computeLine, computeInvoice, inferTreatment } from "@pharmacare/gst-engine";
 import { ProductSearch } from "./ProductSearch.js";
 import {
-  pickFefoBatchRpc, saveBillRpc,
+  pickFefoBatchRpc, listFefoCandidatesRpc, saveBillRpc,
   searchCustomersRpc, listPrescriptionsRpc, createPrescriptionRpc, upsertDoctorRpc,
   type ProductHit, type BatchPick, type SaveBillInput,
   type Customer, type Prescription,
@@ -43,6 +43,13 @@ export function BillingScreen() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+
+  // A6 · F7 batch override (ADR 0010 §2) — targets last-added line.
+  const [batchPickerOpen, setBatchPickerOpen] = useState(false);
+  const [batchCandidates, setBatchCandidates] = useState<readonly BatchPick[]>([]);
+  const [batchSelectedIdx, setBatchSelectedIdx] = useState(0);
+  const [batchTargetIdx, setBatchTargetIdx] = useState<number | null>(null);
+  const batchConfirmRef = useRef<HTMLButtonElement | null>(null);
 
   const [custQuery, setCustQuery] = useState("");
   const [custHits, setCustHits] = useState<readonly Customer[]>([]);
@@ -243,6 +250,31 @@ export function BillingScreen() {
         setPaymentOpen(true);
         return;
       }
+      if (e.key === "F7") {
+        e.preventDefault();
+        if (lines.length === 0) {
+          setToast({ kind: "err", msg: "Add a line first — F7 targets the last line" });
+          return;
+        }
+        const target = lines.length - 1;
+        const targetLine = lines[target];
+        if (!targetLine?.productId) {
+          setToast({ kind: "err", msg: "Last line has no product — nothing to override" });
+          return;
+        }
+        void (async () => {
+          try {
+            const cs = await listFefoCandidatesRpc(targetLine.productId!);
+            setBatchCandidates(cs);
+            setBatchSelectedIdx(0);
+            setBatchTargetIdx(target);
+            setBatchPickerOpen(true);
+          } catch (err) {
+            setToast({ kind: "err", msg: `Batch list failed: ${String(err)}` });
+          }
+        })();
+        return;
+      }
       if (e.key === "F10") {
         e.preventDefault();
         if (paymentOpen) { void doSave(); return; }
@@ -256,13 +288,61 @@ export function BillingScreen() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [doSave, resetBill, canSave, paymentOpen, toast, lines.length]);
+  }, [doSave, resetBill, canSave, paymentOpen, toast, lines]);
 
   // Autofocus payment-confirm button when the modal opens so Enter works
   // without any Tab dance.
   useEffect(() => {
     if (paymentOpen) paymentConfirmRef.current?.focus();
   }, [paymentOpen]);
+
+  // A6 · autofocus the batch-override confirm button on open (ADR 0010 §2).
+  useEffect(() => {
+    if (batchPickerOpen) batchConfirmRef.current?.focus();
+  }, [batchPickerOpen]);
+
+  const closeBatchPicker = useCallback(() => {
+    setBatchPickerOpen(false);
+    setBatchCandidates([]);
+    setBatchTargetIdx(null);
+    setBatchSelectedIdx(0);
+  }, []);
+
+  const commitBatchPick = useCallback(() => {
+    if (batchTargetIdx === null) { closeBatchPicker(); return; }
+    const picked = batchCandidates[batchSelectedIdx];
+    if (!picked) { closeBatchPicker(); return; }
+    // A6 · commit: swap batch, re-take MRP from the picked batch (MRP lives
+    // on the batch, not the product — per ADR 0010 §2).
+    setLines((prev) => prev.map((l, i) =>
+      i === batchTargetIdx
+        ? { ...l, batch: picked, mrpPaise: picked.mrpPaise as Paise }
+        : l,
+    ));
+    closeBatchPicker();
+  }, [batchTargetIdx, batchCandidates, batchSelectedIdx, closeBatchPicker]);
+
+  // Scope-local key handling for the batch picker (↑/↓/Enter/Esc).
+  useEffect(() => {
+    if (!batchPickerOpen) return undefined;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setBatchSelectedIdx((i) => Math.min(i + 1, Math.max(batchCandidates.length - 1, 0)));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setBatchSelectedIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        commitBatchPick();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeBatchPicker();
+      }
+    };
+    window.addEventListener("keydown", h, true);
+    return () => window.removeEventListener("keydown", h, true);
+  }, [batchPickerOpen, batchCandidates.length, commitBatchPick, closeBatchPicker]);
 
   useEffect(() => {
     if (toast?.kind === "ok") {
@@ -289,6 +369,7 @@ export function BillingScreen() {
             · <span className="kbd">F3</span> add-line
             · <span className="kbd">F4</span> discount
             · <span className="kbd">F6</span> payment
+            · <span className="kbd">F7</span> batch
             · <span className="kbd">F10</span> save
           </span>
         </h2>
@@ -535,6 +616,108 @@ export function BillingScreen() {
           {saving ? "Saving…" : "Save & Print (F10)"}
         </button>
       </aside>
+
+      {batchPickerOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-override-title"
+          data-testid="batch-override-modal"
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110,
+          }}
+        >
+          <div style={{
+            background: "#1e293b", color: "#e5e7eb", padding: 24, borderRadius: 8,
+            minWidth: 480, maxWidth: 640, border: "1px solid #334155",
+          }}>
+            <h3 id="batch-override-title" style={{ margin: "0 0 8px" }}>
+              Pick batch (F7)
+            </h3>
+            {batchCandidates.length <= 1 && (
+              <div
+                data-testid="batch-override-only-one"
+                style={{
+                  background: "#78350f", color: "#fed7aa", padding: "6px 10px",
+                  borderRadius: 4, fontSize: 12, marginBottom: 8,
+                }}
+              >
+                Only {batchCandidates.length} batch available — press Enter to confirm, Esc to cancel.
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+              ↑/↓ to select · Enter to commit · Esc to cancel
+            </div>
+            <div
+              role="listbox"
+              aria-activedescendant={`batch-opt-${batchSelectedIdx}`}
+              data-testid="batch-override-listbox"
+              style={{
+                maxHeight: 260, overflowY: "auto", border: "1px solid #334155",
+                borderRadius: 4, marginBottom: 12,
+              }}
+            >
+              {batchCandidates.length === 0 ? (
+                <div style={{ padding: 12, color: "#f87171" }}>
+                  No non-expired batches for this product.
+                </div>
+              ) : (
+                batchCandidates.map((c, i) => (
+                  <div
+                    key={c.id}
+                    id={`batch-opt-${i}`}
+                    role="option"
+                    aria-selected={i === batchSelectedIdx}
+                    data-testid={`batch-opt-${i}`}
+                    onClick={() => setBatchSelectedIdx(i)}
+                    onDoubleClick={() => { setBatchSelectedIdx(i); commitBatchPick(); }}
+                    style={{
+                      padding: "8px 12px",
+                      background: i === batchSelectedIdx ? "#2563eb" : "transparent",
+                      color: i === batchSelectedIdx ? "white" : "#e5e7eb",
+                      cursor: "pointer",
+                      fontFamily: "monospace",
+                      fontSize: 13,
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1.2fr 0.6fr 0.8fr",
+                      gap: 8,
+                    }}
+                  >
+                    <span>{c.batchNo}</span>
+                    <span>exp {c.expiryDate}</span>
+                    <span>qty {c.qtyOnHand}</span>
+                    <span>{formatINR((c.mrpPaise) as Paise)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={closeBatchPicker}
+                data-testid="batch-override-cancel"
+                style={{ padding: "8px 14px", background: "#334155", color: "white", border: "none", borderRadius: 4 }}
+              >
+                Cancel (Esc)
+              </button>
+              <button
+                ref={batchConfirmRef}
+                onClick={commitBatchPick}
+                data-testid="batch-override-confirm"
+                disabled={batchCandidates.length === 0}
+                style={{
+                  padding: "8px 14px",
+                  background: batchCandidates.length ? "#16a34a" : "#64748b",
+                  color: "white", border: "none", borderRadius: 4, fontWeight: 700,
+                  cursor: batchCandidates.length ? "pointer" : "not-allowed",
+                }}
+              >
+                Confirm (Enter)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {paymentOpen && (
         <div

@@ -56,6 +56,7 @@ export type IpcCall =
   | { cmd: "db_version"; args: Record<string, never> }
   | { cmd: "search_products"; args: { q: string; limit?: number } }
   | { cmd: "pick_fefo_batch"; args: { productId: string } }
+  | { cmd: "list_fefo_candidates"; args: { productId: string } }
   | { cmd: "save_bill"; args: { billId: string; input: SaveBillInput } }
   | { cmd: "list_stock"; args: { opts?: ListStockOpts } }
   | { cmd: "save_grn"; args: { grnId: string; input: SaveGrnInput } }
@@ -110,6 +111,10 @@ export async function searchProductsRpc(q: string, limit = 10): Promise<readonly
 
 export async function pickFefoBatchRpc(productId: string): Promise<BatchPick | null> {
   return (await handler({ cmd: "pick_fefo_batch", args: { productId } })) as BatchPick | null;
+}
+
+export async function listFefoCandidatesRpc(productId: string): Promise<readonly BatchPick[]> {
+  return (await handler({ cmd: "list_fefo_candidates", args: { productId } })) as BatchPick[];
 }
 
 export async function saveBillRpc(billId: string, input: SaveBillInput): Promise<SaveBillResult> {

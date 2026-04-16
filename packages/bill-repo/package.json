@@ -1,6 +1,6 @@
 {
   "name": "@pharmacare/bill-repo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -13,9 +13,10 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@pharmacare/shared-types": "*",
+    "@pharmacare/batch-repo": "*",
     "@pharmacare/gst-engine": "*",
     "@pharmacare/shared-db": "*",
+    "@pharmacare/shared-types": "*",
     "better-sqlite3": "^11.5.0"
   },
   "devDependencies": {

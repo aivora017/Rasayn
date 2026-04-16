@@ -129,6 +129,32 @@ pub fn pick_fefo_batch(
     }
 }
 
+#[tauri::command]
+pub fn list_fefo_candidates(
+    product_id: String,
+    state: State<DbState>,
+) -> Result<Vec<BatchPick>, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = c
+        .prepare(
+            "SELECT id, batch_no, expiry_date, qty_on_hand, mrp_paise
+               FROM v_fefo_batches WHERE product_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let iter = stmt
+        .query_map(params![product_id], |r| {
+            Ok(BatchPick {
+                id: r.get(0)?,
+                batch_no: r.get(1)?,
+                expiry_date: r.get(2)?,
+                qty_on_hand: r.get(3)?,
+                mrp_paise: r.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    iter.collect::<Result<_, _>>().map_err(|e| e.to_string())
+}
+
 // --- Save bill ------------------------------------------------------------
 
 #[derive(Deserialize)]
@@ -207,6 +233,28 @@ pub fn save_bill(
         .as_deref()
         .is_some_and(|s| s != shop_state);
     let treatment = if inter { "inter_state" } else { "intra_state" };
+
+    // A6 · NPPA/DPCO re-check (ADR 0010 §1). Enforced at save BEFORE any
+    // transaction opens; UI-level validation is not trusted. Ceiling lives on
+    // products.nppa_max_mrp_paise (NULL = uncapped). Breach aborts with a
+    // reason code the UI can switch on.
+    for l in input.lines.iter() {
+        let cap: Option<i64> = c
+            .query_row(
+                "SELECT nppa_max_mrp_paise FROM products WHERE id = ?1",
+                params![l.product_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if let Some(cap_v) = cap {
+            if l.mrp_paise > cap_v {
+                return Err(format!(
+                    "NPPA_CAP_EXCEEDED:{}:mrp={}:cap={}",
+                    l.product_id, l.mrp_paise, cap_v
+                ));
+            }
+        }
+    }
 
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let mut subtotal = 0i64;
