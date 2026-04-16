@@ -5,6 +5,7 @@
 // every file into a single default config and loses jsdom / setup files.
 export default [
   "apps/desktop",
+  "packages/batch-repo",
   "packages/bill-repo",
   "packages/crypto",
   "packages/directory-repo",
