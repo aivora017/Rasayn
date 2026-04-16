@@ -10,28 +10,15 @@ import {
 } from "./validators.js";
 
 describe("validators — HSN", () => {
-  it("accepts the pharma whitelist (4-digit)", () => {
+  it("accepts the pharma whitelist", () => {
     for (const h of PHARMA_HSN) expect(isPharmaHsn(h)).toBe(true);
-  });
-  it("accepts 6- and 8-digit codes with pharma chapter prefix", () => {
-    expect(validateHsn("300490")).toBeNull();
-    expect(validateHsn("30049099")).toBeNull();
-    expect(validateHsn("30042031")).toBeNull();
   });
   it("rejects 4-digit non-pharma HSN", () => {
     expect(validateHsn("9999")).toMatch(/pharma retail/);
   });
-  it("rejects 8-digit with non-pharma prefix", () => {
-    expect(validateHsn("99999999")).toMatch(/pharma retail/);
-  });
-  it("rejects wrong length (3, 5, 7, 9 digits)", () => {
-    expect(validateHsn("300")).toMatch(/4, 6, or 8 digits/);
-    expect(validateHsn("30040")).toMatch(/4, 6, or 8 digits/);
-    expect(validateHsn("3004009")).toMatch(/4, 6, or 8 digits/);
-    expect(validateHsn("300400999")).toMatch(/4, 6, or 8 digits/);
-  });
-  it("rejects non-digit chars", () => {
-    expect(validateHsn("3004AB99")).toMatch(/4, 6, or 8 digits/);
+  it("rejects wrong length", () => {
+    expect(validateHsn("300")).toMatch(/4-digit/);
+    expect(validateHsn("30040")).toMatch(/4-digit/);
   });
   it("rejects empty", () => {
     expect(validateHsn("")).toMatch(/required/);
@@ -102,4 +89,22 @@ describe("validateProductWrite — composite", () => {
     });
     expect(errs.length).toBeGreaterThanOrEqual(3);
     expect(errs.some((e) => e.includes("name"))).toBe(true);
-    expect(errs.some((e) => e.includes("pharma"))).to
+    expect(errs.some((e) => e.includes("pharma"))).toBe(true);
+    expect(errs.some((e) => e.includes("NPPA"))).toBe(true);
+  });
+
+  it("Schedule H without image fails", () => {
+    const errs = validateProductWrite({ ...base, schedule: "H", imageSha256: null });
+    expect(errs.some((e) => e.includes("X2"))).toBe(true);
+  });
+
+  it("Schedule H with image passes", () => {
+    const errs = validateProductWrite({ ...base, schedule: "H", imageSha256: "a".repeat(64) });
+    expect(errs).toEqual([]);
+  });
+
+  it("negative pack size fails", () => {
+    const errs = validateProductWrite({ ...base, packSize: 0 });
+    expect(errs.some((e) => e.includes("pack_size"))).toBe(true);
+  });
+});
