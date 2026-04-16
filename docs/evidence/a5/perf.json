@@ -1,0 +1,58 @@
+{
+  "adr": "0009",
+  "phase": "A5",
+  "branch": "feat/a5-billing-shell",
+  "capturedAt": "2026-04-16T00:00:00+05:30",
+  "environment": {
+    "os": "linux (sandbox)",
+    "node": "v20.18.0",
+    "testRunner": "vitest@2.1.9",
+    "dom": "jsdom@25.0.1",
+    "react": "18.3.1",
+    "hardware": "sandbox container (not reference VM)"
+  },
+  "notes": "Shell perf gate only. Win7/4GB/HDD reference-VM numbers are re-captured in A15 (perf-harden). See docs/adr/0009-a5-billing-shell.md.",
+  "gates": {
+    "emptyBillReadyMs": {
+      "target": 2000,
+      "measured": {
+        "runs": [15.69, 13.02, 13.98, 13.30, 14.72, 12.65, 13.34, 13.18, 14.53, 14.21],
+        "unit": "ms",
+        "min": 12.65,
+        "median": 13.66,
+        "mean": 13.86,
+        "max": 15.69,
+        "headroom": "143x under gate"
+      },
+      "pass": true
+    }
+  },
+  "otherAssertions": {
+    "focusNeverLostToMouse": {
+      "test": "F4 is a no-op when no lines are present — focus never lost to mouse",
+      "pass": true
+    },
+    "a11yLandmarksPresent": {
+      "test": "a11y: billing region, customer listbox, Save button accessible name + shortcut",
+      "pass": true
+    },
+    "keyboardOnlyPath": {
+      "test": "keyboard-only path: add line via typing + Enter, then F10 saves — no mouse",
+      "pass": true
+    }
+  },
+  "testSuite": {
+    "desktopPackage": {
+      "total": 61,
+      "passed": 61,
+      "failed": 0,
+      "newInA5": 14
+    },
+    "monorepoSerial": {
+      "turboTasks": 28,
+      "passed": 28,
+      "failed": 0
+    }
+  },
+  "followUp": "Re-capture on Win7/4GB/HDD reference VM during A15; fold number into this file or append perf.a15.json."
+}

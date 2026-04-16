@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { retype, clickWhenEnabled } from "../test/form-helpers.js";
 import { SettingsScreen } from "./SettingsScreen.js";
 import { setIpcHandler, type IpcCall, type Shop } from "../lib/ipc.js";
 
@@ -39,31 +40,6 @@ const PLACEHOLDER: Shop = {
   createdAt: "2026-04-15T00:00:00.000Z",
 };
 
-// Helper: retype a controlled input and wait for React to commit the value
-// before proceeding. Prevents a race between user-event's synthetic keystrokes
-// and the next user.click on a Save button that is `disabled={!dirty}`.
-async function retype(
-  user: ReturnType<typeof userEvent.setup>,
-  el: HTMLElement,
-  value: string,
-): Promise<void> {
-  await user.clear(el);
-  if (value.length > 0) await user.type(el, value);
-  await waitFor(() => expect((el as HTMLInputElement).value).toBe(value));
-}
-
-// Click a test-id only after the button is enabled. Required because the
-// Save button is `disabled={busy || !dirty}` and userEvent.click is a no-op
-// on disabled buttons, which otherwise surfaces as a flaky findByTestId
-// timeout on the error banner.
-async function clickWhenEnabled(
-  user: ReturnType<typeof userEvent.setup>,
-  testId: string,
-): Promise<void> {
-  const btn = await screen.findByTestId(testId);
-  await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false));
-  await user.click(btn);
-}
 
 describe("SettingsScreen (F5b)", () => {
   beforeEach(() => {

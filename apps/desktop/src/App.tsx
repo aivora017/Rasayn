@@ -21,21 +21,34 @@ type Mode =
   | "settings"
   | "masters";
 
+// Nav key map — Alt+digit per ADR 0009 (A5).
+// Plain F-keys are reserved for screen-contextual actions (e.g., BillingScreen F1/F2/F3/F4/F6/F10).
+// Alt+digit does not collide with billing's plain F-keys and does not interfere with the OS/browser
+// global shortcuts on Chrome (dev) or Tauri (prod).
+const NAV_BY_DIGIT: Record<string, Mode> = {
+  "1": "billing",
+  "2": "inventory",
+  "3": "reports",
+  "4": "grn",
+  "5": "directory",
+  "6": "templates",
+  "7": "gmail",
+  "8": "settings",
+  "9": "masters",
+};
+
 export function App() {
   const [mode, setMode] = useState<Mode>("billing");
   const [health, setHealth] = useState<{ ok: boolean; version: string; db: number } | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "F1") { e.preventDefault(); setMode("billing"); }
-      if (e.key === "F2") { e.preventDefault(); setMode("inventory"); }
-      if (e.key === "F4") { e.preventDefault(); setMode("grn"); }
-      if (e.key === "F3") { e.preventDefault(); setMode("reports"); }
-      if (e.key === "F5") { e.preventDefault(); setMode("directory"); }
-      if (e.key === "F6") { e.preventDefault(); setMode("templates"); }
-      if (e.key === "F7") { e.preventDefault(); setMode("gmail"); }
-      if (e.key === "F8") { e.preventDefault(); setMode("settings"); }
-      if (e.key === "F11") { e.preventDefault(); setMode("masters"); }
+      if (!e.altKey) return;
+      const next = NAV_BY_DIGIT[e.key];
+      if (next) {
+        e.preventDefault();
+        setMode(next);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -54,10 +67,20 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar" role="banner">
         <div className="brand">PharmaCare Pro</div>
-        <div className="shortcut"><span className="kbd">F1</span> Billing &middot; <span className="kbd">F2</span> Inventory &middot; <span className="kbd">F4</span> Receive &middot; <span className="kbd">F3</span> Reports &middot; <span className="kbd">F5</span> Directory &middot; <span className="kbd">F6</span> Templates &middot; <span className="kbd">F7</span> Gmail &middot; <span className="kbd">F8</span> Settings &middot; <span className="kbd">F11</span> Masters</div>
-        <div style={{ marginLeft: "auto" }} data-testid="current-mode">{mode}</div>
+        <nav className="shortcut" aria-label="Screen navigation">
+          <span className="kbd">Alt+1</span> Billing &middot;{" "}
+          <span className="kbd">Alt+2</span> Inventory &middot;{" "}
+          <span className="kbd">Alt+3</span> Reports &middot;{" "}
+          <span className="kbd">Alt+4</span> Receive &middot;{" "}
+          <span className="kbd">Alt+5</span> Directory &middot;{" "}
+          <span className="kbd">Alt+6</span> Templates &middot;{" "}
+          <span className="kbd">Alt+7</span> Gmail &middot;{" "}
+          <span className="kbd">Alt+8</span> Settings &middot;{" "}
+          <span className="kbd">Alt+9</span> Masters
+        </nav>
+        <div style={{ marginLeft: "auto" }} data-testid="current-mode" aria-live="polite">{mode}</div>
       </header>
       <main>
         {mode === "billing" && <BillingScreen />}
@@ -70,7 +93,7 @@ export function App() {
         {mode === "settings" && <SettingsScreen />}
         {mode === "masters" && <ProductMasterScreen />}
       </main>
-      <footer className="statusbar">
+      <footer className="statusbar" role="contentinfo">
         <span data-testid="lan-mode">LAN Mode</span>
         <span>Vaidyanath Pharmacy &middot; Kalyan &middot; GSTIN 27ABCDE1234F1Z5</span>
         <span data-testid="health" style={{ marginLeft: "auto" }}>
