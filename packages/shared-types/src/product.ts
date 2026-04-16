@@ -16,8 +16,9 @@ export interface Product {
   readonly schedule: DrugSchedule;
   readonly packForm: PackForm;
   readonly packSize: number;              // units per pack (e.g. 10 tabs/strip)
-  readonly mrpPaise: Paise;               // MRP (incl. GST) \u2014 DPCO/NPPA cap enforced elsewhere
-  readonly imageSha256: string | null;    // X2 moat \u2014 mandatory for Schedule H/H1/X
+  readonly mrpPaise: Paise;               // MRP (incl. GST) — must be <= nppaMaxMrpPaise when set
+  readonly nppaMaxMrpPaise: Paise | null; // DPCO 2013 / NPPA ceiling price; null = uncontrolled
+  readonly imageSha256: string | null;    // X2 moat — mandatory for Schedule H/H1/X
   readonly isActive: boolean;
   readonly createdAt: string;             // ISO 8601
   readonly updatedAt: string;

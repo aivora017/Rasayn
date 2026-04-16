@@ -35,6 +35,8 @@ pub const MIGRATION_0004: &str =
     include_str!("../../../../packages/shared-db/migrations/0004_supplier_templates.sql");
 pub const MIGRATION_0005: &str =
     include_str!("../../../../packages/shared-db/migrations/0005_oauth_and_audit.sql");
+pub const MIGRATION_0006: &str =
+    include_str!("../../../../packages/shared-db/migrations/0006_products_nppa_cap.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -85,6 +87,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
         conn.execute_batch(MIGRATION_0005)?;
         conn.execute(
             "INSERT INTO _migrations (version, name) VALUES (5, '0005_oauth_and_audit')",
+            [],
+        )?;
+    }
+    if !applied(6, conn) {
+        conn.execute_batch(MIGRATION_0006)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (6, '0006_products_nppa_cap')",
             [],
         )?;
     }

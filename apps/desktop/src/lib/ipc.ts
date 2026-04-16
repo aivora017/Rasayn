@@ -81,7 +81,11 @@ export type IpcCall =
   | { cmd: "shop_get"; args: { id: string } }
   | { cmd: "shop_update"; args: { input: ShopUpdateInput } }
   | { cmd: "db_backup"; args: { destPath: string } }
-  | { cmd: "db_restore"; args: { sourcePath: string } };
+  | { cmd: "db_restore"; args: { sourcePath: string } }
+  | { cmd: "upsert_product"; args: { input: ProductWriteDTO } }
+  | { cmd: "get_product"; args: { id: string } }
+  | { cmd: "list_products"; args: { args?: ListProductsArgs } }
+  | { cmd: "deactivate_product"; args: { id: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -137,6 +141,65 @@ export interface ListStockOpts {
 export async function listStockRpc(opts?: ListStockOpts): Promise<readonly StockRow[]> {
   const args = opts === undefined ? {} : { opts };
   return (await handler({ cmd: "list_stock", args })) as StockRow[];
+}
+
+// --- A1 Product master -----------------------------------------------------
+
+export interface ProductRow {
+  readonly id: string;
+  readonly name: string;
+  readonly genericName: string | null;
+  readonly manufacturer: string;
+  readonly hsn: string;
+  readonly gstRate: 0 | 5 | 12 | 18 | 28;
+  readonly schedule: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
+  readonly packForm: string;
+  readonly packSize: number;
+  readonly mrpPaise: number;
+  readonly nppaMaxMrpPaise: number | null;
+  readonly imageSha256: string | null;
+  readonly isActive: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface ProductWriteDTO {
+  readonly id?: string;
+  readonly name: string;
+  readonly genericName: string | null;
+  readonly manufacturer: string;
+  readonly hsn: string;
+  readonly gstRate: 0 | 5 | 12 | 18 | 28;
+  readonly schedule: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
+  readonly packForm: string;
+  readonly packSize: number;
+  readonly mrpPaise: number;
+  readonly nppaMaxMrpPaise: number | null;
+  readonly imageSha256: string | null;
+}
+
+export interface ListProductsArgs {
+  readonly q?: string;
+  readonly activeOnly?: boolean;
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+export async function upsertProductRpc(input: ProductWriteDTO): Promise<ProductRow> {
+  return (await handler({ cmd: "upsert_product", args: { input } })) as ProductRow;
+}
+
+export async function getProductRpc(id: string): Promise<ProductRow | null> {
+  return (await handler({ cmd: "get_product", args: { id } })) as ProductRow | null;
+}
+
+export async function listProductsRpc(args?: ListProductsArgs): Promise<readonly ProductRow[]> {
+  const payload = args === undefined ? {} : { args };
+  return (await handler({ cmd: "list_products", args: payload })) as ProductRow[];
+}
+
+export async function deactivateProductRpc(id: string): Promise<void> {
+  await handler({ cmd: "deactivate_product", args: { id } });
 }
 
 // --- GRN (goods receipt) -------------------------------------------------

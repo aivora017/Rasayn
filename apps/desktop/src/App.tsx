@@ -7,6 +7,7 @@ import { DirectoryScreen } from "./components/DirectoryScreen.js";
 import SupplierTemplateScreen from "./components/SupplierTemplateScreen.js";
 import GmailInboxScreen from "./components/GmailInboxScreen.js";
 import { SettingsScreen } from "./components/SettingsScreen.js";
+import { ProductMasterScreen } from "./components/ProductMasterScreen.js";
 import { healthCheckRpc, dbVersionRpc } from "./lib/ipc.js";
 
 type Mode =
@@ -17,7 +18,8 @@ type Mode =
   | "directory"
   | "templates"
   | "gmail"
-  | "settings";
+  | "settings"
+  | "masters";
 
 export function App() {
   const [mode, setMode] = useState<Mode>("billing");
@@ -33,6 +35,7 @@ export function App() {
       if (e.key === "F6") { e.preventDefault(); setMode("templates"); }
       if (e.key === "F7") { e.preventDefault(); setMode("gmail"); }
       if (e.key === "F8") { e.preventDefault(); setMode("settings"); }
+      if (e.key === "F11") { e.preventDefault(); setMode("masters"); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -53,7 +56,7 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">PharmaCare Pro</div>
-        <div className="shortcut"><span className="kbd">F1</span> Billing &middot; <span className="kbd">F2</span> Inventory &middot; <span className="kbd">F4</span> Receive &middot; <span className="kbd">F3</span> Reports &middot; <span className="kbd">F5</span> Directory &middot; <span className="kbd">F6</span> Templates &middot; <span className="kbd">F7</span> Gmail &middot; <span className="kbd">F8</span> Settings</div>
+        <div className="shortcut"><span className="kbd">F1</span> Billing &middot; <span className="kbd">F2</span> Inventory &middot; <span className="kbd">F4</span> Receive &middot; <span className="kbd">F3</span> Reports &middot; <span className="kbd">F5</span> Directory &middot; <span className="kbd">F6</span> Templates &middot; <span className="kbd">F7</span> Gmail &middot; <span className="kbd">F8</span> Settings &middot; <span className="kbd">F11</span> Masters</div>
         <div style={{ marginLeft: "auto" }} data-testid="current-mode">{mode}</div>
       </header>
       <main>
@@ -65,6 +68,7 @@ export function App() {
         {mode === "templates" && <SupplierTemplateScreen />}
         {mode === "gmail" && <GmailInboxScreen onGoToGrn={() => setMode("grn")} />}
         {mode === "settings" && <SettingsScreen />}
+        {mode === "masters" && <ProductMasterScreen />}
       </main>
       <footer className="statusbar">
         <span data-testid="lan-mode">LAN Mode</span>
