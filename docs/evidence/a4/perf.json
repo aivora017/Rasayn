@@ -1,0 +1,14 @@
+{
+  "branch": "A4",
+  "package": "@pharmacare/gst-engine",
+  "probe": "100-bill golden suite compute (computeLine + computeInvoice)",
+  "bills": 100,
+  "total_lines_per_run": 278,
+  "runs": 100,
+  "p50_ms": 0.17,
+  "p95_ms": 0.599,
+  "p99_ms": 3.012,
+  "mean_ms": 0.254,
+  "gate_ms": 200,
+  "timestamp": "2026-04-16T06:55:03.554Z"
+}

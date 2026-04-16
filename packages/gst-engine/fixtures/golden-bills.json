@@ -1,0 +1,6359 @@
+{
+  "version": "1",
+  "generatedAt": "2026-04-16",
+  "count": 100,
+  "seed": "0xA4C017",
+  "note": "Production and reference.ts cross-checked at generation time.",
+  "bills": [
+    {
+      "id": "gold-001",
+      "description": "12% intra-state, Rs112 MRP, 1 qty",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 11200,
+          "qty": 1,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 11200,
+          "discountPaise": 0,
+          "taxableValuePaise": 10000,
+          "cgstPaise": 600,
+          "sgstPaise": 600,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 11200
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 10000,
+        "discountPaise": 0,
+        "cgstPaise": 600,
+        "sgstPaise": 600,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 11200,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 11200
+      }
+    },
+    {
+      "id": "gold-002",
+      "description": "5% inter-state, Rs105 MRP, 1 qty",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 10500,
+          "qty": 1,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 10500,
+          "discountPaise": 0,
+          "taxableValuePaise": 10000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 500,
+          "cessPaise": 0,
+          "lineTotalPaise": 10500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 10000,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 500,
+        "cessPaise": 0,
+        "preRoundPaise": 10500,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 10500
+      }
+    },
+    {
+      "id": "gold-003",
+      "description": "18% intra-state, Rs118 MRP, 2 qty",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 11800,
+          "qty": 2,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 23600,
+          "discountPaise": 0,
+          "taxableValuePaise": 20000,
+          "cgstPaise": 1800,
+          "sgstPaise": 1800,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 23600
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 20000,
+        "discountPaise": 0,
+        "cgstPaise": 1800,
+        "sgstPaise": 1800,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 23600,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 23600
+      }
+    },
+    {
+      "id": "gold-004",
+      "description": "Exempt (insulin Rs250 x 3)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 25000,
+          "qty": 3,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 75000,
+          "discountPaise": 0,
+          "taxableValuePaise": 75000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 75000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 75000,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 75000,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 75000
+      }
+    },
+    {
+      "id": "gold-005",
+      "description": "Nil-rated (OTC Rs50 x 1)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 5000,
+          "qty": 1,
+          "gstRate": 0
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 5000,
+          "discountPaise": 0,
+          "taxableValuePaise": 5000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 5000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 5000,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 5000,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 5000
+      }
+    },
+    {
+      "id": "gold-006",
+      "description": "12% intra, Rs200 x 1, 10pct discount",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 20000,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 20000,
+          "discountPaise": 2000,
+          "taxableValuePaise": 16071,
+          "cgstPaise": 965,
+          "sgstPaise": 964,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 18000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 16071,
+        "discountPaise": 2000,
+        "cgstPaise": 965,
+        "sgstPaise": 964,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 18000,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 18000
+      }
+    },
+    {
+      "id": "gold-007",
+      "description": "18% intra, Rs500 x 1, Rs50 flat disc",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 50000,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPaise": 5000
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 50000,
+          "discountPaise": 5000,
+          "taxableValuePaise": 38136,
+          "cgstPaise": 3432,
+          "sgstPaise": 3432,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 45000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 38136,
+        "discountPaise": 5000,
+        "cgstPaise": 3432,
+        "sgstPaise": 3432,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 45000,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 45000
+      }
+    },
+    {
+      "id": "gold-008",
+      "description": "Mixed 5/12/18 three-line intra, walk-in",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 10500,
+          "qty": 1,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 11200,
+          "qty": 2,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 11800,
+          "qty": 1,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 10500,
+          "discountPaise": 0,
+          "taxableValuePaise": 10000,
+          "cgstPaise": 250,
+          "sgstPaise": 250,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 10500
+        },
+        {
+          "grossPaise": 22400,
+          "discountPaise": 0,
+          "taxableValuePaise": 20000,
+          "cgstPaise": 1200,
+          "sgstPaise": 1200,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 22400
+        },
+        {
+          "grossPaise": 11800,
+          "discountPaise": 0,
+          "taxableValuePaise": 10000,
+          "cgstPaise": 900,
+          "sgstPaise": 900,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 11800
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 40000,
+        "discountPaise": 0,
+        "cgstPaise": 2350,
+        "sgstPaise": 2350,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 44700,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 44700
+      }
+    },
+    {
+      "id": "gold-009",
+      "description": "Fractional qty (0.5 strip)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 11200,
+          "qty": 0.5,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 5600,
+          "discountPaise": 0,
+          "taxableValuePaise": 5000,
+          "cgstPaise": 300,
+          "sgstPaise": 300,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 5600
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 5000,
+        "discountPaise": 0,
+        "cgstPaise": 300,
+        "sgstPaise": 300,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 5600,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 5600
+      }
+    },
+    {
+      "id": "gold-010",
+      "description": "Round-off triad",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 41156,
+          "qty": 1,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 41150,
+          "qty": 1,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 41150,
+          "qty": 1,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 41156,
+          "discountPaise": 0,
+          "taxableValuePaise": 36746,
+          "cgstPaise": 2205,
+          "sgstPaise": 2205,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 41156
+        },
+        {
+          "grossPaise": 41150,
+          "discountPaise": 0,
+          "taxableValuePaise": 36741,
+          "cgstPaise": 2205,
+          "sgstPaise": 2204,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 41150
+        },
+        {
+          "grossPaise": 41150,
+          "discountPaise": 0,
+          "taxableValuePaise": 36741,
+          "cgstPaise": 2205,
+          "sgstPaise": 2204,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 41150
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 110228,
+        "discountPaise": 0,
+        "cgstPaise": 6615,
+        "sgstPaise": 6613,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 123456,
+        "roundOffPaise": 44,
+        "grandTotalPaise": 123500
+      }
+    },
+    {
+      "id": "gold-011",
+      "description": "auto intra_state @ 18% x 5 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 21100,
+          "discountPaise": 0,
+          "taxableValuePaise": 17881,
+          "cgstPaise": 1610,
+          "sgstPaise": 1609,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 21100
+        },
+        {
+          "grossPaise": 23750,
+          "discountPaise": 1188,
+          "taxableValuePaise": 19120,
+          "cgstPaise": 1721,
+          "sgstPaise": 1721,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 22562
+        },
+        {
+          "grossPaise": 9325,
+          "discountPaise": 500,
+          "taxableValuePaise": 7479,
+          "cgstPaise": 673,
+          "sgstPaise": 673,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 8825
+        },
+        {
+          "grossPaise": 23750,
+          "discountPaise": 500,
+          "taxableValuePaise": 19703,
+          "cgstPaise": 1774,
+          "sgstPaise": 1773,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 23250
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 21100,
+          "taxableValuePaise": 160932,
+          "cgstPaise": 14484,
+          "sgstPaise": 14484,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 189900
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 225115,
+        "discountPaise": 23288,
+        "cgstPaise": 20262,
+        "sgstPaise": 20260,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 265637,
+        "roundOffPaise": -37,
+        "grandTotalPaise": 265600
+      }
+    },
+    {
+      "id": "gold-012",
+      "description": "auto exempt @ 5% x 4 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 102475,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 0.5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 51238,
+          "discountPaise": 2562,
+          "taxableValuePaise": 48676,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 48676
+        },
+        {
+          "grossPaise": 15000,
+          "discountPaise": 0,
+          "taxableValuePaise": 15000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 15000
+        },
+        {
+          "grossPaise": 149900,
+          "discountPaise": 7495,
+          "taxableValuePaise": 142405,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 142405
+        },
+        {
+          "grossPaise": 102475,
+          "discountPaise": 5124,
+          "taxableValuePaise": 97351,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 97351
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 303432,
+        "discountPaise": 15181,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 303432,
+        "roundOffPaise": -32,
+        "grandTotalPaise": 303400
+      }
+    },
+    {
+      "id": "gold-013",
+      "description": "auto inter_state @ 5% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 1,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 83875,
+          "discountPaise": 0,
+          "taxableValuePaise": 79881,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 3994,
+          "cessPaise": 0,
+          "lineTotalPaise": 83875
+        },
+        {
+          "grossPaise": 102475,
+          "discountPaise": 0,
+          "taxableValuePaise": 97595,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 4880,
+          "cessPaise": 0,
+          "lineTotalPaise": 102475
+        },
+        {
+          "grossPaise": 789330,
+          "discountPaise": 78933,
+          "taxableValuePaise": 676569,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 33828,
+          "cessPaise": 0,
+          "lineTotalPaise": 710397
+        },
+        {
+          "grossPaise": 1024750,
+          "discountPaise": 500,
+          "taxableValuePaise": 975476,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 48774,
+          "cessPaise": 0,
+          "lineTotalPaise": 1024250
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1829521,
+        "discountPaise": 79433,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 91476,
+        "cessPaise": 0,
+        "preRoundPaise": 1920997,
+        "roundOffPaise": 3,
+        "grandTotalPaise": 1921000
+      }
+    },
+    {
+      "id": "gold-014",
+      "description": "auto inter_state @ 12% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 1,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 4750,
+          "discountPaise": 0,
+          "taxableValuePaise": 4241,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 509,
+          "cessPaise": 0,
+          "lineTotalPaise": 4750
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 0,
+          "taxableValuePaise": 352379,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 42286,
+          "cessPaise": 0,
+          "lineTotalPaise": 394665
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 0,
+          "taxableValuePaise": 188393,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 22607,
+          "cessPaise": 0,
+          "lineTotalPaise": 211000
+        },
+        {
+          "grossPaise": 47500,
+          "discountPaise": 2375,
+          "taxableValuePaise": 40290,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 4835,
+          "cessPaise": 0,
+          "lineTotalPaise": 45125
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 585303,
+        "discountPaise": 2375,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 70237,
+        "cessPaise": 0,
+        "preRoundPaise": 655540,
+        "roundOffPaise": -40,
+        "grandTotalPaise": 655500
+      }
+    },
+    {
+      "id": "gold-015",
+      "description": "auto exempt @ 12% x 1 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 59998,
+          "discountPaise": 500,
+          "taxableValuePaise": 59498,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 59498
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 59498,
+        "discountPaise": 500,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 59498,
+        "roundOffPaise": 2,
+        "grandTotalPaise": 59500
+      }
+    },
+    {
+      "id": "gold-016",
+      "description": "auto exempt @ 5% x 3 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 4750,
+          "discountPaise": 500,
+          "taxableValuePaise": 4250,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 4250
+        },
+        {
+          "grossPaise": 23750,
+          "discountPaise": 500,
+          "taxableValuePaise": 23250,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 23250
+        },
+        {
+          "grossPaise": 42200,
+          "discountPaise": 2110,
+          "taxableValuePaise": 40090,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 40090
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 67590,
+        "discountPaise": 3110,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 67590,
+        "roundOffPaise": 10,
+        "grandTotalPaise": 67600
+      }
+    },
+    {
+      "id": "gold-017",
+      "description": "auto exempt @ 5% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 2,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 29999,
+          "discountPaise": 3000,
+          "taxableValuePaise": 26999,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 26999
+        },
+        {
+          "grossPaise": 18650,
+          "discountPaise": 0,
+          "taxableValuePaise": 18650,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 18650
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 45649,
+        "discountPaise": 3000,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 45649,
+        "roundOffPaise": -49,
+        "grandTotalPaise": 45600
+      }
+    },
+    {
+      "id": "gold-018",
+      "description": "auto intra_state @ 12% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 59998,
+          "discountPaise": 3000,
+          "taxableValuePaise": 50891,
+          "cgstPaise": 3054,
+          "sgstPaise": 3053,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 56998
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 39467,
+          "taxableValuePaise": 317141,
+          "cgstPaise": 19029,
+          "sgstPaise": 19028,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 355198
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 0,
+          "taxableValuePaise": 188393,
+          "cgstPaise": 11304,
+          "sgstPaise": 11303,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 211000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 556425,
+        "discountPaise": 42467,
+        "cgstPaise": 33387,
+        "sgstPaise": 33384,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 623196,
+        "roundOffPaise": 4,
+        "grandTotalPaise": 623200
+      }
+    },
+    {
+      "id": "gold-019",
+      "description": "auto inter_state @ 12% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 10,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149995,
+          "discountPaise": 500,
+          "taxableValuePaise": 133478,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 16017,
+          "cessPaise": 0,
+          "lineTotalPaise": 149495
+        },
+        {
+          "grossPaise": 18650,
+          "discountPaise": 500,
+          "taxableValuePaise": 16205,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1945,
+          "cessPaise": 0,
+          "lineTotalPaise": 18150
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 0,
+          "taxableValuePaise": 188393,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 22607,
+          "cessPaise": 0,
+          "lineTotalPaise": 211000
+        },
+        {
+          "grossPaise": 1024750,
+          "discountPaise": 0,
+          "taxableValuePaise": 914955,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 109795,
+          "cessPaise": 0,
+          "lineTotalPaise": 1024750
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1253031,
+        "discountPaise": 1000,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 150364,
+        "cessPaise": 0,
+        "preRoundPaise": 1403395,
+        "roundOffPaise": 5,
+        "grandTotalPaise": 1403400
+      }
+    },
+    {
+      "id": "gold-020",
+      "description": "auto exempt @ 12% x 4 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 0.5,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 42200,
+          "discountPaise": 4220,
+          "taxableValuePaise": 37980,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 37980
+        },
+        {
+          "grossPaise": 44500,
+          "discountPaise": 4450,
+          "taxableValuePaise": 40050,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 40050
+        },
+        {
+          "grossPaise": 74950,
+          "discountPaise": 0,
+          "taxableValuePaise": 74950,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 74950
+        },
+        {
+          "grossPaise": 44500,
+          "discountPaise": 500,
+          "taxableValuePaise": 44000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 44000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 196980,
+        "discountPaise": 9170,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 196980,
+        "roundOffPaise": 20,
+        "grandTotalPaise": 197000
+      }
+    },
+    {
+      "id": "gold-021",
+      "description": "auto exempt @ 12% x 4 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 5,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 47500,
+          "discountPaise": 4750,
+          "taxableValuePaise": 42750,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 42750
+        },
+        {
+          "grossPaise": 149900,
+          "discountPaise": 7495,
+          "taxableValuePaise": 142405,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 142405
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 0,
+          "taxableValuePaise": 394665,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 394665
+        },
+        {
+          "grossPaise": 105500,
+          "discountPaise": 0,
+          "taxableValuePaise": 105500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 105500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 685320,
+        "discountPaise": 12245,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 685320,
+        "roundOffPaise": -20,
+        "grandTotalPaise": 685300
+      }
+    },
+    {
+      "id": "gold-022",
+      "description": "auto intra_state @ 5% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 16775,
+          "discountPaise": 1678,
+          "taxableValuePaise": 14378,
+          "cgstPaise": 360,
+          "sgstPaise": 359,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 15097
+        },
+        {
+          "grossPaise": 4663,
+          "discountPaise": 233,
+          "taxableValuePaise": 4219,
+          "cgstPaise": 106,
+          "sgstPaise": 105,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 4430
+        },
+        {
+          "grossPaise": 16775,
+          "discountPaise": 0,
+          "taxableValuePaise": 15976,
+          "cgstPaise": 400,
+          "sgstPaise": 399,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 16775
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 34573,
+        "discountPaise": 1911,
+        "cgstPaise": 866,
+        "sgstPaise": 863,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 36302,
+        "roundOffPaise": -2,
+        "grandTotalPaise": 36300
+      }
+    },
+    {
+      "id": "gold-023",
+      "description": "auto inter_state @ 18% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 10550,
+          "discountPaise": 528,
+          "taxableValuePaise": 8493,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1529,
+          "cessPaise": 0,
+          "lineTotalPaise": 10022
+        },
+        {
+          "grossPaise": 789330,
+          "discountPaise": 500,
+          "taxableValuePaise": 668500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 120330,
+          "cessPaise": 0,
+          "lineTotalPaise": 788830
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 500,
+          "taxableValuePaise": 178390,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 32110,
+          "cessPaise": 0,
+          "lineTotalPaise": 210500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 855383,
+        "discountPaise": 1528,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 153969,
+        "cessPaise": 0,
+        "preRoundPaise": 1009352,
+        "roundOffPaise": 48,
+        "grandTotalPaise": 1009400
+      }
+    },
+    {
+      "id": "gold-024",
+      "description": "auto exempt @ 5% x 5 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 10,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 445000,
+          "discountPaise": 0,
+          "taxableValuePaise": 445000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 445000
+        },
+        {
+          "grossPaise": 299990,
+          "discountPaise": 15000,
+          "taxableValuePaise": 284990,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 284990
+        },
+        {
+          "grossPaise": 21100,
+          "discountPaise": 1055,
+          "taxableValuePaise": 20045,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 20045
+        },
+        {
+          "grossPaise": 749500,
+          "discountPaise": 500,
+          "taxableValuePaise": 749000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 749000
+        },
+        {
+          "grossPaise": 2375,
+          "discountPaise": 119,
+          "taxableValuePaise": 2256,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 2256
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1501291,
+        "discountPaise": 16674,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1501291,
+        "roundOffPaise": 9,
+        "grandTotalPaise": 1501300
+      }
+    },
+    {
+      "id": "gold-025",
+      "description": "auto intra_state @ 18% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 0.5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 78933,
+          "discountPaise": 500,
+          "taxableValuePaise": 66469,
+          "cgstPaise": 5982,
+          "sgstPaise": 5982,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 78433
+        },
+        {
+          "grossPaise": 51238,
+          "discountPaise": 0,
+          "taxableValuePaise": 43422,
+          "cgstPaise": 3908,
+          "sgstPaise": 3908,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 51238
+        },
+        {
+          "grossPaise": 46625,
+          "discountPaise": 2331,
+          "taxableValuePaise": 37537,
+          "cgstPaise": 3379,
+          "sgstPaise": 3378,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 44294
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 7893,
+          "taxableValuePaise": 60203,
+          "cgstPaise": 5419,
+          "sgstPaise": 5418,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 71040
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 207631,
+        "discountPaise": 10724,
+        "cgstPaise": 18688,
+        "sgstPaise": 18686,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 245005,
+        "roundOffPaise": -5,
+        "grandTotalPaise": 245000
+      }
+    },
+    {
+      "id": "gold-026",
+      "description": "auto inter_state @ 5% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 10,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299800,
+          "discountPaise": 29980,
+          "taxableValuePaise": 256971,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 12849,
+          "cessPaise": 0,
+          "lineTotalPaise": 269820
+        },
+        {
+          "grossPaise": 1024750,
+          "discountPaise": 0,
+          "taxableValuePaise": 975952,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 48798,
+          "cessPaise": 0,
+          "lineTotalPaise": 1024750
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1232923,
+        "discountPaise": 29980,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 61647,
+        "cessPaise": 0,
+        "preRoundPaise": 1294570,
+        "roundOffPaise": 30,
+        "grandTotalPaise": 1294600
+      }
+    },
+    {
+      "id": "gold-027",
+      "description": "auto inter_state @ 12% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 10,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 1499000,
+          "discountPaise": 0,
+          "taxableValuePaise": 1338393,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 160607,
+          "cessPaise": 0,
+          "lineTotalPaise": 1499000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1338393,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 160607,
+        "cessPaise": 0,
+        "preRoundPaise": 1499000,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 1499000
+      }
+    },
+    {
+      "id": "gold-028",
+      "description": "auto inter_state @ 5% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 10,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 0.5,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 89000,
+          "discountPaise": 0,
+          "taxableValuePaise": 84762,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 4238,
+          "cessPaise": 0,
+          "lineTotalPaise": 89000
+        },
+        {
+          "grossPaise": 789330,
+          "discountPaise": 0,
+          "taxableValuePaise": 751743,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 37587,
+          "cessPaise": 0,
+          "lineTotalPaise": 789330
+        },
+        {
+          "grossPaise": 51238,
+          "discountPaise": 0,
+          "taxableValuePaise": 48798,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 2440,
+          "cessPaise": 0,
+          "lineTotalPaise": 51238
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 885303,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 44265,
+        "cessPaise": 0,
+        "preRoundPaise": 929568,
+        "roundOffPaise": 32,
+        "grandTotalPaise": 929600
+      }
+    },
+    {
+      "id": "gold-029",
+      "description": "auto inter_state @ 18% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 47500,
+          "discountPaise": 4750,
+          "taxableValuePaise": 36229,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 6521,
+          "cessPaise": 0,
+          "lineTotalPaise": 42750
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 0,
+          "taxableValuePaise": 66892,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 12041,
+          "cessPaise": 0,
+          "lineTotalPaise": 78933
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 7893,
+          "taxableValuePaise": 60203,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 10837,
+          "cessPaise": 0,
+          "lineTotalPaise": 71040
+        },
+        {
+          "grossPaise": 22250,
+          "discountPaise": 2225,
+          "taxableValuePaise": 16970,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 3055,
+          "cessPaise": 0,
+          "lineTotalPaise": 20025
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 180294,
+        "discountPaise": 14868,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 32454,
+        "cessPaise": 0,
+        "preRoundPaise": 212748,
+        "roundOffPaise": -48,
+        "grandTotalPaise": 212700
+      }
+    },
+    {
+      "id": "gold-030",
+      "description": "auto intra_state @ 5% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 2,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 42200,
+          "discountPaise": 0,
+          "taxableValuePaise": 40190,
+          "cgstPaise": 1005,
+          "sgstPaise": 1005,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 42200
+        },
+        {
+          "grossPaise": 10550,
+          "discountPaise": 1055,
+          "taxableValuePaise": 9043,
+          "cgstPaise": 226,
+          "sgstPaise": 226,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 9495
+        },
+        {
+          "grossPaise": 89000,
+          "discountPaise": 500,
+          "taxableValuePaise": 84286,
+          "cgstPaise": 2107,
+          "sgstPaise": 2107,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 88500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 133519,
+        "discountPaise": 1555,
+        "cgstPaise": 3338,
+        "sgstPaise": 3338,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 140195,
+        "roundOffPaise": 5,
+        "grandTotalPaise": 140200
+      }
+    },
+    {
+      "id": "gold-031",
+      "description": "auto inter_state @ 12% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299990,
+          "discountPaise": 29999,
+          "taxableValuePaise": 241063,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 28928,
+          "cessPaise": 0,
+          "lineTotalPaise": 269991
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 241063,
+        "discountPaise": 29999,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 28928,
+        "cessPaise": 0,
+        "preRoundPaise": 269991,
+        "roundOffPaise": 9,
+        "grandTotalPaise": 270000
+      }
+    },
+    {
+      "id": "gold-032",
+      "description": "auto exempt @ 5% x 3 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149995,
+          "discountPaise": 0,
+          "taxableValuePaise": 149995,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149995
+        },
+        {
+          "grossPaise": 33550,
+          "discountPaise": 3355,
+          "taxableValuePaise": 30195,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 30195
+        },
+        {
+          "grossPaise": 47500,
+          "discountPaise": 0,
+          "taxableValuePaise": 47500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 47500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 227690,
+        "discountPaise": 3355,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 227690,
+        "roundOffPaise": 10,
+        "grandTotalPaise": 227700
+      }
+    },
+    {
+      "id": "gold-033",
+      "description": "auto intra_state @ 5% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 2,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149995,
+          "discountPaise": 0,
+          "taxableValuePaise": 142852,
+          "cgstPaise": 3572,
+          "sgstPaise": 3571,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149995
+        },
+        {
+          "grossPaise": 18650,
+          "discountPaise": 0,
+          "taxableValuePaise": 17762,
+          "cgstPaise": 444,
+          "sgstPaise": 444,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 18650
+        },
+        {
+          "grossPaise": 93250,
+          "discountPaise": 500,
+          "taxableValuePaise": 88333,
+          "cgstPaise": 2209,
+          "sgstPaise": 2208,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 92750
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 248947,
+        "discountPaise": 500,
+        "cgstPaise": 6225,
+        "sgstPaise": 6223,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 261395,
+        "roundOffPaise": 5,
+        "grandTotalPaise": 261400
+      }
+    },
+    {
+      "id": "gold-034",
+      "description": "auto exempt @ 18% x 5 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 4750,
+          "discountPaise": 238,
+          "taxableValuePaise": 4512,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 4512
+        },
+        {
+          "grossPaise": 749500,
+          "discountPaise": 0,
+          "taxableValuePaise": 749500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 749500
+        },
+        {
+          "grossPaise": 39467,
+          "discountPaise": 3947,
+          "taxableValuePaise": 35520,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 35520
+        },
+        {
+          "grossPaise": 83875,
+          "discountPaise": 8388,
+          "taxableValuePaise": 75487,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 75487
+        },
+        {
+          "grossPaise": 749500,
+          "discountPaise": 37475,
+          "taxableValuePaise": 712025,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 712025
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1577044,
+        "discountPaise": 50048,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1577044,
+        "roundOffPaise": -44,
+        "grandTotalPaise": 1577000
+      }
+    },
+    {
+      "id": "gold-035",
+      "description": "auto inter_state @ 12% x 5 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149995,
+          "discountPaise": 500,
+          "taxableValuePaise": 133478,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 16017,
+          "cessPaise": 0,
+          "lineTotalPaise": 149495
+        },
+        {
+          "grossPaise": 167750,
+          "discountPaise": 0,
+          "taxableValuePaise": 149777,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 17973,
+          "cessPaise": 0,
+          "lineTotalPaise": 167750
+        },
+        {
+          "grossPaise": 299800,
+          "discountPaise": 29980,
+          "taxableValuePaise": 240911,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 28909,
+          "cessPaise": 0,
+          "lineTotalPaise": 269820
+        },
+        {
+          "grossPaise": 749500,
+          "discountPaise": 74950,
+          "taxableValuePaise": 602277,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 72273,
+          "cessPaise": 0,
+          "lineTotalPaise": 674550
+        },
+        {
+          "grossPaise": 749500,
+          "discountPaise": 0,
+          "taxableValuePaise": 669196,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 80304,
+          "cessPaise": 0,
+          "lineTotalPaise": 749500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1795639,
+        "discountPaise": 105430,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 215476,
+        "cessPaise": 0,
+        "preRoundPaise": 2011115,
+        "roundOffPaise": -15,
+        "grandTotalPaise": 2011100
+      }
+    },
+    {
+      "id": "gold-036",
+      "description": "auto inter_state @ 18% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 93250,
+          "discountPaise": 500,
+          "taxableValuePaise": 78602,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 14148,
+          "cessPaise": 0,
+          "lineTotalPaise": 92750
+        },
+        {
+          "grossPaise": 9325,
+          "discountPaise": 500,
+          "taxableValuePaise": 7479,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1346,
+          "cessPaise": 0,
+          "lineTotalPaise": 8825
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 86081,
+        "discountPaise": 1000,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 15494,
+        "cessPaise": 0,
+        "preRoundPaise": 101575,
+        "roundOffPaise": 25,
+        "grandTotalPaise": 101600
+      }
+    },
+    {
+      "id": "gold-037",
+      "description": "auto inter_state @ 12% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 89000,
+          "discountPaise": 4450,
+          "taxableValuePaise": 75491,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 9059,
+          "cessPaise": 0,
+          "lineTotalPaise": 84550
+        },
+        {
+          "grossPaise": 105500,
+          "discountPaise": 5275,
+          "taxableValuePaise": 89487,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 10738,
+          "cessPaise": 0,
+          "lineTotalPaise": 100225
+        },
+        {
+          "grossPaise": 21100,
+          "discountPaise": 0,
+          "taxableValuePaise": 18839,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 2261,
+          "cessPaise": 0,
+          "lineTotalPaise": 21100
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 183817,
+        "discountPaise": 9725,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 22058,
+        "cessPaise": 0,
+        "preRoundPaise": 205875,
+        "roundOffPaise": 25,
+        "grandTotalPaise": 205900
+      }
+    },
+    {
+      "id": "gold-038",
+      "description": "auto inter_state @ 18% x 5 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 0.5,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 222500,
+          "discountPaise": 11125,
+          "taxableValuePaise": 179131,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 32244,
+          "cessPaise": 0,
+          "lineTotalPaise": 211375
+        },
+        {
+          "grossPaise": 4663,
+          "discountPaise": 466,
+          "taxableValuePaise": 3557,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 640,
+          "cessPaise": 0,
+          "lineTotalPaise": 4197
+        },
+        {
+          "grossPaise": 39467,
+          "discountPaise": 0,
+          "taxableValuePaise": 33447,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 6020,
+          "cessPaise": 0,
+          "lineTotalPaise": 39467
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 3947,
+          "taxableValuePaise": 63547,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 11439,
+          "cessPaise": 0,
+          "lineTotalPaise": 74986
+        },
+        {
+          "grossPaise": 22250,
+          "discountPaise": 0,
+          "taxableValuePaise": 18856,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 3394,
+          "cessPaise": 0,
+          "lineTotalPaise": 22250
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 298538,
+        "discountPaise": 15538,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 53737,
+        "cessPaise": 0,
+        "preRoundPaise": 352275,
+        "roundOffPaise": 25,
+        "grandTotalPaise": 352300
+      }
+    },
+    {
+      "id": "gold-039",
+      "description": "auto intra_state @ 18% x 1 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 39467,
+          "discountPaise": 1973,
+          "taxableValuePaise": 31775,
+          "cgstPaise": 2860,
+          "sgstPaise": 2859,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 37494
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 31775,
+        "discountPaise": 1973,
+        "cgstPaise": 2860,
+        "sgstPaise": 2859,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 37494,
+        "roundOffPaise": 6,
+        "grandTotalPaise": 37500
+      }
+    },
+    {
+      "id": "gold-040",
+      "description": "auto exempt @ 12% x 3 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 44500,
+          "discountPaise": 2225,
+          "taxableValuePaise": 42275,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 42275
+        },
+        {
+          "grossPaise": 149900,
+          "discountPaise": 500,
+          "taxableValuePaise": 149400,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149400
+        },
+        {
+          "grossPaise": 16775,
+          "discountPaise": 500,
+          "taxableValuePaise": 16275,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 16275
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 207950,
+        "discountPaise": 3225,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 207950,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 208000
+      }
+    },
+    {
+      "id": "gold-041",
+      "description": "auto intra_state @ 12% x 2 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 89000,
+          "discountPaise": 500,
+          "taxableValuePaise": 79018,
+          "cgstPaise": 4741,
+          "sgstPaise": 4741,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 88500
+        },
+        {
+          "grossPaise": 105500,
+          "discountPaise": 10550,
+          "taxableValuePaise": 84777,
+          "cgstPaise": 5087,
+          "sgstPaise": 5086,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 94950
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 163795,
+        "discountPaise": 11050,
+        "cgstPaise": 9828,
+        "sgstPaise": 9827,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 183450,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 183500
+      }
+    },
+    {
+      "id": "gold-042",
+      "description": "auto exempt @ 5% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 0.5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 2,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 10550,
+          "discountPaise": 0,
+          "taxableValuePaise": 10550,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 10550
+        },
+        {
+          "grossPaise": 204950,
+          "discountPaise": 0,
+          "taxableValuePaise": 204950,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 204950
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 215500,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 215500,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 215500
+      }
+    },
+    {
+      "id": "gold-043",
+      "description": "auto intra_state @ 12% x 1 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 18650,
+          "discountPaise": 1865,
+          "taxableValuePaise": 14987,
+          "cgstPaise": 899,
+          "sgstPaise": 899,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 16785
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 14987,
+        "discountPaise": 1865,
+        "cgstPaise": 899,
+        "sgstPaise": 899,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 16785,
+        "roundOffPaise": 15,
+        "grandTotalPaise": 16800
+      }
+    },
+    {
+      "id": "gold-044",
+      "description": "auto inter_state @ 18% x 5 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 1,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 29999,
+          "discountPaise": 0,
+          "taxableValuePaise": 25423,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 4576,
+          "cessPaise": 0,
+          "lineTotalPaise": 29999
+        },
+        {
+          "grossPaise": 2375,
+          "discountPaise": 0,
+          "taxableValuePaise": 2013,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 362,
+          "cessPaise": 0,
+          "lineTotalPaise": 2375
+        },
+        {
+          "grossPaise": 167750,
+          "discountPaise": 0,
+          "taxableValuePaise": 142161,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 25589,
+          "cessPaise": 0,
+          "lineTotalPaise": 167750
+        },
+        {
+          "grossPaise": 83875,
+          "discountPaise": 0,
+          "taxableValuePaise": 71081,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 12794,
+          "cessPaise": 0,
+          "lineTotalPaise": 83875
+        },
+        {
+          "grossPaise": 8388,
+          "discountPaise": 500,
+          "taxableValuePaise": 6685,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1203,
+          "cessPaise": 0,
+          "lineTotalPaise": 7888
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 247363,
+        "discountPaise": 500,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 44524,
+        "cessPaise": 0,
+        "preRoundPaise": 291887,
+        "roundOffPaise": 13,
+        "grandTotalPaise": 291900
+      }
+    },
+    {
+      "id": "gold-045",
+      "description": "auto inter_state @ 5% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 102475,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 512375,
+          "discountPaise": 25619,
+          "taxableValuePaise": 463577,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 23179,
+          "cessPaise": 0,
+          "lineTotalPaise": 486756
+        },
+        {
+          "grossPaise": 445000,
+          "discountPaise": 22250,
+          "taxableValuePaise": 402619,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 20131,
+          "cessPaise": 0,
+          "lineTotalPaise": 422750
+        },
+        {
+          "grossPaise": 15000,
+          "discountPaise": 750,
+          "taxableValuePaise": 13571,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 679,
+          "cessPaise": 0,
+          "lineTotalPaise": 14250
+        },
+        {
+          "grossPaise": 157866,
+          "discountPaise": 15787,
+          "taxableValuePaise": 135313,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 6766,
+          "cessPaise": 0,
+          "lineTotalPaise": 142079
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1015080,
+        "discountPaise": 64406,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 50755,
+        "cessPaise": 0,
+        "preRoundPaise": 1065835,
+        "roundOffPaise": -35,
+        "grandTotalPaise": 1065800
+      }
+    },
+    {
+      "id": "gold-046",
+      "description": "auto inter_state @ 5% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 9500,
+          "discountPaise": 475,
+          "taxableValuePaise": 8595,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 430,
+          "cessPaise": 0,
+          "lineTotalPaise": 9025
+        },
+        {
+          "grossPaise": 93250,
+          "discountPaise": 4663,
+          "taxableValuePaise": 84369,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 4218,
+          "cessPaise": 0,
+          "lineTotalPaise": 88587
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 92964,
+        "discountPaise": 5138,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 4648,
+        "cessPaise": 0,
+        "preRoundPaise": 97612,
+        "roundOffPaise": -12,
+        "grandTotalPaise": 97600
+      }
+    },
+    {
+      "id": "gold-047",
+      "description": "auto intra_state @ 12% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 59998,
+          "discountPaise": 0,
+          "taxableValuePaise": 53570,
+          "cgstPaise": 3214,
+          "sgstPaise": 3214,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 59998
+        },
+        {
+          "grossPaise": 149900,
+          "discountPaise": 7495,
+          "taxableValuePaise": 127147,
+          "cgstPaise": 7629,
+          "sgstPaise": 7629,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 142405
+        },
+        {
+          "grossPaise": 789330,
+          "discountPaise": 78933,
+          "taxableValuePaise": 634283,
+          "cgstPaise": 38057,
+          "sgstPaise": 38057,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 710397
+        },
+        {
+          "grossPaise": 33550,
+          "discountPaise": 1678,
+          "taxableValuePaise": 28457,
+          "cgstPaise": 1708,
+          "sgstPaise": 1707,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 31872
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 843457,
+        "discountPaise": 88106,
+        "cgstPaise": 50608,
+        "sgstPaise": 50607,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 944672,
+        "roundOffPaise": 28,
+        "grandTotalPaise": 944700
+      }
+    },
+    {
+      "id": "gold-048",
+      "description": "auto inter_state @ 5% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 21100,
+          "discountPaise": 1055,
+          "taxableValuePaise": 19090,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 955,
+          "cessPaise": 0,
+          "lineTotalPaise": 20045
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 0,
+          "taxableValuePaise": 375871,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 18794,
+          "cessPaise": 0,
+          "lineTotalPaise": 394665
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 39467,
+          "taxableValuePaise": 338284,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 16914,
+          "cessPaise": 0,
+          "lineTotalPaise": 355198
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 733245,
+        "discountPaise": 40522,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 36663,
+        "cessPaise": 0,
+        "preRoundPaise": 769908,
+        "roundOffPaise": -8,
+        "grandTotalPaise": 769900
+      }
+    },
+    {
+      "id": "gold-049",
+      "description": "auto inter_state @ 18% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 9325,
+          "discountPaise": 933,
+          "taxableValuePaise": 7112,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1280,
+          "cessPaise": 0,
+          "lineTotalPaise": 8392
+        },
+        {
+          "grossPaise": 59998,
+          "discountPaise": 3000,
+          "taxableValuePaise": 48303,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 8695,
+          "cessPaise": 0,
+          "lineTotalPaise": 56998
+        },
+        {
+          "grossPaise": 83875,
+          "discountPaise": 0,
+          "taxableValuePaise": 71081,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 12794,
+          "cessPaise": 0,
+          "lineTotalPaise": 83875
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 500,
+          "taxableValuePaise": 334038,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 60127,
+          "cessPaise": 0,
+          "lineTotalPaise": 394165
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 460534,
+        "discountPaise": 4433,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 82896,
+        "cessPaise": 0,
+        "preRoundPaise": 543430,
+        "roundOffPaise": -30,
+        "grandTotalPaise": 543400
+      }
+    },
+    {
+      "id": "gold-050",
+      "description": "auto intra_state @ 12% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 9325,
+          "discountPaise": 0,
+          "taxableValuePaise": 8326,
+          "cgstPaise": 500,
+          "sgstPaise": 499,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 9325
+        },
+        {
+          "grossPaise": 1499000,
+          "discountPaise": 500,
+          "taxableValuePaise": 1337946,
+          "cgstPaise": 80277,
+          "sgstPaise": 80277,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 1498500
+        },
+        {
+          "grossPaise": 23750,
+          "discountPaise": 0,
+          "taxableValuePaise": 21205,
+          "cgstPaise": 1273,
+          "sgstPaise": 1272,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 23750
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 0,
+          "taxableValuePaise": 70476,
+          "cgstPaise": 4229,
+          "sgstPaise": 4228,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 78933
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1437953,
+        "discountPaise": 500,
+        "cgstPaise": 86279,
+        "sgstPaise": 86276,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1610508,
+        "roundOffPaise": -8,
+        "grandTotalPaise": 1610500
+      }
+    },
+    {
+      "id": "gold-051",
+      "description": "auto inter_state @ 5% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299990,
+          "discountPaise": 29999,
+          "taxableValuePaise": 257134,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 12857,
+          "cessPaise": 0,
+          "lineTotalPaise": 269991
+        },
+        {
+          "grossPaise": 9325,
+          "discountPaise": 466,
+          "taxableValuePaise": 8437,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 422,
+          "cessPaise": 0,
+          "lineTotalPaise": 8859
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 265571,
+        "discountPaise": 30465,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 13279,
+        "cessPaise": 0,
+        "preRoundPaise": 278850,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 278900
+      }
+    },
+    {
+      "id": "gold-052",
+      "description": "auto intra_state @ 18% x 2 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 789330,
+          "discountPaise": 39467,
+          "taxableValuePaise": 635477,
+          "cgstPaise": 57193,
+          "sgstPaise": 57193,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 749863
+        },
+        {
+          "grossPaise": 89000,
+          "discountPaise": 4450,
+          "taxableValuePaise": 71653,
+          "cgstPaise": 6449,
+          "sgstPaise": 6448,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 84550
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 707130,
+        "discountPaise": 43917,
+        "cgstPaise": 63642,
+        "sgstPaise": 63641,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 834413,
+        "roundOffPaise": -13,
+        "grandTotalPaise": 834400
+      }
+    },
+    {
+      "id": "gold-053",
+      "description": "auto inter_state @ 12% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 2,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 105500,
+          "discountPaise": 10550,
+          "taxableValuePaise": 84777,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 10173,
+          "cessPaise": 0,
+          "lineTotalPaise": 94950
+        },
+        {
+          "grossPaise": 299800,
+          "discountPaise": 0,
+          "taxableValuePaise": 267679,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 32121,
+          "cessPaise": 0,
+          "lineTotalPaise": 299800
+        },
+        {
+          "grossPaise": 47500,
+          "discountPaise": 0,
+          "taxableValuePaise": 42411,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 5089,
+          "cessPaise": 0,
+          "lineTotalPaise": 47500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 394867,
+        "discountPaise": 10550,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 47383,
+        "cessPaise": 0,
+        "preRoundPaise": 442250,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 442300
+      }
+    },
+    {
+      "id": "gold-054",
+      "description": "auto intra_state @ 18% x 1 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 102475,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 102475,
+          "discountPaise": 5124,
+          "taxableValuePaise": 82501,
+          "cgstPaise": 7425,
+          "sgstPaise": 7425,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 97351
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 82501,
+        "discountPaise": 5124,
+        "cgstPaise": 7425,
+        "sgstPaise": 7425,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 97351,
+        "roundOffPaise": 49,
+        "grandTotalPaise": 97400
+      }
+    },
+    {
+      "id": "gold-055",
+      "description": "auto exempt @ 18% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 2,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299800,
+          "discountPaise": 14990,
+          "taxableValuePaise": 284810,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 284810
+        },
+        {
+          "grossPaise": 23750,
+          "discountPaise": 500,
+          "taxableValuePaise": 23250,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 23250
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 308060,
+        "discountPaise": 15490,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 308060,
+        "roundOffPaise": 40,
+        "grandTotalPaise": 308100
+      }
+    },
+    {
+      "id": "gold-056",
+      "description": "auto inter_state @ 12% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 102475,
+          "qty": 1,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 102475,
+          "discountPaise": 0,
+          "taxableValuePaise": 91496,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 10979,
+          "cessPaise": 0,
+          "lineTotalPaise": 102475
+        },
+        {
+          "grossPaise": 9325,
+          "discountPaise": 933,
+          "taxableValuePaise": 7493,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 899,
+          "cessPaise": 0,
+          "lineTotalPaise": 8392
+        },
+        {
+          "grossPaise": 21100,
+          "discountPaise": 1055,
+          "taxableValuePaise": 17897,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 2148,
+          "cessPaise": 0,
+          "lineTotalPaise": 20045
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 116886,
+        "discountPaise": 1988,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 14026,
+        "cessPaise": 0,
+        "preRoundPaise": 130912,
+        "roundOffPaise": -12,
+        "grandTotalPaise": 130900
+      }
+    },
+    {
+      "id": "gold-057",
+      "description": "auto inter_state @ 5% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 39467,
+          "discountPaise": 1973,
+          "taxableValuePaise": 35709,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1785,
+          "cessPaise": 0,
+          "lineTotalPaise": 37494
+        },
+        {
+          "grossPaise": 4750,
+          "discountPaise": 238,
+          "taxableValuePaise": 4297,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 215,
+          "cessPaise": 0,
+          "lineTotalPaise": 4512
+        },
+        {
+          "grossPaise": 33550,
+          "discountPaise": 500,
+          "taxableValuePaise": 31476,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1574,
+          "cessPaise": 0,
+          "lineTotalPaise": 33050
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 71482,
+        "discountPaise": 2711,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 3574,
+        "cessPaise": 0,
+        "preRoundPaise": 75056,
+        "roundOffPaise": 44,
+        "grandTotalPaise": 75100
+      }
+    },
+    {
+      "id": "gold-058",
+      "description": "auto inter_state @ 5% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 8388,
+          "discountPaise": 500,
+          "taxableValuePaise": 7512,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 376,
+          "cessPaise": 0,
+          "lineTotalPaise": 7888
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 7512,
+        "discountPaise": 500,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 376,
+        "cessPaise": 0,
+        "preRoundPaise": 7888,
+        "roundOffPaise": 12,
+        "grandTotalPaise": 7900
+      }
+    },
+    {
+      "id": "gold-059",
+      "description": "auto inter_state @ 18% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 33550,
+          "discountPaise": 0,
+          "taxableValuePaise": 28432,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 5118,
+          "cessPaise": 0,
+          "lineTotalPaise": 33550
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 28432,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 5118,
+        "cessPaise": 0,
+        "preRoundPaise": 33550,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 33600
+      }
+    },
+    {
+      "id": "gold-060",
+      "description": "auto exempt @ 5% x 3 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 222500,
+          "discountPaise": 0,
+          "taxableValuePaise": 222500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 222500
+        },
+        {
+          "grossPaise": 4663,
+          "discountPaise": 466,
+          "taxableValuePaise": 4197,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 4197
+        },
+        {
+          "grossPaise": 167750,
+          "discountPaise": 0,
+          "taxableValuePaise": 167750,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 167750
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 394447,
+        "discountPaise": 466,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 394447,
+        "roundOffPaise": -47,
+        "grandTotalPaise": 394400
+      }
+    },
+    {
+      "id": "gold-061",
+      "description": "auto intra_state @ 5% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 33550,
+          "discountPaise": 500,
+          "taxableValuePaise": 31476,
+          "cgstPaise": 787,
+          "sgstPaise": 787,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 33050
+        },
+        {
+          "grossPaise": 51238,
+          "discountPaise": 5124,
+          "taxableValuePaise": 43918,
+          "cgstPaise": 1098,
+          "sgstPaise": 1098,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 46114
+        },
+        {
+          "grossPaise": 149995,
+          "discountPaise": 0,
+          "taxableValuePaise": 142852,
+          "cgstPaise": 3572,
+          "sgstPaise": 3571,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149995
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 218246,
+        "discountPaise": 5624,
+        "cgstPaise": 5457,
+        "sgstPaise": 5456,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 229159,
+        "roundOffPaise": 41,
+        "grandTotalPaise": 229200
+      }
+    },
+    {
+      "id": "gold-062",
+      "description": "auto intra_state @ 18% x 2 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 78933,
+          "discountPaise": 0,
+          "taxableValuePaise": 66892,
+          "cgstPaise": 6021,
+          "sgstPaise": 6020,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 78933
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 0,
+          "taxableValuePaise": 66892,
+          "cgstPaise": 6021,
+          "sgstPaise": 6020,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 78933
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 133784,
+        "discountPaise": 0,
+        "cgstPaise": 12042,
+        "sgstPaise": 12040,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 157866,
+        "roundOffPaise": 34,
+        "grandTotalPaise": 157900
+      }
+    },
+    {
+      "id": "gold-063",
+      "description": "auto inter_state @ 18% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 23750,
+          "discountPaise": 1188,
+          "taxableValuePaise": 19120,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 3442,
+          "cessPaise": 0,
+          "lineTotalPaise": 22562
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 19120,
+        "discountPaise": 1188,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 3442,
+        "cessPaise": 0,
+        "preRoundPaise": 22562,
+        "roundOffPaise": 38,
+        "grandTotalPaise": 22600
+      }
+    },
+    {
+      "id": "gold-064",
+      "description": "auto intra_state @ 5% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299990,
+          "discountPaise": 15000,
+          "taxableValuePaise": 271419,
+          "cgstPaise": 6786,
+          "sgstPaise": 6785,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 284990
+        },
+        {
+          "grossPaise": 89000,
+          "discountPaise": 500,
+          "taxableValuePaise": 84286,
+          "cgstPaise": 2107,
+          "sgstPaise": 2107,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 88500
+        },
+        {
+          "grossPaise": 157866,
+          "discountPaise": 7893,
+          "taxableValuePaise": 142831,
+          "cgstPaise": 3571,
+          "sgstPaise": 3571,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149973
+        },
+        {
+          "grossPaise": 29999,
+          "discountPaise": 3000,
+          "taxableValuePaise": 25713,
+          "cgstPaise": 643,
+          "sgstPaise": 643,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 26999
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 524249,
+        "discountPaise": 26393,
+        "cgstPaise": 13107,
+        "sgstPaise": 13106,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 550462,
+        "roundOffPaise": 38,
+        "grandTotalPaise": 550500
+      }
+    },
+    {
+      "id": "gold-065",
+      "description": "auto inter_state @ 18% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299990,
+          "discountPaise": 29999,
+          "taxableValuePaise": 228806,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 41185,
+          "cessPaise": 0,
+          "lineTotalPaise": 269991
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 228806,
+        "discountPaise": 29999,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 41185,
+        "cessPaise": 0,
+        "preRoundPaise": 269991,
+        "roundOffPaise": 9,
+        "grandTotalPaise": 270000
+      }
+    },
+    {
+      "id": "gold-066",
+      "description": "auto exempt @ 5% x 5 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 222500,
+          "discountPaise": 22250,
+          "taxableValuePaise": 200250,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 200250
+        },
+        {
+          "grossPaise": 83875,
+          "discountPaise": 0,
+          "taxableValuePaise": 83875,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 83875
+        },
+        {
+          "grossPaise": 299800,
+          "discountPaise": 14990,
+          "taxableValuePaise": 284810,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 284810
+        },
+        {
+          "grossPaise": 18650,
+          "discountPaise": 500,
+          "taxableValuePaise": 18150,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 18150
+        },
+        {
+          "grossPaise": 2375,
+          "discountPaise": 500,
+          "taxableValuePaise": 1875,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 1875
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 588960,
+        "discountPaise": 38240,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 588960,
+        "roundOffPaise": 40,
+        "grandTotalPaise": 589000
+      }
+    },
+    {
+      "id": "gold-067",
+      "description": "auto exempt @ 12% x 1 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 21100,
+          "discountPaise": 0,
+          "taxableValuePaise": 21100,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 21100
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 21100,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 21100,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 21100
+      }
+    },
+    {
+      "id": "gold-068",
+      "description": "auto intra_state @ 12% x 5 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149900,
+          "discountPaise": 7495,
+          "taxableValuePaise": 127147,
+          "cgstPaise": 7629,
+          "sgstPaise": 7629,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 142405
+        },
+        {
+          "grossPaise": 23750,
+          "discountPaise": 2375,
+          "taxableValuePaise": 19085,
+          "cgstPaise": 1145,
+          "sgstPaise": 1145,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 21375
+        },
+        {
+          "grossPaise": 1024750,
+          "discountPaise": 51238,
+          "taxableValuePaise": 869207,
+          "cgstPaise": 52153,
+          "sgstPaise": 52152,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 973512
+        },
+        {
+          "grossPaise": 47500,
+          "discountPaise": 500,
+          "taxableValuePaise": 41964,
+          "cgstPaise": 2518,
+          "sgstPaise": 2518,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 47000
+        },
+        {
+          "grossPaise": 9325,
+          "discountPaise": 933,
+          "taxableValuePaise": 7493,
+          "cgstPaise": 450,
+          "sgstPaise": 449,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 8392
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1064896,
+        "discountPaise": 62541,
+        "cgstPaise": 63895,
+        "sgstPaise": 63893,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1192684,
+        "roundOffPaise": 16,
+        "grandTotalPaise": 1192700
+      }
+    },
+    {
+      "id": "gold-069",
+      "description": "auto inter_state @ 18% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 46625,
+          "discountPaise": 0,
+          "taxableValuePaise": 39513,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 7112,
+          "cessPaise": 0,
+          "lineTotalPaise": 46625
+        },
+        {
+          "grossPaise": 1024750,
+          "discountPaise": 102475,
+          "taxableValuePaise": 781589,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 140686,
+          "cessPaise": 0,
+          "lineTotalPaise": 922275
+        },
+        {
+          "grossPaise": 10550,
+          "discountPaise": 500,
+          "taxableValuePaise": 8517,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1533,
+          "cessPaise": 0,
+          "lineTotalPaise": 10050
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 829619,
+        "discountPaise": 102975,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 149331,
+        "cessPaise": 0,
+        "preRoundPaise": 978950,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 979000
+      }
+    },
+    {
+      "id": "gold-070",
+      "description": "auto inter_state @ 12% x 1 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 12,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 2375,
+          "discountPaise": 119,
+          "taxableValuePaise": 2014,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 242,
+          "cessPaise": 0,
+          "lineTotalPaise": 2256
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 2014,
+        "discountPaise": 119,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 242,
+        "cessPaise": 0,
+        "preRoundPaise": 2256,
+        "roundOffPaise": 44,
+        "grandTotalPaise": 2300
+      }
+    },
+    {
+      "id": "gold-071",
+      "description": "auto inter_state @ 18% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 222500,
+          "discountPaise": 500,
+          "taxableValuePaise": 188136,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 33864,
+          "cessPaise": 0,
+          "lineTotalPaise": 222000
+        },
+        {
+          "grossPaise": 167750,
+          "discountPaise": 8388,
+          "taxableValuePaise": 135053,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 24309,
+          "cessPaise": 0,
+          "lineTotalPaise": 159362
+        },
+        {
+          "grossPaise": 4663,
+          "discountPaise": 233,
+          "taxableValuePaise": 3754,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 676,
+          "cessPaise": 0,
+          "lineTotalPaise": 4430
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 326943,
+        "discountPaise": 9121,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 58849,
+        "cessPaise": 0,
+        "preRoundPaise": 385792,
+        "roundOffPaise": 8,
+        "grandTotalPaise": 385800
+      }
+    },
+    {
+      "id": "gold-072",
+      "description": "auto inter_state @ 18% x 3 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 167750,
+          "discountPaise": 0,
+          "taxableValuePaise": 142161,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 25589,
+          "cessPaise": 0,
+          "lineTotalPaise": 167750
+        },
+        {
+          "grossPaise": 149900,
+          "discountPaise": 0,
+          "taxableValuePaise": 127034,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 22866,
+          "cessPaise": 0,
+          "lineTotalPaise": 149900
+        },
+        {
+          "grossPaise": 4750,
+          "discountPaise": 238,
+          "taxableValuePaise": 3824,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 688,
+          "cessPaise": 0,
+          "lineTotalPaise": 4512
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 273019,
+        "discountPaise": 238,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 49143,
+        "cessPaise": 0,
+        "preRoundPaise": 322162,
+        "roundOffPaise": 38,
+        "grandTotalPaise": 322200
+      }
+    },
+    {
+      "id": "gold-073",
+      "description": "auto exempt @ 12% x 5 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 0.5,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 0.5,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 2,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 8388,
+          "discountPaise": 500,
+          "taxableValuePaise": 7888,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 7888
+        },
+        {
+          "grossPaise": 8388,
+          "discountPaise": 0,
+          "taxableValuePaise": 8388,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 8388
+        },
+        {
+          "grossPaise": 29999,
+          "discountPaise": 500,
+          "taxableValuePaise": 29499,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 29499
+        },
+        {
+          "grossPaise": 9500,
+          "discountPaise": 500,
+          "taxableValuePaise": 9000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 9000
+        },
+        {
+          "grossPaise": 157866,
+          "discountPaise": 0,
+          "taxableValuePaise": 157866,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 157866
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 212641,
+        "discountPaise": 1500,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 212641,
+        "roundOffPaise": -41,
+        "grandTotalPaise": 212600
+      }
+    },
+    {
+      "id": "gold-074",
+      "description": "auto exempt @ 12% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 2,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 299800,
+          "discountPaise": 0,
+          "taxableValuePaise": 299800,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 299800
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 21100,
+          "taxableValuePaise": 189900,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 189900
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 489700,
+        "discountPaise": 21100,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 489700,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 489700
+      }
+    },
+    {
+      "id": "gold-075",
+      "description": "auto exempt @ 12% x 1 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 44500,
+          "discountPaise": 2225,
+          "taxableValuePaise": 42275,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 42275
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 42275,
+        "discountPaise": 2225,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 42275,
+        "roundOffPaise": 25,
+        "grandTotalPaise": 42300
+      }
+    },
+    {
+      "id": "gold-076",
+      "description": "auto inter_state @ 18% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 89000,
+          "discountPaise": 4450,
+          "taxableValuePaise": 71653,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 12897,
+          "cessPaise": 0,
+          "lineTotalPaise": 84550
+        },
+        {
+          "grossPaise": 167750,
+          "discountPaise": 8388,
+          "taxableValuePaise": 135053,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 24309,
+          "cessPaise": 0,
+          "lineTotalPaise": 159362
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 206706,
+        "discountPaise": 12838,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 37206,
+        "cessPaise": 0,
+        "preRoundPaise": 243912,
+        "roundOffPaise": -12,
+        "grandTotalPaise": 243900
+      }
+    },
+    {
+      "id": "gold-077",
+      "description": "auto intra_state @ 12% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 59998,
+          "discountPaise": 0,
+          "taxableValuePaise": 53570,
+          "cgstPaise": 3214,
+          "sgstPaise": 3214,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 59998
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 21100,
+          "taxableValuePaise": 169554,
+          "cgstPaise": 10173,
+          "sgstPaise": 10173,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 189900
+        },
+        {
+          "grossPaise": 39467,
+          "discountPaise": 3947,
+          "taxableValuePaise": 31714,
+          "cgstPaise": 1903,
+          "sgstPaise": 1903,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 35520
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 254838,
+        "discountPaise": 25047,
+        "cgstPaise": 15290,
+        "sgstPaise": 15290,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 285418,
+        "roundOffPaise": -18,
+        "grandTotalPaise": 285400
+      }
+    },
+    {
+      "id": "gold-078",
+      "description": "auto intra_state @ 5% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 93250,
+          "discountPaise": 4663,
+          "taxableValuePaise": 84369,
+          "cgstPaise": 2109,
+          "sgstPaise": 2109,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 88587
+        },
+        {
+          "grossPaise": 42200,
+          "discountPaise": 4220,
+          "taxableValuePaise": 36171,
+          "cgstPaise": 905,
+          "sgstPaise": 904,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 37980
+        },
+        {
+          "grossPaise": 42200,
+          "discountPaise": 500,
+          "taxableValuePaise": 39714,
+          "cgstPaise": 993,
+          "sgstPaise": 993,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 41700
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 160254,
+        "discountPaise": 9383,
+        "cgstPaise": 4007,
+        "sgstPaise": 4006,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 168267,
+        "roundOffPaise": 33,
+        "grandTotalPaise": 168300
+      }
+    },
+    {
+      "id": "gold-079",
+      "description": "auto intra_state @ 18% x 2 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 10,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149995,
+          "discountPaise": 500,
+          "taxableValuePaise": 126691,
+          "cgstPaise": 11402,
+          "sgstPaise": 11402,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149495
+        },
+        {
+          "grossPaise": 445000,
+          "discountPaise": 0,
+          "taxableValuePaise": 377119,
+          "cgstPaise": 33941,
+          "sgstPaise": 33940,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 445000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 503810,
+        "discountPaise": 500,
+        "cgstPaise": 45343,
+        "sgstPaise": 45342,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 594495,
+        "roundOffPaise": 5,
+        "grandTotalPaise": 594500
+      }
+    },
+    {
+      "id": "gold-080",
+      "description": "auto inter_state @ 5% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 16775,
+          "discountPaise": 0,
+          "taxableValuePaise": 15976,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 799,
+          "cessPaise": 0,
+          "lineTotalPaise": 16775
+        },
+        {
+          "grossPaise": 78933,
+          "discountPaise": 0,
+          "taxableValuePaise": 75174,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 3759,
+          "cessPaise": 0,
+          "lineTotalPaise": 78933
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 91150,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 4558,
+        "cessPaise": 0,
+        "preRoundPaise": 95708,
+        "roundOffPaise": -8,
+        "grandTotalPaise": 95700
+      }
+    },
+    {
+      "id": "gold-081",
+      "description": "auto inter_state @ 12% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 9325,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 9325,
+          "discountPaise": 466,
+          "taxableValuePaise": 7910,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 949,
+          "cessPaise": 0,
+          "lineTotalPaise": 8859
+        },
+        {
+          "grossPaise": 89000,
+          "discountPaise": 0,
+          "taxableValuePaise": 79464,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 9536,
+          "cessPaise": 0,
+          "lineTotalPaise": 89000
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 87374,
+        "discountPaise": 466,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 10485,
+        "cessPaise": 0,
+        "preRoundPaise": 97859,
+        "roundOffPaise": 41,
+        "grandTotalPaise": 97900
+      }
+    },
+    {
+      "id": "gold-082",
+      "description": "auto intra_state @ 5% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 0.5,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 0.5,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 394665,
+          "discountPaise": 0,
+          "taxableValuePaise": 375871,
+          "cgstPaise": 9397,
+          "sgstPaise": 9397,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 394665
+        },
+        {
+          "grossPaise": 10550,
+          "discountPaise": 500,
+          "taxableValuePaise": 9571,
+          "cgstPaise": 240,
+          "sgstPaise": 239,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 10050
+        },
+        {
+          "grossPaise": 10550,
+          "discountPaise": 0,
+          "taxableValuePaise": 10048,
+          "cgstPaise": 251,
+          "sgstPaise": 251,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 10550
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 395490,
+        "discountPaise": 500,
+        "cgstPaise": 9888,
+        "sgstPaise": 9887,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 415265,
+        "roundOffPaise": 35,
+        "grandTotalPaise": 415300
+      }
+    },
+    {
+      "id": "gold-083",
+      "description": "auto intra_state @ 12% x 2 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 29999,
+          "discountPaise": 3000,
+          "taxableValuePaise": 24106,
+          "cgstPaise": 1447,
+          "sgstPaise": 1446,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 26999
+        },
+        {
+          "grossPaise": 16775,
+          "discountPaise": 1678,
+          "taxableValuePaise": 13479,
+          "cgstPaise": 809,
+          "sgstPaise": 809,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 15097
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 37585,
+        "discountPaise": 4678,
+        "cgstPaise": 2256,
+        "sgstPaise": 2255,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 42096,
+        "roundOffPaise": 4,
+        "grandTotalPaise": 42100
+      }
+    },
+    {
+      "id": "gold-084",
+      "description": "auto intra_state @ 18% x 5 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 0.5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 10,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 78933,
+          "discountPaise": 7893,
+          "taxableValuePaise": 60203,
+          "cgstPaise": 5419,
+          "sgstPaise": 5418,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 71040
+        },
+        {
+          "grossPaise": 211000,
+          "discountPaise": 10550,
+          "taxableValuePaise": 169873,
+          "cgstPaise": 15289,
+          "sgstPaise": 15288,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 200450
+        },
+        {
+          "grossPaise": 15000,
+          "discountPaise": 0,
+          "taxableValuePaise": 12712,
+          "cgstPaise": 1144,
+          "sgstPaise": 1144,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 15000
+        },
+        {
+          "grossPaise": 445000,
+          "discountPaise": 0,
+          "taxableValuePaise": 377119,
+          "cgstPaise": 33941,
+          "sgstPaise": 33940,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 445000
+        },
+        {
+          "grossPaise": 512375,
+          "discountPaise": 500,
+          "taxableValuePaise": 433792,
+          "cgstPaise": 39042,
+          "sgstPaise": 39041,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 511875
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1053699,
+        "discountPaise": 18943,
+        "cgstPaise": 94835,
+        "sgstPaise": 94831,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1243365,
+        "roundOffPaise": 35,
+        "grandTotalPaise": 1243400
+      }
+    },
+    {
+      "id": "gold-085",
+      "description": "auto intra_state @ 18% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 23750,
+          "discountPaise": 0,
+          "taxableValuePaise": 20127,
+          "cgstPaise": 1812,
+          "sgstPaise": 1811,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 23750
+        },
+        {
+          "grossPaise": 83875,
+          "discountPaise": 8388,
+          "taxableValuePaise": 63972,
+          "cgstPaise": 5758,
+          "sgstPaise": 5757,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 75487
+        },
+        {
+          "grossPaise": 8388,
+          "discountPaise": 419,
+          "taxableValuePaise": 6753,
+          "cgstPaise": 608,
+          "sgstPaise": 608,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 7969
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 90852,
+        "discountPaise": 8807,
+        "cgstPaise": 8178,
+        "sgstPaise": 8176,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 107206,
+        "roundOffPaise": -6,
+        "grandTotalPaise": 107200
+      }
+    },
+    {
+      "id": "gold-086",
+      "description": "auto inter_state @ 12% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 0.5,
+          "gstRate": 12,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 2375,
+          "discountPaise": 500,
+          "taxableValuePaise": 1674,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 201,
+          "cessPaise": 0,
+          "lineTotalPaise": 1875
+        },
+        {
+          "grossPaise": 83875,
+          "discountPaise": 500,
+          "taxableValuePaise": 74442,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 8933,
+          "cessPaise": 0,
+          "lineTotalPaise": 83375
+        },
+        {
+          "grossPaise": 47500,
+          "discountPaise": 2375,
+          "taxableValuePaise": 40290,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 4835,
+          "cessPaise": 0,
+          "lineTotalPaise": 45125
+        },
+        {
+          "grossPaise": 4663,
+          "discountPaise": 500,
+          "taxableValuePaise": 3717,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 446,
+          "cessPaise": 0,
+          "lineTotalPaise": 4163
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 120123,
+        "discountPaise": 3875,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 14415,
+        "cessPaise": 0,
+        "preRoundPaise": 134538,
+        "roundOffPaise": -38,
+        "grandTotalPaise": 134500
+      }
+    },
+    {
+      "id": "gold-087",
+      "description": "auto intra_state @ 5% x 1 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149900,
+          "discountPaise": 500,
+          "taxableValuePaise": 142286,
+          "cgstPaise": 3557,
+          "sgstPaise": 3557,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 149400
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 142286,
+        "discountPaise": 500,
+        "cgstPaise": 3557,
+        "sgstPaise": 3557,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 149400,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 149400
+      }
+    },
+    {
+      "id": "gold-088",
+      "description": "auto intra_state @ 18% x 5 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 21100,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 10,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPct": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 211000,
+          "discountPaise": 500,
+          "taxableValuePaise": 178390,
+          "cgstPaise": 16055,
+          "sgstPaise": 16055,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 210500
+        },
+        {
+          "grossPaise": 93250,
+          "discountPaise": 500,
+          "taxableValuePaise": 78602,
+          "cgstPaise": 7074,
+          "sgstPaise": 7074,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 92750
+        },
+        {
+          "grossPaise": 2375,
+          "discountPaise": 0,
+          "taxableValuePaise": 2013,
+          "cgstPaise": 181,
+          "sgstPaise": 181,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 2375
+        },
+        {
+          "grossPaise": 39467,
+          "discountPaise": 1973,
+          "taxableValuePaise": 31775,
+          "cgstPaise": 2860,
+          "sgstPaise": 2859,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 37494
+        },
+        {
+          "grossPaise": 51238,
+          "discountPaise": 2562,
+          "taxableValuePaise": 41251,
+          "cgstPaise": 3713,
+          "sgstPaise": 3712,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 48676
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 332031,
+        "discountPaise": 5535,
+        "cgstPaise": 29883,
+        "sgstPaise": 29881,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 391795,
+        "roundOffPaise": 5,
+        "grandTotalPaise": 391800
+      }
+    },
+    {
+      "id": "gold-089",
+      "description": "auto intra_state @ 5% x 5 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 78933,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 157866,
+          "discountPaise": 500,
+          "taxableValuePaise": 149872,
+          "cgstPaise": 3747,
+          "sgstPaise": 3747,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 157366
+        },
+        {
+          "grossPaise": 1024750,
+          "discountPaise": 51238,
+          "taxableValuePaise": 927154,
+          "cgstPaise": 23179,
+          "sgstPaise": 23179,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 973512
+        },
+        {
+          "grossPaise": 16775,
+          "discountPaise": 500,
+          "taxableValuePaise": 15500,
+          "cgstPaise": 388,
+          "sgstPaise": 387,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 16275
+        },
+        {
+          "grossPaise": 167750,
+          "discountPaise": 16775,
+          "taxableValuePaise": 143786,
+          "cgstPaise": 3595,
+          "sgstPaise": 3594,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 150975
+        },
+        {
+          "grossPaise": 102475,
+          "discountPaise": 500,
+          "taxableValuePaise": 97119,
+          "cgstPaise": 2428,
+          "sgstPaise": 2428,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 101975
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1333431,
+        "discountPaise": 69513,
+        "cgstPaise": 33337,
+        "sgstPaise": 33335,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1400103,
+        "roundOffPaise": -3,
+        "grandTotalPaise": 1400100
+      }
+    },
+    {
+      "id": "gold-090",
+      "description": "auto inter_state @ 5% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 0.5,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 2,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 102475,
+          "qty": 2,
+          "gstRate": 5
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 33550,
+          "discountPaise": 500,
+          "taxableValuePaise": 31476,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 1574,
+          "cessPaise": 0,
+          "lineTotalPaise": 33050
+        },
+        {
+          "grossPaise": 4663,
+          "discountPaise": 0,
+          "taxableValuePaise": 4441,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 222,
+          "cessPaise": 0,
+          "lineTotalPaise": 4663
+        },
+        {
+          "grossPaise": 9500,
+          "discountPaise": 500,
+          "taxableValuePaise": 8571,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 429,
+          "cessPaise": 0,
+          "lineTotalPaise": 9000
+        },
+        {
+          "grossPaise": 204950,
+          "discountPaise": 0,
+          "taxableValuePaise": 195190,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 9760,
+          "cessPaise": 0,
+          "lineTotalPaise": 204950
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 239678,
+        "discountPaise": 1000,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 11985,
+        "cessPaise": 0,
+        "preRoundPaise": 251663,
+        "roundOffPaise": 37,
+        "grandTotalPaise": 251700
+      }
+    },
+    {
+      "id": "gold-091",
+      "description": "auto intra_state @ 12% x 3 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 5,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPct": 10
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 23750,
+          "discountPaise": 2375,
+          "taxableValuePaise": 19085,
+          "cgstPaise": 1145,
+          "sgstPaise": 1145,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 21375
+        },
+        {
+          "grossPaise": 59998,
+          "discountPaise": 6000,
+          "taxableValuePaise": 48213,
+          "cgstPaise": 2893,
+          "sgstPaise": 2892,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 53998
+        },
+        {
+          "grossPaise": 157866,
+          "discountPaise": 500,
+          "taxableValuePaise": 140505,
+          "cgstPaise": 8431,
+          "sgstPaise": 8430,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 157366
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 207803,
+        "discountPaise": 8875,
+        "cgstPaise": 12469,
+        "sgstPaise": 12467,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 232739,
+        "roundOffPaise": -39,
+        "grandTotalPaise": 232700
+      }
+    },
+    {
+      "id": "gold-092",
+      "description": "auto inter_state @ 18% x 4 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 0.5,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 222500,
+          "discountPaise": 0,
+          "taxableValuePaise": 188559,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 33941,
+          "cessPaise": 0,
+          "lineTotalPaise": 222500
+        },
+        {
+          "grossPaise": 39467,
+          "discountPaise": 0,
+          "taxableValuePaise": 33447,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 6020,
+          "cessPaise": 0,
+          "lineTotalPaise": 39467
+        },
+        {
+          "grossPaise": 749500,
+          "discountPaise": 0,
+          "taxableValuePaise": 635169,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 114331,
+          "cessPaise": 0,
+          "lineTotalPaise": 749500
+        },
+        {
+          "grossPaise": 39467,
+          "discountPaise": 0,
+          "taxableValuePaise": 33447,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 6020,
+          "cessPaise": 0,
+          "lineTotalPaise": 39467
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 890622,
+        "discountPaise": 0,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 160312,
+        "cessPaise": 0,
+        "preRoundPaise": 1050934,
+        "roundOffPaise": -34,
+        "grandTotalPaise": 1050900
+      }
+    },
+    {
+      "id": "gold-093",
+      "description": "auto intra_state @ 18% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 149900,
+          "qty": 5,
+          "gstRate": 18
+        },
+        {
+          "mrpPaise": 78933,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 29999,
+          "qty": 2,
+          "gstRate": 18,
+          "discountPct": 5
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 1,
+          "gstRate": 18,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 749500,
+          "discountPaise": 0,
+          "taxableValuePaise": 635169,
+          "cgstPaise": 57166,
+          "sgstPaise": 57165,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 749500
+        },
+        {
+          "grossPaise": 394665,
+          "discountPaise": 500,
+          "taxableValuePaise": 334038,
+          "cgstPaise": 30064,
+          "sgstPaise": 30063,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 394165
+        },
+        {
+          "grossPaise": 59998,
+          "discountPaise": 3000,
+          "taxableValuePaise": 48303,
+          "cgstPaise": 4348,
+          "sgstPaise": 4347,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 56998
+        },
+        {
+          "grossPaise": 149900,
+          "discountPaise": 14990,
+          "taxableValuePaise": 114331,
+          "cgstPaise": 10290,
+          "sgstPaise": 10289,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 134910
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1131841,
+        "discountPaise": 18490,
+        "cgstPaise": 101868,
+        "sgstPaise": 101864,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1335573,
+        "roundOffPaise": 27,
+        "grandTotalPaise": 1335600
+      }
+    },
+    {
+      "id": "gold-094",
+      "description": "auto inter_state @ 5% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 102475,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 512375,
+          "discountPaise": 500,
+          "taxableValuePaise": 487500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 24375,
+          "cessPaise": 0,
+          "lineTotalPaise": 511875
+        },
+        {
+          "grossPaise": 4750,
+          "discountPaise": 500,
+          "taxableValuePaise": 4048,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 202,
+          "cessPaise": 0,
+          "lineTotalPaise": 4250
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 491548,
+        "discountPaise": 1000,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 24577,
+        "cessPaise": 0,
+        "preRoundPaise": 516125,
+        "roundOffPaise": -25,
+        "grandTotalPaise": 516100
+      }
+    },
+    {
+      "id": "gold-095",
+      "description": "auto exempt @ 12% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 16775,
+          "qty": 1,
+          "gstRate": 12
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 47500,
+          "discountPaise": 500,
+          "taxableValuePaise": 47000,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 47000
+        },
+        {
+          "grossPaise": 16775,
+          "discountPaise": 0,
+          "taxableValuePaise": 16775,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 16775
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 63775,
+        "discountPaise": 500,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 63775,
+        "roundOffPaise": 25,
+        "grandTotalPaise": 63800
+      }
+    },
+    {
+      "id": "gold-096",
+      "description": "auto exempt @ 18% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 102475,
+          "qty": 2,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 18
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 204950,
+          "discountPaise": 500,
+          "taxableValuePaise": 204450,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 204450
+        },
+        {
+          "grossPaise": 222500,
+          "discountPaise": 0,
+          "taxableValuePaise": 222500,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 222500
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 426950,
+        "discountPaise": 500,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 426950,
+        "roundOffPaise": 50,
+        "grandTotalPaise": 427000
+      }
+    },
+    {
+      "id": "gold-097",
+      "description": "auto intra_state @ 12% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 12,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 0.5,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 2,
+          "gstRate": 12
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 0.5,
+          "gstRate": 12,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 89000,
+          "discountPaise": 500,
+          "taxableValuePaise": 79018,
+          "cgstPaise": 4741,
+          "sgstPaise": 4741,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 88500
+        },
+        {
+          "grossPaise": 2375,
+          "discountPaise": 0,
+          "taxableValuePaise": 2121,
+          "cgstPaise": 127,
+          "sgstPaise": 127,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 2375
+        },
+        {
+          "grossPaise": 89000,
+          "discountPaise": 0,
+          "taxableValuePaise": 79464,
+          "cgstPaise": 4768,
+          "sgstPaise": 4768,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 89000
+        },
+        {
+          "grossPaise": 74950,
+          "discountPaise": 7495,
+          "taxableValuePaise": 60228,
+          "cgstPaise": 3614,
+          "sgstPaise": 3613,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 67455
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 220831,
+        "discountPaise": 7995,
+        "cgstPaise": 13250,
+        "sgstPaise": 13249,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 247330,
+        "roundOffPaise": -30,
+        "grandTotalPaise": 247300
+      }
+    },
+    {
+      "id": "gold-098",
+      "description": "auto exempt @ 18% x 2 line(s)",
+      "treatment": "exempt",
+      "lines": [
+        {
+          "mrpPaise": 44500,
+          "qty": 0.5,
+          "gstRate": 18,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 44500,
+          "qty": 5,
+          "gstRate": 18,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 22250,
+          "discountPaise": 500,
+          "taxableValuePaise": 21750,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 21750
+        },
+        {
+          "grossPaise": 222500,
+          "discountPaise": 22250,
+          "taxableValuePaise": 200250,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 200250
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 222000,
+        "discountPaise": 22750,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 222000,
+        "roundOffPaise": 0,
+        "grandTotalPaise": 222000
+      }
+    },
+    {
+      "id": "gold-099",
+      "description": "auto inter_state @ 5% x 2 line(s)",
+      "treatment": "inter_state",
+      "lines": [
+        {
+          "mrpPaise": 29999,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 21100,
+          "qty": 1,
+          "gstRate": 5,
+          "discountPaise": 500
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 149995,
+          "discountPaise": 500,
+          "taxableValuePaise": 142376,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 7119,
+          "cessPaise": 0,
+          "lineTotalPaise": 149495
+        },
+        {
+          "grossPaise": 21100,
+          "discountPaise": 500,
+          "taxableValuePaise": 19619,
+          "cgstPaise": 0,
+          "sgstPaise": 0,
+          "igstPaise": 981,
+          "cessPaise": 0,
+          "lineTotalPaise": 20600
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 161995,
+        "discountPaise": 1000,
+        "cgstPaise": 0,
+        "sgstPaise": 0,
+        "igstPaise": 8100,
+        "cessPaise": 0,
+        "preRoundPaise": 170095,
+        "roundOffPaise": 5,
+        "grandTotalPaise": 170100
+      }
+    },
+    {
+      "id": "gold-100",
+      "description": "auto intra_state @ 5% x 4 line(s)",
+      "treatment": "intra_state",
+      "lines": [
+        {
+          "mrpPaise": 16775,
+          "qty": 2,
+          "gstRate": 5
+        },
+        {
+          "mrpPaise": 4750,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 9325,
+          "qty": 5,
+          "gstRate": 5,
+          "discountPaise": 500
+        },
+        {
+          "mrpPaise": 149900,
+          "qty": 10,
+          "gstRate": 5,
+          "discountPct": 10
+        }
+      ],
+      "expectedLines": [
+        {
+          "grossPaise": 33550,
+          "discountPaise": 0,
+          "taxableValuePaise": 31952,
+          "cgstPaise": 799,
+          "sgstPaise": 799,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 33550
+        },
+        {
+          "grossPaise": 47500,
+          "discountPaise": 500,
+          "taxableValuePaise": 44762,
+          "cgstPaise": 1119,
+          "sgstPaise": 1119,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 47000
+        },
+        {
+          "grossPaise": 46625,
+          "discountPaise": 500,
+          "taxableValuePaise": 43929,
+          "cgstPaise": 1098,
+          "sgstPaise": 1098,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 46125
+        },
+        {
+          "grossPaise": 1499000,
+          "discountPaise": 149900,
+          "taxableValuePaise": 1284857,
+          "cgstPaise": 32122,
+          "sgstPaise": 32121,
+          "igstPaise": 0,
+          "cessPaise": 0,
+          "lineTotalPaise": 1349100
+        }
+      ],
+      "expectedInvoice": {
+        "subtotalPaise": 1405500,
+        "discountPaise": 150900,
+        "cgstPaise": 35138,
+        "sgstPaise": 35137,
+        "igstPaise": 0,
+        "cessPaise": 0,
+        "preRoundPaise": 1475775,
+        "roundOffPaise": 25,
+        "grandTotalPaise": 1475800
+      }
+    }
+  ]
+}
