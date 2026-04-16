@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { formatINR, type Paise, type GstRate } from "@pharmacare/shared-types";
 import { computeLine, computeInvoice, inferTreatment } from "@pharmacare/gst-engine";
 import { ProductSearch } from "./ProductSearch.js";
@@ -42,6 +42,7 @@ export function BillingScreen() {
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const [custQuery, setCustQuery] = useState("");
   const [custHits, setCustHits] = useState<readonly Customer[]>([]);
@@ -54,20 +55,37 @@ export function BillingScreen() {
   const [newRxDate, setNewRxDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [newRxNotes, setNewRxNotes] = useState("");
 
+  // Refs for keyboard-driven focus contract (A5).
+  const custSearchRef = useRef<HTMLInputElement | null>(null);
+  const paymentConfirmRef = useRef<HTMLButtonElement | null>(null);
+  const lineDiscountRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  // ProductSearch encapsulates its own input ref (autoFocus on mount). To
+  // re-focus it from outside (F1 reset, F3 add-line), we resolve it by data-testid.
+  const focusProductSearch = useCallback(() => {
+    const el = document.querySelector<HTMLInputElement>('[data-testid="product-search"]');
+    el?.focus();
+    el?.select();
+  }, []);
+
+
   const rxRequired = useMemo(() => lines.some((l) => RX_REQUIRED.has(l.schedule)), [lines]);
 
+  // When rxRequired turns off (last H-line removed) and the user hadn't
+  // explicitly chosen a customer for this bill, leave the customer state
+  // intact — the A5 customer bar is always available.
   useEffect(() => {
-    if (!rxRequired) { setCustomer(null); setRxId(null); setRxList([]); setNewRxOpen(false); }
+    if (!rxRequired) { setRxId(null); setRxList([]); setNewRxOpen(false); }
   }, [rxRequired]);
 
+  // Debounced customer hit list — runs whenever the customer bar is typed into.
   useEffect(() => {
-    if (!rxRequired) return;
     const t = setTimeout(async () => {
       if (!custQuery.trim()) { setCustHits([]); return; }
       setCustHits(await searchCustomersRpc(SHOP.id, custQuery, 8));
     }, 120);
     return () => clearTimeout(t);
-  }, [custQuery, rxRequired]);
+  }, [custQuery]);
 
   const pickCustomer = useCallback(async (c: Customer) => {
     setCustomer(c);
@@ -132,6 +150,23 @@ export function BillingScreen() {
     && lines.some((l) => l.productId && l.batch && l.qty > 0)
     && (!rxRequired || (customer !== null && rxId !== null));
 
+  const resetBill = useCallback(() => {
+    setLines([]);
+    setCustomer(null);
+    setCustQuery("");
+    setCustHits([]);
+    setRxId(null);
+    setRxList([]);
+    setNewRxOpen(false);
+    setNewDoctorReg("");
+    setNewDoctorName("");
+    setNewRxNotes("");
+    setPaymentOpen(false);
+    setToast(null);
+    // Focus the primary input — the keyboard-first entry point.
+    focusProductSearch();
+  }, []);
+
   const doSave = useCallback(async () => {
     if (!canSave) return;
     const payload: SaveBillInput = {
@@ -160,6 +195,8 @@ export function BillingScreen() {
       setToast({ kind: "ok", msg: `Saved · ${payload.billNo} · ${formatINR(r.grandTotalPaise as Paise)}` });
       setLines([]);
       setCustomer(null); setRxId(null); setCustQuery(""); setRxList([]);
+      setPaymentOpen(false);
+      focusProductSearch();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setToast({ kind: "err", msg: `Save failed: ${msg}` });
@@ -168,14 +205,64 @@ export function BillingScreen() {
     }
   }, [canSave, lines, customer, rxId]);
 
+  // A5 keyboard shell — window-level so F-keys work from any focused element
+  // inside the billing screen, including the embedded ProductSearch dropdown.
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === "F9") { e.preventDefault(); void doSave(); }
-      if (e.key === "Escape" && toast) { setToast(null); }
+      // Only fire when Alt is not held, so App's Alt+digit nav is never stolen.
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+      if (e.key === "F1") {
+        e.preventDefault();
+        resetBill();
+        return;
+      }
+      if (e.key === "F2") {
+        e.preventDefault();
+        custSearchRef.current?.focus();
+        custSearchRef.current?.select();
+        return;
+      }
+      if (e.key === "F3") {
+        e.preventDefault();
+        focusProductSearch();
+        return;
+      }
+      if (e.key === "F4") {
+        e.preventDefault();
+        const last = lineDiscountRefs.current[lines.length - 1];
+        if (last) { last.focus(); last.select(); }
+        return;
+      }
+      if (e.key === "F6") {
+        e.preventDefault();
+        if (!canSave) {
+          setToast({ kind: "err", msg: "Nothing to pay — add a line first" });
+          return;
+        }
+        setPaymentOpen(true);
+        return;
+      }
+      if (e.key === "F10") {
+        e.preventDefault();
+        if (paymentOpen) { void doSave(); return; }
+        void doSave();
+        return;
+      }
+      if (e.key === "Escape") {
+        if (paymentOpen) { e.preventDefault(); setPaymentOpen(false); return; }
+        if (toast) { setToast(null); }
+      }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [doSave, toast]);
+  }, [doSave, resetBill, canSave, paymentOpen, toast, lines.length]);
+
+  // Autofocus payment-confirm button when the modal opens so Enter works
+  // without any Tab dance.
+  useEffect(() => {
+    if (paymentOpen) paymentConfirmRef.current?.focus();
+  }, [paymentOpen]);
 
   useEffect(() => {
     if (toast?.kind === "ok") {
@@ -192,16 +279,34 @@ export function BillingScreen() {
     setLines((prev) => prev.filter((_, i) => i !== idx));
 
   return (
-    <div className="bill">
+    <div className="bill" data-testid="billing-root" role="region" aria-label="Billing">
       <div className="bill-lines">
         <h2 style={{ marginTop: 0 }}>
-          New Bill <span style={{ fontSize: 12, color: "#94a3b8" }}>· Type to search · <span className="kbd">↵</span> add · <span className="kbd">F9</span> save</span>
+          New Bill{" "}
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            · <span className="kbd">F1</span> new
+            · <span className="kbd">F2</span> customer
+            · <span className="kbd">F3</span> add-line
+            · <span className="kbd">F4</span> discount
+            · <span className="kbd">F6</span> payment
+            · <span className="kbd">F10</span> save
+          </span>
         </h2>
+
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="toast-live"
+          style={{ position: "absolute", left: "-9999px", width: 1, height: 1, overflow: "hidden" }}
+        >
+          {toast ? toast.msg : ""}
+        </div>
 
         {toast && (
           <div
             data-testid="toast"
             data-toast-kind={toast.kind}
+            role="alert"
             style={{
               padding: "8px 12px",
               marginBottom: 12,
@@ -215,74 +320,114 @@ export function BillingScreen() {
           </div>
         )}
 
+        {/* A5 — always-visible customer bar. Optional for OTC, required for Schedule H/H1/X. */}
+        <div
+          data-testid="cust-bar"
+          style={{
+            border: "1px solid #334155", borderRadius: 4, padding: 10, marginBottom: 12,
+            background: "#1e293b",
+          }}
+        >
+          <label
+            htmlFor="cust-search"
+            style={{ display: "block", fontSize: 11, color: "#94a3b8", marginBottom: 4 }}
+          >
+            Customer <span className="kbd">F2</span>
+          </label>
+          <div style={{ position: "relative" }}>
+            <input
+              id="cust-search"
+              ref={custSearchRef}
+              data-testid="cust-search"
+              aria-label="Customer search"
+              placeholder="Search customer by name / phone / GSTIN (optional for OTC)"
+              value={custQuery}
+              onChange={(e) => { setCustQuery(e.target.value); if (customer && e.target.value !== customer.name) setCustomer(null); }}
+              style={{ width: "100%", padding: "6px 10px" }}
+            />
+            {custHits.length > 0 && !customer && (
+              <ul
+                role="listbox"
+                aria-label="Customer matches"
+                style={{
+                  position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
+                  listStyle: "none", margin: 0, padding: 0,
+                  background: "#0f172a", border: "1px solid #334155",
+                  maxHeight: 180, overflowY: "auto",
+                }}
+              >
+                {custHits.map((c) => (
+                  <li
+                    key={c.id}
+                    role="option"
+                    aria-selected="false"
+                    data-testid={`cust-hit-${c.id}`}
+                    onMouseDown={(e) => { e.preventDefault(); void pickCustomer(c); }}
+                    style={{ padding: "6px 10px", cursor: "pointer", borderBottom: "1px solid #334155" }}
+                  >
+                    <strong>{c.name}</strong> · {c.phone ?? "—"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {customer && (
+            <div data-testid="cust-selected" style={{ marginTop: 6, fontSize: 13 }}>
+              <strong>{customer.name}</strong> · {customer.phone ?? "—"}
+            </div>
+          )}
+        </div>
+
         <div style={{ marginBottom: 16 }} data-testid="search-wrap">
           <ProductSearch autoFocus onPick={onPick} />
         </div>
 
         {rxRequired && (
-          <div data-testid="rx-required-banner" style={{
+          <div data-testid="rx-required-banner" role="alert" style={{
             border: "1px solid #dc2626", background: "#fef2f2", padding: 12, marginBottom: 12, borderRadius: 4,
           }}>
             <div style={{ fontWeight: 600, color: "#991b1b", marginBottom: 6 }}>
               Prescription required (Schedule H/H1/X)
             </div>
-            <div style={{ position: "relative" }}>
-              <input
-                data-testid="rx-cust-search"
-                placeholder="Search customer by name / phone"
-                value={custQuery}
-                onChange={(e) => { setCustQuery(e.target.value); if (customer && e.target.value !== customer.name) setCustomer(null); }}
-                style={{ width: "100%", padding: "6px 10px" }}
-              />
-              {custHits.length > 0 && !customer && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #ccc", zIndex: 10, maxHeight: 180, overflowY: "auto" }}>
-                  {custHits.map((c) => (
-                    <div key={c.id} data-testid={`rx-cust-hit-${c.id}`} onClick={() => void pickCustomer(c)}
-                         style={{ padding: "6px 10px", cursor: "pointer", borderBottom: "1px solid #eee" }}>
-                      <strong>{c.name}</strong> · {c.phone ?? "—"}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            {customer && (
-              <div data-testid="rx-cust-selected" style={{ marginTop: 8, fontSize: 13 }}>
-                <strong>{customer.name}</strong> · {customer.phone ?? "—"}
-                <div style={{ marginTop: 6 }}>
-                  {rxList.length === 0 ? (
-                    <em style={{ color: "#666" }}>No prescriptions on file.</em>
-                  ) : (
-                    <div data-testid="rx-pick-list">
-                      {rxList.map((r) => (
-                        <label key={r.id} data-testid={`rx-pick-${r.id}`}
-                               style={{ display: "block", padding: "2px 0", fontSize: 13 }}>
-                          <input type="radio" name="rx-pick" checked={rxId === r.id}
-                                 onChange={() => setRxId(r.id)} /> {r.issuedDate} · {r.kind}{r.notes ? ` · ${r.notes}` : ""}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                  <button data-testid="rx-new-toggle" onClick={() => setNewRxOpen((v) => !v)}
-                          style={{ marginTop: 6, fontSize: 12 }}>
-                    {newRxOpen ? "Cancel" : "+ Add new Rx"}
-                  </button>
-                  {newRxOpen && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 }}>
-                      <input data-testid="rx-new-doctor-reg" placeholder="Doctor reg no"
-                             value={newDoctorReg} onChange={(e) => setNewDoctorReg(e.target.value)} />
-                      <input data-testid="rx-new-doctor-name" placeholder="Doctor name"
-                             value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} />
-                      <input type="date" data-testid="rx-new-date"
-                             value={newRxDate} onChange={(e) => setNewRxDate(e.target.value)} />
-                      <input data-testid="rx-new-notes" placeholder="Notes"
-                             value={newRxNotes} onChange={(e) => setNewRxNotes(e.target.value)} />
-                      <button data-testid="rx-new-save" onClick={() => void saveNewRx()}
-                              style={{ gridColumn: "1 / span 2", padding: 6 }}>
-                        Save Rx
-                      </button>
-                    </div>
-                  )}
-                </div>
+            {!customer ? (
+              <div style={{ fontSize: 13, color: "#991b1b" }}>
+                Pick a customer above (<span className="kbd">F2</span>) to attach prescription.
+              </div>
+            ) : (
+              <div style={{ marginTop: 4, fontSize: 13 }}>
+                {rxList.length === 0 ? (
+                  <em style={{ color: "#666" }}>No prescriptions on file.</em>
+                ) : (
+                  <div data-testid="rx-pick-list">
+                    {rxList.map((r) => (
+                      <label key={r.id} data-testid={`rx-pick-${r.id}`}
+                             style={{ display: "block", padding: "2px 0", fontSize: 13 }}>
+                        <input type="radio" name="rx-pick" checked={rxId === r.id}
+                               onChange={() => setRxId(r.id)} /> {r.issuedDate} · {r.kind}{r.notes ? ` · ${r.notes}` : ""}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <button data-testid="rx-new-toggle" onClick={() => setNewRxOpen((v) => !v)}
+                        style={{ marginTop: 6, fontSize: 12 }}>
+                  {newRxOpen ? "Cancel" : "+ Add new Rx"}
+                </button>
+                {newRxOpen && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 }}>
+                    <input data-testid="rx-new-doctor-reg" placeholder="Doctor reg no"
+                           value={newDoctorReg} onChange={(e) => setNewDoctorReg(e.target.value)} />
+                    <input data-testid="rx-new-doctor-name" placeholder="Doctor name"
+                           value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} />
+                    <input type="date" data-testid="rx-new-date"
+                           value={newRxDate} onChange={(e) => setNewRxDate(e.target.value)} />
+                    <input data-testid="rx-new-notes" placeholder="Notes"
+                           value={newRxNotes} onChange={(e) => setNewRxNotes(e.target.value)} />
+                    <button data-testid="rx-new-save" onClick={() => void saveNewRx()}
+                            style={{ gridColumn: "1 / span 2", padding: 6 }}>
+                      Save Rx
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -332,14 +477,18 @@ export function BillingScreen() {
                         type="number" min="0" step="1" value={l.qty}
                         onChange={(e) => patch(idx, { qty: parseFloat(e.target.value) || 0 })}
                         data-testid={`line-qty-${idx}`}
+                        aria-label={`Quantity for ${l.name}`}
                         style={{ width: 70 }}
                       />
                     </td>
                     <td>{l.gstRate}%</td>
                     <td>
                       <input
+                        ref={(el) => { lineDiscountRefs.current[idx] = el; }}
                         type="number" min="0" max="100" step="0.1" value={l.discountPct}
                         onChange={(e) => patch(idx, { discountPct: parseFloat(e.target.value) || 0 })}
+                        data-testid={`line-discount-${idx}`}
+                        aria-label={`Discount percent for ${l.name}`}
                         style={{ width: 60 }}
                       />
                     </td>
@@ -350,6 +499,7 @@ export function BillingScreen() {
                       <button
                         onClick={() => removeLine(idx)}
                         data-testid={`line-remove-${idx}`}
+                        aria-label={`Remove ${l.name}`}
                         style={{ background: "transparent", color: "#94a3b8", border: "none", cursor: "pointer" }}
                       >✕</button>
                     </td>
@@ -361,7 +511,7 @@ export function BillingScreen() {
         )}
       </div>
 
-      <aside className="totals">
+      <aside className="totals" role="complementary" aria-label="Bill totals">
         <h3 style={{ margin: "0 0 12px" }}>Totals</h3>
         <div className="row"><span>Subtotal</span><span data-testid="subtotal">{formatINR(computed.totals.subtotalPaise)}</span></div>
         <div className="row"><span>CGST</span><span>{formatINR(computed.totals.cgstPaise)}</span></div>
@@ -374,6 +524,7 @@ export function BillingScreen() {
           onClick={doSave}
           disabled={!canSave}
           data-testid="save-bill"
+          aria-keyshortcuts="F10"
           style={{
             padding: 12,
             background: canSave ? "#16a34a" : "#64748b",
@@ -381,9 +532,62 @@ export function BillingScreen() {
             cursor: canSave ? "pointer" : "not-allowed",
           }}
         >
-          {saving ? "Saving…" : "Save & Print (F9)"}
+          {saving ? "Saving…" : "Save & Print (F10)"}
         </button>
       </aside>
+
+      {paymentOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-title"
+          data-testid="payment-modal"
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+          }}
+        >
+          <div style={{
+            background: "#1e293b", color: "#e5e7eb", padding: 24, borderRadius: 8,
+            minWidth: 360, border: "1px solid #334155",
+          }}>
+            <h3 id="payment-title" style={{ margin: "0 0 12px" }}>Payment</h3>
+            <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 16 }}>
+              Mode: Cash &middot; Due:{" "}
+              <strong data-testid="payment-amount" style={{ color: "#22c55e", fontSize: 18 }}>
+                {formatINR(computed.totals.grandTotalPaise)}
+              </strong>
+              <div style={{ fontSize: 11, marginTop: 4, color: "#64748b" }}>
+                Split-tender, card, UPI, change calc arrive in A8.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setPaymentOpen(false)}
+                data-testid="payment-cancel"
+                style={{ padding: "8px 14px", background: "#334155", color: "white", border: "none", borderRadius: 4 }}
+              >
+                Cancel (Esc)
+              </button>
+              <button
+                ref={paymentConfirmRef}
+                onClick={() => void doSave()}
+                data-testid="payment-confirm"
+                disabled={!canSave}
+                aria-keyshortcuts="F10"
+                style={{
+                  padding: "8px 14px",
+                  background: canSave ? "#16a34a" : "#64748b",
+                  color: "white", border: "none", borderRadius: 4, fontWeight: 700,
+                  cursor: canSave ? "pointer" : "not-allowed",
+                }}
+              >
+                {saving ? "Saving…" : "Confirm (F10)"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

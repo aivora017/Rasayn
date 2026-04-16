@@ -275,9 +275,9 @@ describe("App · keyboard shell", () => {
 
   it("F2 switches to inventory, F1 returns", () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F2" });
+    fireEvent.keyDown(window, { key: "2", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("inventory");
-    fireEvent.keyDown(window, { key: "F1" });
+    fireEvent.keyDown(window, { key: "1", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("billing");
   });
 });
@@ -335,7 +335,7 @@ describe("BillingScreen · product search → line add", () => {
     expect(btn.disabled).toBe(true);
   });
 
-  it("F9 saves the bill, shows success toast, and clears lines", async () => {
+  it("F10 saves the bill, shows success toast, and clears lines", async () => {
     const calls: IpcCall[] = [];
     setIpcHandler(baseHandler(calls));
     const user = userEvent.setup();
@@ -344,7 +344,7 @@ describe("BillingScreen · product search → line add", () => {
     await screen.findByTestId("search-dropdown");
     await user.keyboard("{Enter}");
     await waitFor(() => expect(screen.getByTestId("line-batch-0")).toBeInTheDocument());
-    fireEvent.keyDown(window, { key: "F9" });
+    fireEvent.keyDown(window, { key: "F10" });
     await waitFor(() => expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "ok"));
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
     const saved = calls.find((c) => c.cmd === "save_bill");
@@ -397,7 +397,7 @@ describe("InventoryScreen", () => {
 
   it("renders rows with FEFO expiry and schedule badges", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F2" });
+    fireEvent.keyDown(window, { key: "2", altKey: true });
     await waitFor(() => expect(screen.getByTestId("inv-row-p1")).toBeInTheDocument());
     expect(screen.getByTestId("inv-expiry-p1").textContent).toMatch(/2027-03-31/);
     expect(screen.getByTestId("inv-qty-p1").textContent).toBe("80");
@@ -406,7 +406,7 @@ describe("InventoryScreen", () => {
 
   it("flags low stock, near-expiry, out-of-stock, expired-on-shelf", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F2" });
+    fireEvent.keyDown(window, { key: "2", altKey: true });
     await waitFor(() => expect(screen.getByTestId("inv-flags-p3")).toBeInTheDocument());
     expect(screen.getByTestId("inv-flags-p3").textContent).toMatch(/LOW/);
     expect(screen.getByTestId("inv-flags-p1").textContent).toMatch(/EXPIRED/);
@@ -416,7 +416,7 @@ describe("InventoryScreen", () => {
   it("Near-expiry filter narrows the list", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F2" });
+    fireEvent.keyDown(window, { key: "2", altKey: true });
     await waitFor(() => expect(screen.getByTestId("inv-row-p1")).toBeInTheDocument());
     await user.click(screen.getByTestId("inv-filter-near"));
     expect(screen.getByTestId("inv-row-p3")).toBeInTheDocument();
@@ -427,7 +427,7 @@ describe("InventoryScreen", () => {
   it("search filter passes q through IPC", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F2" });
+    fireEvent.keyDown(window, { key: "2", altKey: true });
     await waitFor(() => expect(screen.getByTestId("inv-row-p1")).toBeInTheDocument());
     await user.type(screen.getByTestId("inv-search"), "azith");
     await waitFor(() => {
@@ -442,7 +442,7 @@ describe("GrnScreen · receive stock", () => {
 
   it("F4 switches to GRN mode", () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F4" });
+    fireEvent.keyDown(window, { key: "4", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("grn");
     expect(screen.getByTestId("grn-empty")).toBeInTheDocument();
   });
@@ -450,7 +450,7 @@ describe("GrnScreen · receive stock", () => {
   it("Save is disabled until invoice no + line + batch + dates are valid", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F4" });
+    fireEvent.keyDown(window, { key: "4", altKey: true });
     const btn = screen.getByTestId("save-grn") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
 
@@ -472,7 +472,7 @@ describe("GrnScreen · receive stock", () => {
     setIpcHandler(baseHandler(calls));
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F4" });
+    fireEvent.keyDown(window, { key: "4", altKey: true });
 
     await user.type(screen.getByTestId("grn-invoice-no"), "GSK/042");
     await user.type(screen.getByTestId("grn-product-search"), "croc");
@@ -512,7 +512,7 @@ describe("GrnScreen · receive stock", () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F4" });
+    fireEvent.keyDown(window, { key: "4", altKey: true });
     await user.type(screen.getByTestId("grn-invoice-no"), "GSK/DUP");
     await user.type(screen.getByTestId("grn-product-search"), "croc");
     await screen.findByTestId("search-dropdown");
@@ -534,7 +534,7 @@ describe("ReportsScreen · F3", () => {
 
   it("F3 lands on day-book with summary + rows", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F3" });
+    fireEvent.keyDown(window, { key: "3", altKey: true });
     await waitFor(() => expect(screen.getByTestId("rpt-daybook-summary")).toBeInTheDocument());
     expect(screen.getByTestId("rpt-daybook-summary").textContent).toMatch(/Bills:\s*2/);
     expect(screen.getByTestId("rpt-daybook-row-b1")).toBeInTheDocument();
@@ -544,7 +544,7 @@ describe("ReportsScreen · F3", () => {
   it("switching to GSTR-1 tab loads buckets", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F3" });
+    fireEvent.keyDown(window, { key: "3", altKey: true });
     await waitFor(() => expect(screen.getByTestId("rpt-daybook-summary")).toBeInTheDocument());
     await user.click(screen.getByTestId("rpt-tab-gstr1"));
     await waitFor(() => expect(screen.getByTestId("rpt-gstr-row-5")).toBeInTheDocument());
@@ -554,7 +554,7 @@ describe("ReportsScreen · F3", () => {
   it("top movers tab ranks by revenue", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F3" });
+    fireEvent.keyDown(window, { key: "3", altKey: true });
     await waitFor(() => expect(screen.getByTestId("rpt-daybook-summary")).toBeInTheDocument());
     await user.click(screen.getByTestId("rpt-tab-movers"));
     await waitFor(() => expect(screen.getByTestId("rpt-mov-row-p_otc")).toBeInTheDocument());
@@ -568,7 +568,7 @@ describe("DirectoryScreen \u00B7 F5", () => {
 
   it("F5 opens directory with customers tab and seeded list", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F5" });
+    fireEvent.keyDown(window, { key: "5", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("directory");
     await waitFor(() => expect(screen.getByTestId("dir-cust-c_rakesh")).toBeInTheDocument());
     expect(screen.getByTestId("dir-cust-c_sneha")).toBeInTheDocument();
@@ -577,7 +577,7 @@ describe("DirectoryScreen \u00B7 F5", () => {
   it("search filters customers by name", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F5" });
+    fireEvent.keyDown(window, { key: "5", altKey: true });
     await waitFor(() => expect(screen.getByTestId("dir-cust-c_rakesh")).toBeInTheDocument());
     await user.type(screen.getByTestId("dir-search"), "sneha");
     await waitFor(() => expect(screen.queryByTestId("dir-cust-c_rakesh")).not.toBeInTheDocument());
@@ -589,7 +589,7 @@ describe("DirectoryScreen \u00B7 F5", () => {
     setIpcHandler(baseHandler(calls));
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F5" });
+    fireEvent.keyDown(window, { key: "5", altKey: true });
     await waitFor(() => expect(screen.getByTestId("dir-cust-c_rakesh")).toBeInTheDocument());
     await user.click(screen.getByTestId("dir-new-customer"));
     await user.type(screen.getByTestId("cust-name"), "Vikas Shah");
@@ -612,7 +612,7 @@ describe("DirectoryScreen \u00B7 F5", () => {
   it("opening a customer loads Rx list and adding Rx appends a row", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F5" });
+    fireEvent.keyDown(window, { key: "5", altKey: true });
     await waitFor(() => expect(screen.getByTestId("dir-cust-c_rakesh")).toBeInTheDocument());
     await user.click(screen.getByTestId("dir-cust-c_rakesh"));
     await waitFor(() => expect(screen.getByTestId("rx-row-rx_1")).toBeInTheDocument());
@@ -627,7 +627,7 @@ describe("DirectoryScreen \u00B7 F5", () => {
     setIpcHandler(baseHandler(calls));
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F5" });
+    fireEvent.keyDown(window, { key: "5", altKey: true });
     await user.click(screen.getByTestId("dir-tab-doctors"));
     await waitFor(() => expect(screen.getByTestId("dir-doc-d_mehta")).toBeInTheDocument());
     await user.type(screen.getByTestId("doc-reg"), "MH/99999");
@@ -668,9 +668,9 @@ describe("BillingScreen \u00B7 Rx attach for Schedule-H", () => {
     await screen.findByTestId("search-dropdown");
     await user.keyboard("{Enter}");
     await waitFor(() => expect(screen.getByTestId("rx-required-banner")).toBeInTheDocument());
-    await user.type(screen.getByTestId("rx-cust-search"), "rakesh");
-    await waitFor(() => expect(screen.getByTestId("rx-cust-hit-c_rakesh")).toBeInTheDocument());
-    await user.click(screen.getByTestId("rx-cust-hit-c_rakesh"));
+    await user.type(screen.getByTestId("cust-search"), "rakesh");
+    await waitFor(() => expect(screen.getByTestId("cust-hit-c_rakesh")).toBeInTheDocument());
+    await user.click(screen.getByTestId("cust-hit-c_rakesh"));
     await waitFor(() => expect(screen.getByTestId("rx-pick-rx_1")).toBeInTheDocument());
     await user.click(screen.getByTestId("rx-pick-rx_1").querySelector("input")!);
     await waitFor(() => expect(screen.getByTestId("save-bill")).not.toBeDisabled());
@@ -694,9 +694,9 @@ describe("BillingScreen \u00B7 Rx attach for Schedule-H", () => {
     await screen.findByTestId("search-dropdown");
     await user.keyboard("{Enter}");
     await waitFor(() => expect(screen.getByTestId("rx-required-banner")).toBeInTheDocument());
-    await user.type(screen.getByTestId("rx-cust-search"), "sneha");
-    await waitFor(() => expect(screen.getByTestId("rx-cust-hit-c_sneha")).toBeInTheDocument());
-    await user.click(screen.getByTestId("rx-cust-hit-c_sneha"));
+    await user.type(screen.getByTestId("cust-search"), "sneha");
+    await waitFor(() => expect(screen.getByTestId("cust-hit-c_sneha")).toBeInTheDocument());
+    await user.click(screen.getByTestId("cust-hit-c_sneha"));
     await user.click(screen.getByTestId("rx-new-toggle"));
     await user.type(screen.getByTestId("rx-new-doctor-reg"), "MH/55");
     await user.type(screen.getByTestId("rx-new-doctor-name"), "Dr. Gupta");
@@ -723,14 +723,14 @@ describe("SupplierTemplateScreen · F6", () => {
 
   it("F6 opens templates screen and shows seeded template", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F6" });
+    fireEvent.keyDown(window, { key: "6", altKey: true });
     await waitFor(() => expect(screen.getByTestId("current-mode")).toHaveTextContent("templates"));
     await waitFor(() => expect(screen.getByTestId("tpl-row-stpl_seed")).toBeInTheDocument());
   });
 
   it("selecting a template loads the editor", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F6" });
+    fireEvent.keyDown(window, { key: "6", altKey: true });
     const row = await screen.findByTestId("tpl-row-stpl_seed");
     fireEvent.click(row);
     await waitFor(() => expect((screen.getByTestId("tpl-name") as HTMLInputElement).value).toBe("GSK v1"));
@@ -741,7 +741,7 @@ describe("SupplierTemplateScreen · F6", () => {
     setIpcHandler(baseHandler(calls));
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F6" });
+    fireEvent.keyDown(window, { key: "6", altKey: true });
     await screen.findByTestId("tpl-new");
     await user.click(screen.getByTestId("tpl-new"));
     await user.type(screen.getByTestId("tpl-name"), "Cipla v1");
@@ -753,7 +753,7 @@ describe("SupplierTemplateScreen · F6", () => {
   it("test button renders parsed header + lines", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F6" });
+    fireEvent.keyDown(window, { key: "6", altKey: true });
     const row = await screen.findByTestId("tpl-row-stpl_seed");
     fireEvent.click(row);
     await user.click(screen.getByTestId("tpl-test"));
@@ -764,7 +764,7 @@ describe("SupplierTemplateScreen · F6", () => {
 
   it("filtering by supplier limits the list", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F6" });
+    fireEvent.keyDown(window, { key: "6", altKey: true });
     const filter = await screen.findByTestId("tpl-supplier-filter");
     fireEvent.change(filter, { target: { value: "sup_cipla" } });
     await waitFor(() => expect(screen.queryByTestId("tpl-row-stpl_seed")).not.toBeInTheDocument());
@@ -776,7 +776,7 @@ describe("GmailInboxScreen · F7", () => {
 
   it("F7 opens gmail screen showing disconnected state", async () => {
     render(<App />);
-    fireEvent.keyDown(window, { key: "F7" });
+    fireEvent.keyDown(window, { key: "7", altKey: true });
     await waitFor(() => expect(screen.getByTestId("current-mode")).toHaveTextContent("gmail"));
     await waitFor(() => expect(screen.getByTestId("gmail-status-disconnected")).toBeInTheDocument());
     expect(screen.getByTestId("gmail-connect")).toBeInTheDocument();
@@ -785,7 +785,7 @@ describe("GmailInboxScreen · F7", () => {
   it("Connect flips state and shows account email", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F7" });
+    fireEvent.keyDown(window, { key: "7", altKey: true });
     await user.click(await screen.findByTestId("gmail-connect"));
     await waitFor(() => expect(screen.getByTestId("gmail-status-connected")).toHaveTextContent("owner@example.com"));
   });
@@ -793,7 +793,7 @@ describe("GmailInboxScreen · F7", () => {
   it("Disconnect returns to disconnected state", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F7" });
+    fireEvent.keyDown(window, { key: "7", altKey: true });
     await user.click(await screen.findByTestId("gmail-connect"));
     await user.click(await screen.findByTestId("gmail-disconnect"));
     await waitFor(() => expect(screen.getByTestId("gmail-status-disconnected")).toBeInTheDocument());
@@ -802,7 +802,7 @@ describe("GmailInboxScreen · F7", () => {
   it("Manual parse uses selected template and renders parsed output", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F7" });
+    fireEvent.keyDown(window, { key: "7", altKey: true });
     const tpl = await screen.findByTestId("gmail-template");
     await waitFor(() => expect(tpl.querySelectorAll("option").length).toBeGreaterThan(1));
     fireEvent.change(tpl, { target: { value: "stpl_seed" } });
@@ -814,7 +814,7 @@ describe("GmailInboxScreen · F7", () => {
   it("After connecting, Fetch lists messages and click populates sample text from attachment", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F7" });
+    fireEvent.keyDown(window, { key: "7", altKey: true });
     await user.click(await screen.findByTestId("gmail-connect"));
     await user.click(await screen.findByTestId("gmail-list"));
     await waitFor(() => expect(screen.getByTestId("gmail-msg-mid_1")).toBeInTheDocument());
@@ -828,7 +828,7 @@ describe("GmailInboxScreen · F7", () => {
   it("Send to GRN handoff prefills invoice header and shows imported banner on F4", async () => {
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.keyDown(window, { key: "F7" });
+    fireEvent.keyDown(window, { key: "7", altKey: true });
     await user.click(await screen.findByTestId("gmail-connect"));
     await user.click(await screen.findByTestId("gmail-list"));
     await waitFor(() => expect(screen.getByTestId("gmail-msg-mid_1")).toBeInTheDocument());
