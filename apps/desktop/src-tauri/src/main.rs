@@ -3,6 +3,7 @@ mod commands;
 mod db;
 mod images;
 mod oauth;
+mod phash;
 mod products;
 #[cfg(test)]
 mod products_perf;
