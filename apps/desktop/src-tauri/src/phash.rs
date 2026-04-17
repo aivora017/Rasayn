@@ -15,7 +15,6 @@
 //! Thresholds (per ADR-0019): ≤6 near-duplicate; 7-12 suspicious; >12 different.
 
 use image::imageops::FilterType;
-use image::GenericImageView;
 use std::f64::consts::PI;
 
 const HASH_SIZE: usize = 8;
@@ -36,9 +35,9 @@ fn compute_phash_from_dynamic(img: &image::DynamicImage) -> String {
 
     // Fill a DCT_SIZE×DCT_SIZE matrix of f64 luma values.
     let mut matrix = [[0.0f64; DCT_SIZE]; DCT_SIZE];
-    for y in 0..DCT_SIZE {
-        for x in 0..DCT_SIZE {
-            matrix[y][x] = luma.get_pixel(x as u32, y as u32).0[0] as f64;
+    for (y, row) in matrix.iter_mut().enumerate() {
+        for (x, cell) in row.iter_mut().enumerate() {
+            *cell = luma.get_pixel(x as u32, y as u32).0[0] as f64;
         }
     }
 
@@ -94,12 +93,12 @@ fn dct_2d(input: &[[f64; DCT_SIZE]; DCT_SIZE]) -> [[f64; DCT_SIZE]; DCT_SIZE] {
 fn dct_1d(input: &[f64; DCT_SIZE]) -> [f64; DCT_SIZE] {
     let n = DCT_SIZE as f64;
     let mut out = [0.0f64; DCT_SIZE];
-    for k in 0..DCT_SIZE {
+    for (k, cell) in out.iter_mut().enumerate() {
         let mut sum = 0.0;
         for (i, &x) in input.iter().enumerate() {
             sum += x * ((PI / n) * (i as f64 + 0.5) * k as f64).cos();
         }
-        out[k] = sum;
+        *cell = sum;
     }
     out
 }
