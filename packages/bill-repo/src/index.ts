@@ -190,6 +190,21 @@ export class NearExpiryNoOverrideError extends Error {
     this.daysToExpiry = daysToExpiry;
   }
 }
+/**
+ * A7 · RX_REQUIRED (ADR 0011). Raised by saveBill when one or more lines
+ * reference a Schedule H/H1/X product and input.rxId is null. Callers must
+ * record a prescription (via recordPrescription) and retry with rxId set.
+ */
+export class RxRequiredError extends Error {
+  readonly productId: string;
+  readonly schedule: string;
+  constructor(productId: string, schedule: string) {
+    super(`RX_REQUIRED:product_id=${productId}:schedule=${schedule}`);
+    this.name = "RxRequiredError";
+    this.productId = productId;
+    this.schedule = schedule;
+  }
+}
 
 // ---- Internal helpers ------------------------------------------------------
 
@@ -355,6 +370,26 @@ export function saveBill(
       ).get(r.batchId, input.cashierId) as { c: number };
       if (ok.c === 0) {
         throw new NearExpiryNoOverrideError(r.batchId, row.expiry_date, days);
+      }
+    }
+  }
+
+  // A7 (ADR 0011) · Rx-required gate — server-trust-no-client.
+  // For any line referencing a Schedule H/H1/X product, bills.rx_id must be
+  // set. UI opens RxCaptureModal on F8 when an H/H1/X line is present and
+  // rx_id is null; this check is belt-and-braces (and is also enforced by DB
+  // trigger trg_bill_lines_require_rx from migration 0012).
+  if (input.rxId == null) {
+    for (const r of lines) {
+      const pid = r.input.productId;
+      const row = db.prepare(
+        "SELECT schedule FROM products WHERE id = ?",
+      ).get(pid) as { schedule: string } | undefined;
+      if (!row) {
+        throw new Error(`bill-repo: product ${pid} not found at rx-gate`);
+      }
+      if (row.schedule === "H" || row.schedule === "H1" || row.schedule === "X" || row.schedule === "NDPS") {
+        throw new RxRequiredError(pid, row.schedule);
       }
     }
   }
@@ -636,4 +671,97 @@ export function recordExpiryOverride(
   );
 
   return { auditId, daysPastExpiry: daysPast };
+}
+
+// ============================================================================
+// A7 · recordPrescription (ADR 0011) — TS mirror of Rust record_prescription
+// ----------------------------------------------------------------------------
+// Upserts doctor by reg_no, inserts prescriptions row, returns the rx_id.
+// retention_until is auto-populated by migration 0012 trigger. Exposed here so
+// vitest can exercise the save_bill RX_REQUIRED → retry-with-rxId flow.
+// ============================================================================
+
+export interface RecordPrescriptionInput {
+  readonly shopId: string;
+  readonly customerId: string;
+  readonly doctorName: string;
+  readonly doctorRegNo: string;
+  readonly patientName: string;
+  /** ISO-8601 YYYY-MM-DD */
+  readonly issuedDate: string;
+  readonly kind: "paper" | "digital" | "abdm";
+  readonly imagePath: string | null;
+  readonly notes: string | null;
+}
+
+export interface RecordPrescriptionResult {
+  readonly rxId: string;
+  readonly doctorId: string;
+  readonly retentionUntil: string;
+}
+
+export class RxInvalidInputError extends Error {
+  readonly field: string;
+  constructor(field: string) {
+    super(`RX_INVALID_INPUT:${field}`);
+    this.name = "RxInvalidInputError";
+    this.field = field;
+  }
+}
+
+export function recordPrescription(
+  db: Database.Database,
+  input: RecordPrescriptionInput,
+): RecordPrescriptionResult {
+  if (input.doctorName.trim().length < 2) throw new RxInvalidInputError("doctorName");
+  if (input.doctorRegNo.trim().length === 0) throw new RxInvalidInputError("doctorRegNo");
+  if (input.patientName.trim().length < 2) throw new RxInvalidInputError("patientName");
+  if (!["paper", "digital", "abdm"].includes(input.kind)) throw new RxInvalidInputError("kind");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.issuedDate)) throw new RxInvalidInputError("issuedDate");
+
+  const txn = db.transaction(() => {
+    const existing = db.prepare(
+      "SELECT id FROM doctors WHERE reg_no = ?",
+    ).get(input.doctorRegNo.trim()) as { id: string } | undefined;
+
+    let doctorId: string;
+    if (existing) {
+      doctorId = existing.id;
+      db.prepare("UPDATE doctors SET name = ? WHERE id = ?").run(input.doctorName.trim(), doctorId);
+    } else {
+      doctorId = `d_${Date.now()}`;
+      db.prepare("INSERT INTO doctors (id, reg_no, name) VALUES (?, ?, ?)").run(
+        doctorId,
+        input.doctorRegNo.trim(),
+        input.doctorName.trim(),
+      );
+    }
+
+    const rxId = `rx_${Date.now()}`;
+    const noteBody = input.notes && input.notes.trim().length > 0
+      ? `patient: ${input.patientName.trim()} | ${input.notes.trim()}`
+      : `patient: ${input.patientName.trim()}`;
+
+    db.prepare(
+      "INSERT INTO prescriptions (id, shop_id, customer_id, doctor_id, kind, image_path, issued_date, notes) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      rxId,
+      input.shopId,
+      input.customerId,
+      doctorId,
+      input.kind,
+      input.imagePath,
+      input.issuedDate,
+      noteBody,
+    );
+
+    const retention = db.prepare(
+      "SELECT retention_until FROM prescriptions WHERE id = ?",
+    ).get(rxId) as { retention_until: string };
+
+    return { rxId, doctorId, retentionUntil: retention.retention_until };
+  });
+
+  return txn();
 }
