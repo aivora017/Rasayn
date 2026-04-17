@@ -16,6 +16,8 @@ import {
   listProductsRpc,
   upsertProductRpc,
   deactivateProductRpc,
+  attachProductImageRpc,
+  getProductImageRpc,
   type ProductRow,
   type ProductWriteDTO,
 } from "../lib/ipc.js";
@@ -25,6 +27,21 @@ import {
   type DrugSchedule,
   type GstRate,
 } from "@pharmacare/shared-types";
+import { validate } from "@pharmacare/sku-images";
+
+const ACTOR_USER_ID = "user_sourav_owner";
+
+/** Convert a Uint8Array to base64 safely (chunked to avoid
+ * String.fromCharCode(...) stack blow-ups on large arrays). */
+function u8ToB64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const slice = bytes.subarray(i, Math.min(i + chunk, bytes.length));
+    bin += String.fromCharCode.apply(null, Array.from(slice) as number[]);
+  }
+  return btoa(bin);
+}
 
 type FormState = {
   id?: string;
@@ -39,6 +56,9 @@ type FormState = {
   mrpRupees: string;
   nppaMaxRupees: string;
   imageSha256: string;
+  imageBytesB64: string | null;
+  imageReportedMime: string | null;
+  imagePreviewSrc: string | null;
 };
 
 const EMPTY: FormState = {
@@ -53,6 +73,9 @@ const EMPTY: FormState = {
   mrpRupees: "",
   nppaMaxRupees: "",
   imageSha256: "",
+  imageBytesB64: null,
+  imageReportedMime: null,
+  imagePreviewSrc: null,
 };
 
 function rupeesToPaise(s: string): number | null {
@@ -116,10 +139,33 @@ export function ProductMasterScreen(): JSX.Element {
       mrpRupees: paiseToRupees(r.mrpPaise),
       nppaMaxRupees: paiseToRupees(r.nppaMaxMrpPaise),
       imageSha256: r.imageSha256 ?? "",
+      imageBytesB64: null,
+      imageReportedMime: null,
+      imagePreviewSrc: null,
     });
     setErrs([]);
     setMsg(null);
     setTimeout(() => firstFieldRef.current?.focus(), 0);
+    // Asynchronously fetch the stored image (if any) so the owner can see it
+    // without having to re-upload. We only populate the preview; we do NOT
+    // seed imageBytesB64 because there is no need to re-attach an unchanged
+    // image on save.
+    void (async () => {
+      try {
+        const existing = await getProductImageRpc(r.id);
+        if (existing !== null) {
+          setForm((prev) => {
+            if (!prev || prev.id !== r.id) return prev;
+            return {
+              ...prev,
+              imagePreviewSrc: `data:${existing.mime};base64,${existing.bytesB64}`,
+            };
+          });
+        }
+      } catch {
+        // Non-fatal — the owner can still pick a new image.
+      }
+    })();
   }, []);
 
   const submit = useCallback(async () => {
@@ -153,8 +199,29 @@ export function ProductMasterScreen(): JSX.Element {
     setErrs([]);
     try {
       const saved = await upsertProductRpc(dto);
-      setMsg(`saved: ${saved.name}`);
-      setForm(null);
+      // If the owner picked a new image this session, attach it AFTER the
+      // upsert so we have a productId. Attach failure must not mask the
+      // successful product save.
+      let attachWarning: string | null = null;
+      if (form.imageBytesB64 !== null) {
+        try {
+          await attachProductImageRpc({
+            productId: saved.id,
+            bytesB64: form.imageBytesB64,
+            reportedMime: form.imageReportedMime,
+            actorUserId: ACTOR_USER_ID,
+          });
+        } catch (attachErr) {
+          attachWarning = attachErr instanceof Error ? attachErr.message : String(attachErr);
+        }
+      }
+      if (attachWarning !== null) {
+        setMsg(`saved: ${saved.name} (image attach failed: ${attachWarning})`);
+        setErrs([`image attach failed: ${attachWarning}`]);
+      } else {
+        setMsg(`saved: ${saved.name}`);
+        setForm(null);
+      }
       await reload();
     } catch (e) {
       setErrs([e instanceof Error ? e.message : String(e)]);
@@ -333,12 +400,92 @@ export function ProductMasterScreen(): JSX.Element {
             value={form.nppaMaxRupees}
             onChange={(e) => setForm({ ...form, nppaMaxRupees: e.target.value })}
           /></label>
-          <label style={{ gridColumn: "span 2" }}>Image SHA-256 {(form.schedule === "H" || form.schedule === "H1" || form.schedule === "X") && <span className="req">(required for Schedule {form.schedule})</span>}
-            <input
-              value={form.imageSha256}
-              onChange={(e) => setForm({ ...form, imageSha256: e.target.value })}
-            />
-          </label>
+          <div style={{ gridColumn: "span 2" }} className="pm-image-field">
+            <label>
+              Product image
+              {(form.schedule === "H" || form.schedule === "H1" || form.schedule === "X") && (
+                <span className="req"> (required for Schedule {form.schedule})</span>
+              )}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                data-testid="pm-image-file"
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  // Reset the input so selecting the same file again still fires.
+                  e.target.value = "";
+                  if (!f) return;
+                  void (async () => {
+                    try {
+                      const buf = await f.arrayBuffer();
+                      const bytes = new Uint8Array(buf);
+                      const result = await validate({ bytes, reportedMime: f.type });
+                      if (!result.ok) {
+                        setErrs(result.errors.map((er) => er.message));
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                imageBytesB64: null,
+                                imageReportedMime: null,
+                                imagePreviewSrc: null,
+                                imageSha256: "",
+                              }
+                            : prev,
+                        );
+                        return;
+                      }
+                      const b64 = u8ToB64(bytes);
+                      setErrs([]);
+                      setForm((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              imageBytesB64: b64,
+                              imageReportedMime: f.type || result.metadata.mime,
+                              imageSha256: result.metadata.sha256,
+                              imagePreviewSrc: `data:${result.metadata.mime};base64,${b64}`,
+                            }
+                          : prev,
+                      );
+                    } catch (err) {
+                      setErrs([err instanceof Error ? err.message : String(err)]);
+                    }
+                  })();
+                }}
+              />
+            </label>
+            {form.imagePreviewSrc && (
+              <img
+                data-testid="pm-image-preview"
+                src={form.imagePreviewSrc}
+                alt="Product image preview"
+                style={{ width: 96, height: 96, objectFit: "contain", display: "block", marginTop: 4 }}
+              />
+            )}
+            <div style={{ marginTop: 4, fontSize: "0.85em" }}>
+              SHA-256: <code data-testid="pm-image-sha">{form.imageSha256 || "(none)"}</code>
+            </div>
+            <button
+              type="button"
+              data-testid="pm-image-clear"
+              onClick={() => {
+                setForm((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        imageBytesB64: null,
+                        imageReportedMime: null,
+                        imagePreviewSrc: null,
+                        imageSha256: "",
+                      }
+                    : prev,
+                );
+              }}
+            >
+              Clear image
+            </button>
+          </div>
 
           {errs.length > 0 && (
             <ul className="form-errors" role="alert" data-testid="pm-errors">
