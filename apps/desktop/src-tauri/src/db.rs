@@ -37,6 +37,16 @@ pub const MIGRATION_0005: &str =
     include_str!("../../../../packages/shared-db/migrations/0005_oauth_and_audit.sql");
 pub const MIGRATION_0006: &str =
     include_str!("../../../../packages/shared-db/migrations/0006_products_nppa_cap.sql");
+pub const MIGRATION_0007: &str =
+    include_str!("../../../../packages/shared-db/migrations/0007_a2_batch_stock.sql");
+pub const MIGRATION_0008: &str =
+    include_str!("../../../../packages/shared-db/migrations/0008_hsn_prefix.sql");
+pub const MIGRATION_0009: &str =
+    include_str!("../../../../packages/shared-db/migrations/0009_a3_customer_master.sql");
+pub const MIGRATION_0010: &str =
+    include_str!("../../../../packages/shared-db/migrations/0010_payments.sql");
+pub const MIGRATION_0011: &str =
+    include_str!("../../../../packages/shared-db/migrations/0011_expiry_override_audit.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -97,7 +107,61 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
+    if !applied(7, conn) {
+        conn.execute_batch(MIGRATION_0007)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (7, '0007_a2_batch_stock')",
+            [],
+        )?;
+    }
+    if !applied(8, conn) {
+        conn.execute_batch(MIGRATION_0008)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (8, '0008_hsn_prefix')",
+            [],
+        )?;
+    }
+    if !applied(9, conn) {
+        conn.execute_batch(MIGRATION_0009)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (9, '0009_a3_customer_master')",
+            [],
+        )?;
+    }
+    if !applied(10, conn) {
+        conn.execute_batch(MIGRATION_0010)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (10, '0010_payments')",
+            [],
+        )?;
+    }
+    if !applied(11, conn) {
+        conn.execute_batch(MIGRATION_0011)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (11, '0011_expiry_override_audit')",
+            [],
+        )?;
+    }
     ensure_default_shop(conn)?;
+    ensure_default_user(conn)?;
+    Ok(())
+}
+
+/// Seed a default owner user `user_sourav_owner` on fresh installs.
+/// A13 (expiry override) needs a known-role actor to gate owner-only overrides.
+/// Pilot deployments are single-user (owner), so this is enough; multi-staff
+/// deployments add users via an admin screen (future).
+///
+/// Idempotent: only inserts when `users` is empty.
+pub fn ensure_default_user(conn: &Connection) -> Result<()> {
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0))?;
+    if count == 0 {
+        conn.execute(
+            "INSERT INTO users (id, shop_id, name, role, pin_hash, is_active)
+             VALUES ('user_sourav_owner', 'shop_local', 'Owner', 'owner', 'seed-no-pin', 1)",
+            [],
+        )?;
+    }
     Ok(())
 }
 

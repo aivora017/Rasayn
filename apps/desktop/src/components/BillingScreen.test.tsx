@@ -286,3 +286,183 @@ describe("BillingScreen · A6 F7 batch override", () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// A13 (ADR 0013) · Expiry guard UI tests
+// ---------------------------------------------------------------------------
+
+function isoDaysFromNow(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function handlerWithBatch(
+  batchForPick: BatchPick,
+  user: { id: string; name: string; role: "owner" | "cashier" | "pharmacist" | "viewer"; isActive: boolean } | null,
+  overrideResult: { auditId: string; daysPastExpiry: number } = { auditId: "eo_test_123", daysPastExpiry: -20 },
+  calls?: IpcCall[],
+) {
+  return async (call: IpcCall) => {
+    calls?.push(call);
+    if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
+    if (call.cmd === "db_version") return 2;
+    if (call.cmd === "search_products") {
+      const q = call.args.q.toLowerCase();
+      return FIXTURES.filter((f) => f.name.toLowerCase().includes(q));
+    }
+    if (call.cmd === "pick_fefo_batch") return batchForPick;
+    if (call.cmd === "list_fefo_candidates") return [batchForPick];
+    if (call.cmd === "save_bill") return { billId: "bill_a13", grandTotalPaise: 11200, linesInserted: 1 };
+    if (call.cmd === "user_get") return user;
+    if (call.cmd === "record_expiry_override") return overrideResult;
+    if (call.cmd === "search_customers") return [];
+    if (call.cmd === "list_prescriptions") return [];
+    if (call.cmd === "list_stock") return [];
+    return null;
+  };
+}
+
+describe("BillingScreen · A13 expiry guard", () => {
+  beforeEach(() => { _resetPendingGrnDraftForTests(); });
+
+  it("shows a red chip on lines whose batch expires within 30 days", async () => {
+    const user = userEvent.setup();
+    const nearBatch: BatchPick = { id: "b_near", batchNo: "N001", expiryDate: isoDaysFromNow(15), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(nearBatch, owner));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+
+    const chip = await screen.findByTestId("line-expiry-chip-0");
+    expect(chip).toBeInTheDocument();
+    expect(chip.getAttribute("data-tone")).toBe("red");
+  });
+
+  it("shows an amber chip for 31..90 day window", async () => {
+    const user = userEvent.setup();
+    const amberBatch: BatchPick = { id: "b_amber", batchNo: "A060", expiryDate: isoDaysFromNow(60), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(amberBatch, owner));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+
+    const chip = await screen.findByTestId("line-expiry-chip-0");
+    expect(chip.getAttribute("data-tone")).toBe("amber");
+    // Amber lines should NOT open the override modal.
+    expect(screen.queryByTestId("expiry-override-modal")).not.toBeInTheDocument();
+  });
+
+  it("hard-blocks an expired batch — toast, no line added", async () => {
+    const user = userEvent.setup();
+    const expired: BatchPick = { id: "b_exp", batchNo: "X999", expiryDate: isoDaysFromNow(-1), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(expired, owner));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await user.type(screen.getByTestId("product-search"), "croc");
+    await screen.findByTestId("search-dropdown");
+    await user.keyboard("{Enter}");
+
+    // Toast appears, line is NOT added.
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent?.toLowerCase()).toMatch(/expired|return-to-supplier/),
+    );
+    expect(screen.queryByTestId("line-batch-0")).not.toBeInTheDocument();
+  });
+
+  it("opens the override modal for a near-expiry batch", async () => {
+    const user = userEvent.setup();
+    const near: BatchPick = { id: "b_near", batchNo: "N001", expiryDate: isoDaysFromNow(20), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(near, owner));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+
+    const modal = await screen.findByTestId("expiry-override-modal");
+    expect(modal).toBeInTheDocument();
+    // Days-to-expiry display.
+    expect(screen.getByTestId("expiry-override-days").textContent).toMatch(/20 day/);
+  });
+
+  it("owner enters reason + confirms → line persists and override is recorded", async () => {
+    const user = userEvent.setup();
+    const near: BatchPick = { id: "b_near", batchNo: "N001", expiryDate: isoDaysFromNow(20), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    const calls: IpcCall[] = [];
+    setIpcHandler(handlerWithBatch(near, owner, { auditId: "eo_new", daysPastExpiry: -20 }, calls));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    await screen.findByTestId("expiry-override-modal");
+
+    await user.type(screen.getByTestId("expiry-override-reason"), "urgent, alt batch OOS");
+    await user.click(screen.getByTestId("expiry-override-confirm"));
+
+    await waitFor(() => expect(screen.queryByTestId("expiry-override-modal")).not.toBeInTheDocument());
+    // Line still in the DOM (not stripped).
+    expect(screen.getByTestId("line-batch-0")).toBeInTheDocument();
+    // IPC: record_expiry_override was called with trimmed reason + owner id.
+    const rec = calls.find((c) => c.cmd === "record_expiry_override");
+    expect(rec).toBeTruthy();
+    if (rec && rec.cmd === "record_expiry_override") {
+      expect(rec.args.input.batchId).toBe("b_near");
+      expect(rec.args.input.actorUserId).toBe("user_sourav_owner");
+      expect(rec.args.input.reason).toBe("urgent, alt batch OOS");
+    }
+  });
+
+  it("confirm button stays disabled when reason < 4 chars", async () => {
+    const user = userEvent.setup();
+    const near: BatchPick = { id: "b_near", batchNo: "N001", expiryDate: isoDaysFromNow(20), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(near, owner));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    await screen.findByTestId("expiry-override-modal");
+
+    await user.type(screen.getByTestId("expiry-override-reason"), "ab");
+    expect((screen.getByTestId("expiry-override-confirm") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("non-owner cannot confirm — role-warn banner is shown, button stays disabled", async () => {
+    const user = userEvent.setup();
+    const near: BatchPick = { id: "b_near", batchNo: "N001", expiryDate: isoDaysFromNow(20), qtyOnHand: 30, mrpPaise: 11200 };
+    const cashier = { id: "user_cashier", name: "Kajal", role: "cashier" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(near, cashier));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    await screen.findByTestId("expiry-override-modal");
+
+    expect(screen.getByTestId("expiry-override-role-warn")).toBeInTheDocument();
+    expect((screen.getByTestId("expiry-override-confirm") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("cancelling the override removes the offending line", async () => {
+    const user = userEvent.setup();
+    const near: BatchPick = { id: "b_near", batchNo: "N001", expiryDate: isoDaysFromNow(20), qtyOnHand: 30, mrpPaise: 11200 };
+    const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+    setIpcHandler(handlerWithBatch(near, owner));
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    await screen.findByTestId("expiry-override-modal");
+
+    await user.click(screen.getByTestId("expiry-override-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("expiry-override-modal")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("line-batch-0")).not.toBeInTheDocument();
+  });
+});

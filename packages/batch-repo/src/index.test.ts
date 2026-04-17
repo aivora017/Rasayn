@@ -318,3 +318,49 @@ describe("batch-repo · commitAllocations", () => {
     expect(auditLedger(db)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A13 (ADR 0013) · getNearestExpiryForProduct
+// ---------------------------------------------------------------------------
+import { getNearestExpiryForProduct, daysBetween } from "./index.js";
+
+describe("batch-repo · A13 · daysBetween", () => {
+  it("returns 0 when dates are identical", () => {
+    expect(daysBetween("2026-04-17", "2026-04-17")).toBe(0);
+  });
+  it("returns positive days for a future date", () => {
+    expect(daysBetween("2026-04-17", "2026-05-17")).toBe(30);
+  });
+  it("returns negative days for a past date", () => {
+    expect(daysBetween("2026-04-17", "2026-04-01")).toBe(-16);
+  });
+  it("returns NaN for malformed input", () => {
+    expect(Number.isNaN(daysBetween("not-a-date", "2026-05-01"))).toBe(true);
+  });
+});
+
+describe("batch-repo · A13 · getNearestExpiryForProduct", () => {
+  it("returns the FEFO-oldest in-stock batch with days_to_expiry", () => {
+    const db = fixture();
+    const s = getNearestExpiryForProduct(db, "p_para" as ProductId, "2026-04-17");
+    expect(s).not.toBeNull();
+    expect(s!.batchNo).toBe("A001");
+    expect(s!.expiryDate).toBe(FAR_FUTURE_1);
+    // FAR_FUTURE_1 = 2027-06-30 → 439 days from 2026-04-17.
+    expect(s!.daysToExpiry).toBe(439);
+  });
+
+  it("returns null when no in-stock batch exists", () => {
+    const db = fixture();
+    db.prepare("UPDATE batches SET qty_on_hand = 0 WHERE product_id = 'p_para'").run();
+    expect(getNearestExpiryForProduct(db, "p_para" as ProductId)).toBeNull();
+  });
+
+  it("skips zero-stock batches", () => {
+    const db = fixture();
+    // Zero out both oldest-tied batches → FEFO should fall through to A010.
+    db.prepare("UPDATE batches SET qty_on_hand = 0 WHERE id IN ('b_f1','b_f1b')").run();
+    const s = getNearestExpiryForProduct(db, "p_para" as ProductId, "2026-04-17");
+    expect(s!.batchNo).toBe("A010");
+  });
+});

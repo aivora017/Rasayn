@@ -153,6 +153,44 @@ export class TenderMismatchError extends Error {
   }
 }
 
+/** A13 (ADR 0013) · A sale line pointed at a batch whose expiry_date has
+ *  already passed. Hard block — no override possible (Hard Rule 9 / D&C
+ *  Act s.27). */
+export class ExpiredBatchError extends Error {
+  public readonly batchId: string;
+  public readonly expiryDate: string;
+  public readonly daysPastExpiry: number;
+  constructor(batchId: string, expiryDate: string, daysPastExpiry: number) {
+    super(
+      `Expired batch sale blocked: batch ${batchId} expired ${expiryDate} ` +
+      `(${daysPastExpiry} day(s) past expiry)`,
+    );
+    this.name = "ExpiredBatchError";
+    this.batchId = batchId;
+    this.expiryDate = expiryDate;
+    this.daysPastExpiry = daysPastExpiry;
+  }
+}
+
+/** A13 (ADR 0013) · A sale line points at a batch that expires within the next
+ *  30 days and no matching owner-override audit row exists in the last 10 min
+ *  for this batch + cashier. UI must prompt OwnerOverrideModal before retrying. */
+export class NearExpiryNoOverrideError extends Error {
+  public readonly batchId: string;
+  public readonly expiryDate: string;
+  public readonly daysToExpiry: number;
+  constructor(batchId: string, expiryDate: string, daysToExpiry: number) {
+    super(
+      `Near-expiry batch requires owner override: batch ${batchId} expires ` +
+      `${expiryDate} (${daysToExpiry} day(s) to expiry)`,
+    );
+    this.name = "NearExpiryNoOverrideError";
+    this.batchId = batchId;
+    this.expiryDate = expiryDate;
+    this.daysToExpiry = daysToExpiry;
+  }
+}
+
 // ---- Internal helpers ------------------------------------------------------
 
 interface ProductMeta {
@@ -288,6 +326,39 @@ export function saveBill(
   const computed = computeBill(db, input);
   const { treatment, lines, totals } = computed;
 
+  // A13 (ADR 0013) · Defensive expiry re-check — server-trust-no-client.
+  //   * days_to_expiry <= 0  → hard block (ExpiredBatchError).
+  //   * 0 < days <= 30       → require owner-override audit row within last
+  //                            10 min keyed by (batch_id, cashier_id).
+  //   * days > 30            → pass.
+  // Runs BEFORE the write txn so the DB trigger `trg_bill_lines_block_expired`
+  // is never reached with a violating row. We still rely on that trigger as a
+  // belt-and-braces net; it is not a substitute for this check because it
+  // cannot distinguish "expired" from "near-expiry-with-override".
+  for (const r of lines) {
+    const row = db.prepare(
+      "SELECT expiry_date, " +
+      "CAST(julianday(expiry_date) - julianday('now') AS REAL) AS days_raw " +
+      "FROM batches WHERE id = ?",
+    ).get(r.batchId) as { expiry_date: string; days_raw: number } | undefined;
+    if (!row) throw new Error(`bill-repo: batch ${r.batchId} not found at expiry re-check`);
+
+    const days = Math.floor(row.days_raw);
+    if (days <= 0) {
+      throw new ExpiredBatchError(r.batchId, row.expiry_date, -days);
+    }
+    if (days <= 30) {
+      const ok = db.prepare(
+        "SELECT COUNT(*) AS c FROM expiry_override_audit " +
+        "WHERE batch_id = ? AND actor_user_id = ? " +
+        "AND created_at > datetime('now','-10 minutes')",
+      ).get(r.batchId, input.cashierId) as { c: number };
+      if (ok.c === 0) {
+        throw new NearExpiryNoOverrideError(r.batchId, row.expiry_date, days);
+      }
+    }
+  }
+
   // A8 (ADR 0012) · Resolve tenders:
   // - empty/undefined → single tender = full grand_total in declared paymentMode
   // - one row         → same (mode = row.mode, paymentMode = row.mode)
@@ -342,9 +413,17 @@ export function saveBill(
               @disc_pct, @disc, @taxable, @rate,
               @cgst, @sgst, @igst, @cess, @total)
     `);
+    const stampOverride = db.prepare(
+      "UPDATE expiry_override_audit " +
+      "   SET bill_line_id = ?, bill_no = ? " +
+      " WHERE batch_id = ? AND actor_user_id = ? " +
+      "   AND bill_line_id IS NULL " +
+      "   AND created_at > datetime('now','-10 minutes')",
+    );
     lines.forEach((r, i) => {
+      const lineId = `${billId}_l${i + 1}`;
       insertLine.run({
-        id: `${billId}_l${i + 1}`,
+        id: lineId,
         bill_id: billId,
         product_id: r.input.productId,
         batch_id: r.batchId,
@@ -360,6 +439,11 @@ export function saveBill(
         cess: r.tax.cessPaise,
         total: r.tax.lineTotalPaise,
       });
+      // A13 · Stamp the over-ride audit row with the bill_line_id + bill_no
+      // that actually consumed it. Narrow UPDATE: only the latest unstamped
+      // row for this batch+cashier gets the link, so repeated same-batch
+      // sales don't accidentally share one audit row.
+      stampOverride.run(lineId, input.billNo, r.batchId, input.cashierId);
     });
 
     const insertPayment = db.prepare(`
@@ -442,4 +526,114 @@ export function listPaymentsByBillId(
     refNo: r.ref_no,
     createdAt: r.created_at,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// A13 · recordExpiryOverride (ADR 0013)
+// ---------------------------------------------------------------------------
+// TS mirror of Rust `record_expiry_override`. Writes a row to
+// expiry_override_audit that unblocks exactly one pending near-expiry line
+// (matched later, inside saveBill's txn, by (batch_id, actor_user_id, last 10m)).
+//
+// Contract enforced here (defence-in-depth; DB has CHECK(reason length>=4)
+// but not role/expiry):
+//   * reason must be >= 4 non-whitespace chars      → REASON_TOO_SHORT
+//   * acting user must exist and have role='owner'  → OVERRIDE_FORBIDDEN
+//   * batch must not already be expired (days > 0)  → EXPIRED_BATCH_NOT_OVERRIDABLE
+//
+// Return value gives UI the audit_id + days_past_expiry (negative = days to
+// expiry; positive = already expired, but we reject that above) so the
+// override chip can show "Overridden (4d to expiry)".
+// ---------------------------------------------------------------------------
+
+export interface ExpiryOverrideInput {
+  readonly batchId: BatchId;
+  readonly actorUserId: string;
+  readonly reason: string;
+}
+
+export interface ExpiryOverrideResult {
+  readonly auditId: string;
+  readonly daysPastExpiry: number;
+}
+
+export class ExpiryOverrideReasonTooShortError extends Error {
+  constructor() {
+    super("REASON_TOO_SHORT:min=4");
+    this.name = "ExpiryOverrideReasonTooShortError";
+  }
+}
+
+export class ExpiryOverrideForbiddenError extends Error {
+  public readonly actorRole: string;
+  constructor(actorRole: string) {
+    super(`OVERRIDE_FORBIDDEN:role=${actorRole}`);
+    this.name = "ExpiryOverrideForbiddenError";
+    this.actorRole = actorRole;
+  }
+}
+
+export class ExpiryOverrideNotNeededError extends Error {
+  public readonly batchId: string;
+  public readonly expiryDate: string;
+  public readonly daysPastExpiry: number;
+  constructor(batchId: string, expiryDate: string, daysPastExpiry: number) {
+    super(
+      `EXPIRED_BATCH_NOT_OVERRIDABLE:batch=${batchId}:expiry=${expiryDate}:` +
+      `days_past=${daysPastExpiry}`,
+    );
+    this.name = "ExpiryOverrideNotNeededError";
+    this.batchId = batchId;
+    this.expiryDate = expiryDate;
+    this.daysPastExpiry = daysPastExpiry;
+  }
+}
+
+export function recordExpiryOverride(
+  db: Database.Database,
+  input: ExpiryOverrideInput,
+): ExpiryOverrideResult {
+  if (input.reason.trim().length < 4) {
+    throw new ExpiryOverrideReasonTooShortError();
+  }
+
+  const u = db
+    .prepare("SELECT role FROM users WHERE id = ? AND is_active = 1")
+    .get(input.actorUserId) as { role: string } | undefined;
+  if (!u) throw new ExpiryOverrideForbiddenError("unknown");
+  if (u.role !== "owner") throw new ExpiryOverrideForbiddenError(u.role);
+
+  const b = db
+    .prepare(
+      "SELECT expiry_date, " +
+      "CAST(julianday('now') - julianday(expiry_date) AS REAL) AS past " +
+      "FROM batches WHERE id = ?",
+    )
+    .get(input.batchId) as { expiry_date: string; past: number } | undefined;
+  if (!b) throw new Error(`bill-repo: batch ${input.batchId} not found`);
+
+  // days_past >= 0 means already expired; override is not a legal escape
+  // hatch for that — must be scrapped via return-to-supplier flow.
+  const daysPast = Math.floor(b.past);
+  if (daysPast >= 0) {
+    throw new ExpiryOverrideNotNeededError(input.batchId, b.expiry_date, daysPast);
+  }
+
+  const auditId = `eo_${input.batchId}_${Date.now()}`;
+  db.prepare(
+    "INSERT INTO expiry_override_audit " +
+    "(id, product_id, batch_id, actor_user_id, actor_role, reason, days_past_expiry) " +
+    "SELECT ?, b.product_id, ?, ?, ?, ?, ? " +
+    "  FROM batches b WHERE b.id = ?",
+  ).run(
+    auditId,
+    input.batchId,
+    input.actorUserId,
+    u.role,
+    input.reason.trim(),
+    daysPast,
+    input.batchId,
+  );
+
+  return { auditId, daysPastExpiry: daysPast };
 }

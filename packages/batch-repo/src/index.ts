@@ -296,3 +296,71 @@ export function auditLedger(db: Database.Database): LedgerDiscrepancy[] {
       ledgerSum: r.ledger_sum,
     }));
 }
+
+
+// -- A13 · Expiry guard lookup -----------------------------------------------
+/** Nearest-expiry batch for a product. Returned even if past expiry — the UI
+ *  uses `daysToExpiry` to decide hard-block / owner-override / amber / none. */
+export interface ExpiryStatus {
+  readonly batchId: BatchId;
+  readonly batchNo: string;
+  readonly expiryDate: string;     // YYYY-MM-DD
+  readonly daysToExpiry: number;   // negative when past expiry
+  readonly qtyOnHand: number;
+}
+
+/** Compute integer days between two ISO dates, treating each as midnight UTC.
+ *  Negative when `future` < `ref`. Pure — exported for testing. */
+export function daysBetween(refIso: string, futureIso: string): number {
+  const MS_PER_DAY = 86_400_000;
+  const r = Date.parse(refIso + "T00:00:00Z");
+  const f = Date.parse(futureIso + "T00:00:00Z");
+  if (!Number.isFinite(r) || !Number.isFinite(f)) return NaN;
+  return Math.round((f - r) / MS_PER_DAY);
+}
+
+/** Find the next FEFO-sellable batch for `productId`: soonest-expiring with
+ *  qty_on_hand > 0 AND expiry_date >= today. Already-expired batches are
+ *  excluded — they are hard-blocked at the save path by the trg_bill_lines
+ *  trigger and the A13 pre-txn gate, so any UI surface should reflect the
+ *  actual sellable state.
+ *
+ *  `todayIso` lets callers pin a deterministic reference date (tests, or the
+ *  IST date surfaced by the renderer clock). Defaults to DB clock ('now').
+ *
+ *  Index support: `idx_batches_product_expiry(product_id, expiry_date)` from
+ *  migration 0007 keeps this at O(log n) per product. A13 perf gate <50 ms. */
+export function getNearestExpiryForProduct(
+  db: Database.Database,
+  productId: ProductId,
+  todayIso?: string,
+): ExpiryStatus | null {
+  const ref = todayIso ??
+    (db.prepare("SELECT strftime('%Y-%m-%d','now') AS d").get() as { d: string }).d;
+  const row = db
+    .prepare(
+      `SELECT id, batch_no, expiry_date, qty_on_hand
+         FROM batches
+        WHERE product_id = ?
+          AND qty_on_hand > 0
+          AND expiry_date >= ?
+        ORDER BY expiry_date ASC, batch_no ASC
+        LIMIT 1`,
+    )
+    .get(productId, ref) as
+    | {
+        id: string;
+        batch_no: string;
+        expiry_date: string;
+        qty_on_hand: number;
+      }
+    | undefined;
+  if (!row) return null;
+  return {
+    batchId: row.id as BatchId,
+    batchNo: row.batch_no,
+    expiryDate: row.expiry_date,
+    qtyOnHand: row.qty_on_hand,
+    daysToExpiry: daysBetween(ref, row.expiry_date),
+  };
+}

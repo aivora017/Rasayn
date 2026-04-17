@@ -3,14 +3,30 @@ import { formatINR, type Paise, type GstRate } from "@pharmacare/shared-types";
 import { computeLine, computeInvoice, inferTreatment } from "@pharmacare/gst-engine";
 import { ProductSearch } from "./ProductSearch.js";
 import { PaymentModal } from "./PaymentModal.js";
+import { OwnerOverrideModal, type ExpiryOverrideTarget } from "./OwnerOverrideModal.js";
 import {
   pickFefoBatchRpc, listFefoCandidatesRpc, saveBillRpc,
   searchCustomersRpc, listPrescriptionsRpc, createPrescriptionRpc, upsertDoctorRpc,
+  userGetRpc,
   type ProductHit, type BatchPick, type SaveBillInput,
-  type Customer, type Prescription, type Tender,
+  type Customer, type Prescription, type Tender, type UserDTO,
+  type ExpiryOverrideResultDTO,
 } from "../lib/ipc.js";
 
 const RX_REQUIRED = new Set(["H", "H1", "X", "NDPS"]);
+
+// A13 (ADR 0013) · Expiry thresholds. Warn amber at 90d, red at 30d; block
+// hard at 0d. These are mirrored in the chip rendering below.
+const EXPIRY_RED_DAYS = 30;
+const EXPIRY_AMBER_DAYS = 90;
+
+function daysBetweenIso(todayIso: string, futureIso: string): number {
+  const MS_PER_DAY = 86_400_000;
+  const a = Date.parse(todayIso + "T00:00:00Z");
+  const b = Date.parse(futureIso + "T00:00:00Z");
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return Number.NaN;
+  return Math.round((b - a) / MS_PER_DAY);
+}
 
 interface DraftLine {
   readonly id: string;
@@ -45,6 +61,13 @@ export function BillingScreen() {
   const [toast, setToast] = useState<Toast>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
+  // A13 · Expiry override state. `overrideTarget` drives the modal; the
+  // resolved `ExpiryOverrideResultDTO` is stashed on the line to prove to the
+  // save-time re-check that we don't need to re-prompt.
+  const [currentUser, setCurrentUser] = useState<UserDTO | null>(null);
+  const [overrideTarget, setOverrideTarget] = useState<ExpiryOverrideTarget | null>(null);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+
   // A6 · F7 batch override (ADR 0010 §2) — targets last-added line.
   const [batchPickerOpen, setBatchPickerOpen] = useState(false);
   const [batchCandidates, setBatchCandidates] = useState<readonly BatchPick[]>([]);
@@ -74,6 +97,16 @@ export function BillingScreen() {
     el?.focus();
     el?.select();
   }, []);
+
+  // A13 · Load acting user on mount so role gating (owner-only override) is
+  // available immediately. Falls back to null if the seed user row is absent —
+  // the override modal explicitly surfaces this (role-warn banner).
+  useEffect(() => {
+    let live = true;
+    void userGetRpc(SHOP.cashierId).then((u) => { if (live) setCurrentUser(u); });
+    return () => { live = false; };
+  }, []);
+
 
 
   const rxRequired = useMemo(() => lines.some((l) => RX_REQUIRED.has(l.schedule)), [lines]);
@@ -127,6 +160,22 @@ export function BillingScreen() {
 
   const onPick = useCallback(async (h: ProductHit) => {
     const batch = await pickFefoBatchRpc(h.id);
+
+    // A13 · Compute days-to-expiry client-side for the FEFO batch. Expired =>
+    // hard-block, toast, do not add the line. Near-expiry (<=30d) => add the
+    // line AND open the owner override modal so save_bill will accept it.
+    if (batch) {
+      const today = new Date().toISOString().slice(0, 10);
+      const days = daysBetweenIso(today, batch.expiryDate);
+      if (Number.isFinite(days) && days <= 0) {
+        setToast({
+          kind: "err",
+          msg: `Cannot sell ${h.name}: batch ${batch.batchNo} expired on ${batch.expiryDate}. Mark for return-to-supplier.`,
+        });
+        return;
+      }
+    }
+
     setLines((prev) => [
       ...prev,
       {
@@ -141,7 +190,52 @@ export function BillingScreen() {
         schedule: h.schedule,
       },
     ]);
+
+    // A13 · If the FEFO batch is within 1..=30 days of expiry, require an
+    // owner override before the bill can be saved. The modal's success handler
+    // sets an audit row server-side; save_bill will match on (batch, cashier,
+    // last 10 min).
+    if (batch) {
+      const today = new Date().toISOString().slice(0, 10);
+      const days = daysBetweenIso(today, batch.expiryDate);
+      if (Number.isFinite(days) && days > 0 && days <= EXPIRY_RED_DAYS) {
+        setOverrideTarget({
+          batchId: batch.id,
+          batchNo: batch.batchNo,
+          expiryDate: batch.expiryDate,
+          daysToExpiry: days,
+          productName: h.name,
+        });
+        setOverrideOpen(true);
+      }
+    }
   }, []);
+
+  // A13 · Override callbacks. onOverride: record the audit_id (handy for the
+  // future "show me who approved" audit drill-down) and close the modal.
+  // onOverrideCancel: remove the offending line so the cashier cannot proceed
+  // to save with a near-expiry batch and no audit row.
+  const onOverrideDone = useCallback((result: ExpiryOverrideResultDTO) => {
+    setOverrideOpen(false);
+    setToast({
+      kind: "ok",
+      msg: `Owner override recorded (audit ${result.auditId}).`,
+    });
+    setOverrideTarget(null);
+    focusProductSearch();
+  }, [focusProductSearch]);
+
+  const onOverrideCancel = useCallback(() => {
+    setOverrideOpen(false);
+    // Strip the last line (the one that triggered the modal) so save is blocked.
+    setLines((prev) => prev.slice(0, -1));
+    setOverrideTarget(null);
+    setToast({
+      kind: "err",
+      msg: "Near-expiry line removed — owner override required to sell this batch.",
+    });
+    focusProductSearch();
+  }, [focusProductSearch]);
 
   const computed = useMemo(() => {
     const treatment = inferTreatment("27", null, false);
@@ -550,7 +644,33 @@ export function BillingScreen() {
                     </td>
                     <td data-testid={`line-batch-${idx}`}>
                       {l.batch
-                        ? <span title={`Exp ${l.batch.expiryDate}`}>{l.batch.batchNo}</span>
+                        ? (() => {
+                            const today = new Date().toISOString().slice(0, 10);
+                            const days = daysBetweenIso(today, l.batch.expiryDate);
+                            const tone =
+                              !Number.isFinite(days) || days > EXPIRY_AMBER_DAYS ? "none"
+                                : days > EXPIRY_RED_DAYS ? "amber"
+                                  : "red";
+                            const bg = tone === "red" ? "#dc2626" : tone === "amber" ? "#b45309" : undefined;
+                            return (
+                              <>
+                                <span title={`Exp ${l.batch.expiryDate}`}>{l.batch.batchNo}</span>
+                                {tone !== "none" && (
+                                  <span
+                                    data-testid={`line-expiry-chip-${idx}`}
+                                    data-tone={tone}
+                                    style={{
+                                      marginLeft: 6, padding: "1px 6px", borderRadius: 3,
+                                      fontSize: 10, fontWeight: 700, color: "white",
+                                      background: bg,
+                                    }}
+                                  >
+                                    {days}d
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()
                         : <span style={{ color: "#ef4444" }}>No stock</span>}
                     </td>
                     <td>{formatINR(l.mrpPaise)}</td>
@@ -725,6 +845,14 @@ export function BillingScreen() {
         grandTotalPaise={computed.totals.grandTotalPaise}
         onConfirm={(tenders) => void doSave(tenders)}
         onCancel={() => setPaymentOpen(false)}
+      />
+
+      <OwnerOverrideModal
+        open={overrideOpen}
+        target={overrideTarget}
+        currentUser={currentUser}
+        onOverride={onOverrideDone}
+        onCancel={onOverrideCancel}
       />
     </div>
   );

@@ -222,7 +222,7 @@ describe("bill-repo · saveBill (transactional)", () => {
         { productId: "p_para", batchId: "b_a1", mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12 },
         { productId: "p_para", batchId: "b_ax", mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12 },
       ],
-    }))).toThrow(/expired batch/);
+    }))).toThrow(/expired batch/i);
 
     expect(readBill(db, "bill_003")).toBeUndefined();
     const stock: any = db.prepare("SELECT qty_on_hand FROM batches WHERE id='b_a1'").get();
@@ -426,5 +426,149 @@ describe("bill-repo · A8 payments", () => {
     expect(listPaymentsByBillId(db, "bill_p7").length).toBe(1);
     db.prepare("DELETE FROM bills WHERE id = ?").run("bill_p7");
     expect(listPaymentsByBillId(db, "bill_p7").length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A13 (ADR 0013) · Expiry guard tests
+// ---------------------------------------------------------------------------
+
+import {
+  ExpiredBatchError,
+  NearExpiryNoOverrideError,
+  ExpiryOverrideReasonTooShortError,
+  ExpiryOverrideForbiddenError,
+  ExpiryOverrideNotNeededError,
+  recordExpiryOverride,
+} from "./index.js";
+
+/** A fixture variant with a batch whose expiry falls inside the 30-day
+ *  warn window so the save_bill near-expiry gate engages. */
+function fixtureWithNearExpiry(daysFromNow: number): Database.Database {
+  const db = fixture();
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + daysFromNow);
+  const iso = d.toISOString().slice(0, 10);
+  db.prepare(
+    "INSERT INTO batches (id,product_id,batch_no,mfg_date,expiry_date,qty_on_hand,purchase_price_paise,mrp_paise,supplier_id) " +
+    "VALUES (?,?,?,?,?,?,?,?,?)",
+  ).run("b_near", "p_para", "N001", "2026-01-01", iso, 50, 800, 11000, "sup1");
+  return db;
+}
+
+describe("bill-repo · A13 · saveBill expiry gate", () => {
+  it("rejects a line on an already-expired batch with ExpiredBatchError (pre-txn)", () => {
+    const db = fixture();
+    expect(() =>
+      saveBill(db, "bill_exp1", baseInput({
+        billNo: "INV-EXP-1",
+        lines: [{
+          productId: "p_para", batchId: "b_ax",
+          mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+        }],
+      })),
+    ).toThrow(ExpiredBatchError);
+
+    // No writes: not even the bills row was inserted (pre-txn guard).
+    expect(readBill(db, "bill_exp1")).toBeUndefined();
+    const auditCount = db.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log WHERE entity_id = 'bill_exp1'",
+    ).get() as { c: number };
+    expect(auditCount.c).toBe(0);
+  });
+
+  it("rejects a near-expiry line (<=30d) without a matching override", () => {
+    const db = fixtureWithNearExpiry(15);
+    expect(() =>
+      saveBill(db, "bill_near1", baseInput({
+        billNo: "INV-NEAR-1",
+        lines: [{
+          productId: "p_para", batchId: "b_near",
+          mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+        }],
+      })),
+    ).toThrow(NearExpiryNoOverrideError);
+    expect(readBill(db, "bill_near1")).toBeUndefined();
+  });
+
+  it("accepts a near-expiry line when an owner-override audit row exists", () => {
+    const db = fixtureWithNearExpiry(20);
+    const r = recordExpiryOverride(db, {
+      batchId: "b_near" as any,
+      actorUserId: "u1",
+      reason: "urgent patient request, alt batch out-of-stock",
+    });
+    expect(r.daysPastExpiry).toBeLessThan(0);
+
+    const out = saveBill(db, "bill_near_ok", baseInput({
+      billNo: "INV-NEAR-OK",
+      lines: [{
+        productId: "p_para", batchId: "b_near",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+      }],
+    }));
+    expect(out.linesInserted).toBe(1);
+
+    // The audit row should now be stamped with bill_line_id + bill_no.
+    const stamped = db.prepare(
+      "SELECT bill_line_id, bill_no FROM expiry_override_audit WHERE batch_id = 'b_near'",
+    ).get() as { bill_line_id: string | null; bill_no: string | null };
+    expect(stamped.bill_line_id).toBe("bill_near_ok_l1");
+    expect(stamped.bill_no).toBe("INV-NEAR-OK");
+  });
+
+  it("passes lines > 30 days from expiry without requiring override", () => {
+    const db = fixtureWithNearExpiry(120);
+    const out = saveBill(db, "bill_far", baseInput({
+      billNo: "INV-FAR",
+      lines: [{
+        productId: "p_para", batchId: "b_near",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+      }],
+    }));
+    expect(out.linesInserted).toBe(1);
+    const audits = db.prepare(
+      "SELECT COUNT(*) AS c FROM expiry_override_audit",
+    ).get() as { c: number };
+    expect(audits.c).toBe(0);
+  });
+});
+
+describe("bill-repo · A13 · recordExpiryOverride", () => {
+  it("rejects reason shorter than 4 chars (trimmed)", () => {
+    const db = fixtureWithNearExpiry(10);
+    expect(() =>
+      recordExpiryOverride(db, {
+        batchId: "b_near" as any,
+        actorUserId: "u1",
+        reason: "  ok ",
+      }),
+    ).toThrow(ExpiryOverrideReasonTooShortError);
+  });
+
+  it("rejects a non-owner actor (role=cashier)", () => {
+    const db = fixtureWithNearExpiry(10);
+    db.prepare(
+      "INSERT INTO users (id, shop_id, name, role, pin_hash, is_active) VALUES (?,?,?,?,?,1)",
+    ).run("u_cashier", "shop1", "Kajal", "cashier", "x");
+
+    expect(() =>
+      recordExpiryOverride(db, {
+        batchId: "b_near" as any,
+        actorUserId: "u_cashier",
+        reason: "legitimate reason here",
+      }),
+    ).toThrow(ExpiryOverrideForbiddenError);
+  });
+
+  it("rejects an already-expired batch (override is not an escape hatch)", () => {
+    const db = fixture();
+    expect(() =>
+      recordExpiryOverride(db, {
+        batchId: "b_ax" as any,          // LAST_YEAR expiry
+        actorUserId: "u1",
+        reason: "trying to override an expired batch",
+      }),
+    ).toThrow(ExpiryOverrideNotNeededError);
   });
 });
