@@ -2685,11 +2685,11 @@ pub fn generate_gstr1_payload(
             params![shop_id, pattern_this, pattern_prev, pattern_next],
             |r| {
                 Ok((
-                    r.get::<_, String>(0)?,  // id
-                    r.get::<_, String>(1)?,  // bill_no
-                    r.get::<_, String>(2)?,  // billed_at
-                    r.get::<_, String>(3)?,  // doc_series
-                    r.get::<_, String>(4)?,  // gst_treatment
+                    r.get::<_, String>(0)?, // id
+                    r.get::<_, String>(1)?, // bill_no
+                    r.get::<_, String>(2)?, // billed_at
+                    r.get::<_, String>(3)?, // doc_series
+                    r.get::<_, String>(4)?, // gst_treatment
                     r.get::<_, i64>(5)?,
                     r.get::<_, i64>(6)?,
                     r.get::<_, i64>(7)?,
@@ -2698,7 +2698,7 @@ pub fn generate_gstr1_payload(
                     r.get::<_, i64>(10)?,
                     r.get::<_, i64>(11)?,
                     r.get::<_, i64>(12)?,
-                    r.get::<_, i64>(13)?, // is_voided
+                    r.get::<_, i64>(13)?,            // is_voided
                     r.get::<_, Option<String>>(14)?, // customer_id
                 ))
             },
@@ -2706,8 +2706,20 @@ pub fn generate_gstr1_payload(
         .map_err(|e| e.to_string())?;
 
     let mut bill_tuples: Vec<(
-        String, String, String, String, String,
-        i64, i64, i64, i64, i64, i64, i64, i64, i64,
+        String,
+        String,
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
         Option<String>,
     )> = Vec::new();
     for row in rows {
