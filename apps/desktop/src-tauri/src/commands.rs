@@ -3749,12 +3749,7 @@ pub struct CancelIrnInput {
 pub trait EinvoiceAdapter: Send + Sync {
     fn vendor_name(&self) -> &'static str;
     fn submit(&self, payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner>;
-    fn cancel(
-        &self,
-        irn: &str,
-        reason: &str,
-        remarks: &str,
-    ) -> Result<(), IrnErrorInner>;
+    fn cancel(&self, irn: &str, reason: &str, remarks: &str) -> Result<(), IrnErrorInner>;
 }
 
 #[derive(Debug, Clone)]
@@ -3895,7 +3890,18 @@ pub fn generate_irn_payload(
         round_off,
         grand_total,
         customer_id,
-    ): (String, String, String, i64, i64, i64, i64, i64, i64, Option<String>) = db
+    ): (
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<String>,
+    ) = db
         .query_row(
             "SELECT bill_no, billed_at, gst_treatment, subtotal_paise,
                     total_cgst_paise, total_sgst_paise, total_igst_paise,
@@ -3967,20 +3973,8 @@ pub fn generate_irn_payload(
         .map_err(|e| e.to_string())?;
     let mut sl: i64 = 1;
     for row in line_iter {
-        let (
-            _pid,
-            pname,
-            hsn,
-            qty,
-            mrp,
-            disc,
-            taxable,
-            rate,
-            cg,
-            sg,
-            ig,
-            total,
-        ) = row.map_err(|e| e.to_string())?;
+        let (_pid, pname, hsn, qty, mrp, disc, taxable, rate, cg, sg, ig, total) =
+            row.map_err(|e| e.to_string())?;
         lines.push(IrnLineOut {
             sl_no: sl,
             product_name: pname,
@@ -4146,13 +4140,7 @@ pub fn submit_irn(input: SubmitIrnInput, state: State<DbState>) -> Result<IrnRec
             tx.execute(
                 "INSERT INTO einvoice_audit(id, irn_record_id, event, actor_user_id, shop_id, at)
                  VALUES (?1, ?2, 'submit_success', ?3, ?4, ?5)",
-                rusqlite::params![
-                    gen_id("ea"),
-                    record_id,
-                    input.actor_user_id,
-                    shop_id,
-                    now,
-                ],
+                rusqlite::params![gen_id("ea"), record_id, input.actor_user_id, shop_id, now,],
             )
             .map_err(|e| e.to_string())?;
         }
@@ -4212,43 +4200,79 @@ fn drop_and_generate(
              FROM bills b JOIN shops s ON s.id = b.shop_id
              WHERE b.id = ?1",
             rusqlite::params![bill_id],
-            |r| Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?,
-                r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?,
-            )),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                ))
+            },
         )
         .map_err(|e| format!("BILL_NOT_FOUND:{}", e))?;
 
     let (
-        bill_no, billed_at, gst_treatment, subtotal, cgst, sgst, igst,
-        round_off, grand_total, customer_id,
-    ): (String, String, String, i64, i64, i64, i64, i64, i64, Option<String>) = db
+        bill_no,
+        billed_at,
+        gst_treatment,
+        subtotal,
+        cgst,
+        sgst,
+        igst,
+        round_off,
+        grand_total,
+        customer_id,
+    ): (
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<String>,
+    ) = db
         .query_row(
             "SELECT bill_no, billed_at, gst_treatment, subtotal_paise,
                     total_cgst_paise, total_sgst_paise, total_igst_paise,
                     round_off_paise, grand_total_paise, customer_id
              FROM bills WHERE id = ?1",
             rusqlite::params![bill_id],
-            |r| Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?,
-                r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?,
-            )),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                    r.get(8)?,
+                    r.get(9)?,
+                ))
+            },
         )
         .map_err(|e| format!("BILL_ROW_ERR:{}", e))?;
 
-    let (buyer_gstin, buyer_name, buyer_address): (String, String, String) = if let Some(cid) =
-        &customer_id
-    {
-        db.query_row(
-            "SELECT COALESCE(gstin,''), name, COALESCE(address,'')
+    let (buyer_gstin, buyer_name, buyer_address): (String, String, String) =
+        if let Some(cid) = &customer_id {
+            db.query_row(
+                "SELECT COALESCE(gstin,''), name, COALESCE(address,'')
              FROM customers WHERE id = ?1",
-            rusqlite::params![cid],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )
-        .map_err(|e| format!("CUSTOMER_ERR:{}", e))?
-    } else {
-        (String::new(), String::new(), String::new())
-    };
+                rusqlite::params![cid],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .map_err(|e| format!("CUSTOMER_ERR:{}", e))?
+        } else {
+            (String::new(), String::new(), String::new())
+        };
 
     let mut lines: Vec<IrnLineOut> = Vec::new();
     {
@@ -4448,8 +4472,8 @@ pub fn cancel_irn(input: CancelIrnInput, state: State<DbState>) -> Result<IrnRec
     let ack = ack_date.ok_or_else(|| "ACK_DATE_MISSING".to_string())?;
 
     // 24h window check — ack_date is ISO-8601 UTC
-    let ack_dt = chrono::DateTime::parse_from_rfc3339(&ack)
-        .map_err(|e| format!("ACK_DATE_PARSE:{}", e))?;
+    let ack_dt =
+        chrono::DateTime::parse_from_rfc3339(&ack).map_err(|e| format!("ACK_DATE_PARSE:{}", e))?;
     let now_dt = chrono::Utc::now();
     let diff = now_dt.signed_duration_since(ack_dt.with_timezone(&chrono::Utc));
     if diff.num_hours() >= 24 {
