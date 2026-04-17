@@ -9,6 +9,7 @@ export default [
   "packages/bill-repo",
   "packages/crypto",
   "packages/directory-repo",
+  "packages/einvoice",
   "packages/gmail-inbox",
   "packages/grn-repo",
   "packages/gst-engine",

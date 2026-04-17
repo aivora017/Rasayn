@@ -123,7 +123,13 @@ export type IpcCall =
   | { cmd: "get_count_session"; args: { sessionId: string } }
   | { cmd: "finalize_count"; args: { input: FinalizeCountInputDTO } }
   | { cmd: "cancel_count_session"; args: { sessionId: string; actorUserId: string } }
-  | { cmd: "list_count_sessions"; args: { shopId: string; limit?: number } };
+  | { cmd: "list_count_sessions"; args: { shopId: string; limit?: number } }
+  | { cmd: "generate_irn_payload"; args: { billId: string } }
+  | { cmd: "submit_irn"; args: { input: SubmitIrnInputDTO } }
+  | { cmd: "retry_irn"; args: { billId: string; actorUserId: string } }
+  | { cmd: "cancel_irn"; args: { input: CancelIrnInputDTO } }
+  | { cmd: "list_irn_records"; args: { shopId: string; status?: string; limit?: number } }
+  | { cmd: "get_irn_for_bill"; args: { billId: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1018,4 +1024,130 @@ export async function listCountSessionsRpc(
     cmd: "list_count_sessions",
     args: { shopId, limit },
   })) as ReadonlyArray<CountSessionDTO>;
+}
+
+// ─── A12: e-invoice IRN ────────────────────────────────────────────────
+// Mirrors Rust IrnPartyOut / IrnLineOut / IrnBillOut / IrnShopOut / IrnPayloadOut.
+// This is the *domain* object returned by generate_irn_payload — the pure-TS
+// @pharmacare/einvoice package converts it into the NIC v1.1 schema.
+export interface IrnPartyDTO {
+  gstin: string;
+  legalName: string;
+  address1: string;
+  location: string;
+  pincode: number;
+  stateCode: string;
+}
+
+export interface IrnLineDTO {
+  slNo: number;
+  productName: string;
+  hsn: string;
+  qty: number;
+  unit: string | null;
+  mrpPaise: number;
+  discountPaise: number;
+  taxableValuePaise: number;
+  gstRate: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  lineTotalPaise: number;
+}
+
+export interface IrnBillDTO {
+  billId: string;
+  billNo: string;
+  billedAtIso: string;
+  gstTreatment: string;
+  subtotalPaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  roundOffPaise: number;
+  grandTotalPaise: number;
+  seller: IrnPartyDTO;
+  buyer: IrnPartyDTO;
+  lines: ReadonlyArray<IrnLineDTO>;
+}
+
+export interface IrnShopDTO {
+  annualTurnoverPaise: number;
+  einvoiceEnabled: boolean;
+  einvoiceVendor: string;
+}
+
+export interface IrnPayloadDTO {
+  shop: IrnShopDTO;
+  bill: IrnBillDTO;
+}
+
+export interface IrnRecordDTO {
+  id: string;
+  billId: string;
+  shopId: string;
+  vendor: string;
+  status: string;
+  irn: string | null;
+  ackNo: string | null;
+  ackDate: string | null;
+  signedInvoice: string | null;
+  qrCode: string | null;
+  errorCode: string | null;
+  errorMsg: string | null;
+  attemptCount: number;
+  submittedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  cancelRemarks: string | null;
+  actorUserId: string | null;
+  createdAt: string;
+}
+
+export interface SubmitIrnInputDTO {
+  billId: string;
+  actorUserId: string;
+  /** Optional: "mock" for tests/demo; otherwise shop default vendor (Cygnet). */
+  vendorOverride?: string;
+}
+
+export interface CancelIrnInputDTO {
+  irnRecordId: string;
+  actorUserId: string;
+  /** NIC code: "1"=duplicate, "2"=data-entry-mistake, "3"=order-cancelled, "4"=other */
+  cancelReason: string;
+  cancelRemarks?: string;
+}
+
+export async function generateIrnPayloadRpc(billId: string): Promise<IrnPayloadDTO> {
+  return (await handler({ cmd: "generate_irn_payload", args: { billId } })) as IrnPayloadDTO;
+}
+
+export async function submitIrnRpc(input: SubmitIrnInputDTO): Promise<IrnRecordDTO> {
+  return (await handler({ cmd: "submit_irn", args: { input } })) as IrnRecordDTO;
+}
+
+export async function retryIrnRpc(billId: string, actorUserId: string): Promise<IrnRecordDTO> {
+  return (await handler({
+    cmd: "retry_irn",
+    args: { billId, actorUserId },
+  })) as IrnRecordDTO;
+}
+
+export async function cancelIrnRpc(input: CancelIrnInputDTO): Promise<IrnRecordDTO> {
+  return (await handler({ cmd: "cancel_irn", args: { input } })) as IrnRecordDTO;
+}
+
+export async function listIrnRecordsRpc(
+  shopId: string,
+  status?: string,
+  limit = 50,
+): Promise<ReadonlyArray<IrnRecordDTO>> {
+  const args: { shopId: string; status?: string; limit: number } = { shopId, limit };
+  if (status !== undefined) args.status = status;
+  return (await handler({ cmd: "list_irn_records", args })) as ReadonlyArray<IrnRecordDTO>;
+}
+
+export async function getIrnForBillRpc(billId: string): Promise<IrnRecordDTO | null> {
+  return (await handler({ cmd: "get_irn_for_bill", args: { billId } })) as IrnRecordDTO | null;
 }

@@ -79,6 +79,12 @@ fn main() {
             oauth::gmail_disconnect,
             oauth::gmail_list_messages,
             oauth::gmail_fetch_attachment,
+            commands::generate_irn_payload,
+            commands::submit_irn,
+            commands::retry_irn,
+            commands::cancel_irn,
+            commands::list_irn_records,
+            commands::get_irn_for_bill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
