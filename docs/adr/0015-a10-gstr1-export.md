@@ -131,7 +131,9 @@ mark_gstr1_filed(return_id) -> Result<GstReturnOut, String>
 Actor check: `mark_gstr1_filed` requires owner role (same F5-settings role model A13 uses for expiry override).
 
 ### UI — ReturnsScreen
-- Route: main-nav Alt+5 (per ADR 0009 nav key scheme; Alt+digit is global).
+- Route: main-nav Alt+0 (per ADR 0009 nav key scheme; Alt+digit is global).
+  Note: draft of this ADR said Alt+5, but that slot was already bound to Directory;
+  Returns therefore moved to Alt+0 (the only free digit).
 - Period picker: month dropdown + year dropdown; defaults to prior month (current=Apr → pre-select Mar 2026).
 - **F9** = Generate (invokes `generate_gstr1_payload` + `@pharmacare/gstr1` + `save_gstr1_return`).
 - **F10** = Download JSON (GSTN offline-tool filename: `{MM}{YYYY}_GSTR1_{GSTIN}.json`).

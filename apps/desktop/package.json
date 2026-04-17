@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@pharmacare/gst-engine": "*",
+    "@pharmacare/gstr1": "*",
     "@pharmacare/invoice-print": "*",
     "@pharmacare/shared-types": "*",
     "@tauri-apps/api": "^2.1.1",
