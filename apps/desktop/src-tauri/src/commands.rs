@@ -3844,7 +3844,7 @@ pub fn generate_irn_payload(
     bill_id: String,
     state: State<DbState>,
 ) -> Result<IrnPayloadOut, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let db = state.0.lock().map_err(|e| e.to_string())?;
 
     // Shop row for the bill
     let (
@@ -4037,7 +4037,7 @@ pub fn generate_irn_payload(
 /// Always increments attempt_count and writes einvoice_audit.
 #[tauri::command]
 pub fn submit_irn(input: SubmitIrnInput, state: State<DbState>) -> Result<IrnRecordOut, String> {
-    let mut db = state.db.lock().map_err(|e| e.to_string())?;
+    let mut db = state.0.lock().map_err(|e| e.to_string())?;
 
     // Re-read shop row for defense-in-depth turnover gate
     let (shop_id, einvoice_enabled, shop_vendor, turnover): (String, i64, String, i64) = db
@@ -4406,7 +4406,7 @@ pub fn retry_irn(
 ) -> Result<IrnRecordOut, String> {
     // Must not have an active record for this bill
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let db = state.0.lock().map_err(|e| e.to_string())?;
         let active: Option<String> = db
             .query_row(
                 "SELECT id FROM irn_records
@@ -4434,7 +4434,7 @@ pub fn retry_irn(
 /// Cancel an acked IRN. Owner-gate; within 24h of ack_date.
 #[tauri::command]
 pub fn cancel_irn(input: CancelIrnInput, state: State<DbState>) -> Result<IrnRecordOut, String> {
-    let mut db = state.db.lock().map_err(|e| e.to_string())?;
+    let mut db = state.0.lock().map_err(|e| e.to_string())?;
 
     let (actor_role, actor_active): (String, i64) = db
         .query_row(
@@ -4541,7 +4541,7 @@ pub fn list_irn_records(
     limit: Option<i64>,
     state: State<DbState>,
 ) -> Result<Vec<IrnRecordOut>, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let db = state.0.lock().map_err(|e| e.to_string())?;
     let lim = limit.unwrap_or(500);
 
     let mut stmt = match status {
@@ -4613,7 +4613,7 @@ pub fn get_irn_for_bill(
     bill_id: String,
     state: State<DbState>,
 ) -> Result<Option<IrnRecordOut>, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let db = state.0.lock().map_err(|e| e.to_string())?;
     let id: Option<String> = db
         .query_row(
             "SELECT id FROM irn_records
