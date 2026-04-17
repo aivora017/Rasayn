@@ -189,7 +189,11 @@ pub fn attach_product_image(
     )
     .map_err(|e| format!("upsert product_image: {e}"))?;
 
-    let action = if prior_sha.is_some() { "replace" } else { "attach" };
+    let action = if prior_sha.is_some() {
+        "replace"
+    } else {
+        "attach"
+    };
     tx.execute(
         "INSERT INTO product_image_audit (product_id, action, prior_sha256, new_sha256, actor_user_id)
          VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -247,9 +251,7 @@ pub fn delete_product_image(
     actor_user_id: String,
 ) -> Result<(), String> {
     let mut conn = state.0.lock().map_err(|e| format!("db lock: {e}"))?;
-    let tx = conn
-        .transaction()
-        .map_err(|e| format!("begin tx: {e}"))?;
+    let tx = conn.transaction().map_err(|e| format!("begin tx: {e}"))?;
 
     let prior_sha: Option<String> = tx
         .query_row(
@@ -273,8 +275,7 @@ pub fn delete_product_image(
         // products.image_sha256; translate into a friendlier message.
         let msg = format!("{e}");
         if msg.contains("Schedule H/H1/X product requires image_sha256") {
-            "Cannot delete image for Schedule H/H1/X product (X2 moat compliance gate)"
-                .to_string()
+            "Cannot delete image for Schedule H/H1/X product (X2 moat compliance gate)".to_string()
         } else {
             format!("delete image: {msg}")
         }

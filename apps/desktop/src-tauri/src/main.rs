@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod commands;
 mod db;
-mod oauth;
 mod images;
+mod oauth;
 mod products;
 #[cfg(test)]
 mod products_perf;
