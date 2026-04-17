@@ -2705,7 +2705,7 @@ pub fn generate_gstr1_payload(
         )
         .map_err(|e| e.to_string())?;
 
-    let mut bill_tuples: Vec<(
+    type BillRowTuple = (
         String,
         String,
         String,
@@ -2721,7 +2721,8 @@ pub fn generate_gstr1_payload(
         i64,
         i64,
         Option<String>,
-    )> = Vec::new();
+    );
+    let mut bill_tuples: Vec<BillRowTuple> = Vec::new();
     for row in rows {
         bill_tuples.push(row.map_err(|e| e.to_string())?);
     }
