@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatINR, type Paise } from "@pharmacare/shared-types";
+import {
+  matchParsedLine,
+  confidenceTier,
+  type CandidateProduct,
+  type LineMatch,
+} from "@pharmacare/gmail-grn-bridge";
 import { ProductSearch } from "./ProductSearch.js";
-import { saveGrnRpc, type ProductHit, type SaveGrnInput } from "../lib/ipc.js";
+import {
+  saveGrnRpc,
+  searchProductsRpc,
+  type ProductHit,
+  type SaveGrnInput,
+} from "../lib/ipc.js";
 import { takePendingGrnDraft, type PendingGrnDraft } from "../lib/pendingGrnDraft.js";
 
 // Demo supplier list — will come from a suppliers IPC in a later step.
@@ -25,6 +36,13 @@ interface DraftLine {
   readonly mrpPaise: Paise;
 }
 
+// Per-imported-line resolution state: `null` = resolving (async search in
+// flight); `LineMatch` = bridge verdict.
+type ImportedLineState =
+  | { readonly kind: "pending" }
+  | { readonly kind: "resolved"; readonly match: LineMatch }
+  | { readonly kind: "skipped" };
+
 type Toast = { kind: "ok" | "err"; msg: string } | null;
 
 function genGrnId(): string {
@@ -39,6 +57,10 @@ function rsToPaise(rs: string): Paise {
   return Math.round(n * 100) as Paise;
 }
 
+function productHitToCandidate(h: ProductHit): CandidateProduct {
+  return { id: h.id, name: h.name, hsn: null, mrpPaise: h.mrpPaise };
+}
+
 export function GrnScreen() {
   const [supplierId, setSupplierId] = useState<string>(SUPPLIERS[0]!.id);
   const [invoiceNo, setInvoiceNo] = useState<string>("");
@@ -47,14 +69,63 @@ export function GrnScreen() {
   const [toast, setToast] = useState<Toast>(null);
   const [saving, setSaving] = useState(false);
   const [importedDraft, setImportedDraft] = useState<PendingGrnDraft | null>(null);
+  const [importedLineStates, setImportedLineStates] = useState<readonly ImportedLineState[]>([]);
 
-  // Pick up any Gmail-inbox handoff on mount (F7 → "Send to GRN").
+  // Pick up any Gmail-inbox handoff on mount (F7 → "Send to GRN") and kick
+  // off auto-match for each parsed line. High/medium confidence matches
+  // auto-append DraftLines; low / unmatched stay visible in the banner with
+  // Skip + Search-manually actions.
   useEffect(() => {
     const d = takePendingGrnDraft();
     if (!d) return;
     setImportedDraft(d);
     if (d.invoiceNo) setInvoiceNo(d.invoiceNo);
     if (d.invoiceDate) setInvoiceDate(d.invoiceDate);
+    const initial: ImportedLineState[] = d.parsedLines.map(() => ({ kind: "pending" }));
+    setImportedLineStates(initial);
+
+    let cancelled = false;
+    (async () => {
+      for (let i = 0; i < d.parsedLines.length; i += 1) {
+        const pl = d.parsedLines[i]!;
+        let match: LineMatch;
+        try {
+          const hits = await searchProductsRpc(pl.productHint, 5);
+          const cands = hits.map(productHitToCandidate);
+          match = matchParsedLine(pl.productHint, null, cands);
+        } catch {
+          match = { kind: "unmatched", product: null, matchType: "none", confidence: 0, reason: "search failed" };
+        }
+        if (cancelled) return;
+        setImportedLineStates((prev) => {
+          const next = prev.slice();
+          next[i] = { kind: "resolved", match };
+          return next;
+        });
+        // Auto-append high/medium matches. Low/unmatched stay visible and
+        // require a manual action.
+        if (match.kind === "matched" && confidenceTier(match.confidence) !== "low") {
+          const hit = (await searchProductsRpc(pl.productHint, 5)).find((h) => h.id === match.product!.id);
+          if (!hit) continue;
+          setLines((ls) => [
+            ...ls,
+            {
+              key: `${hit.id}-${Date.now()}-${ls.length}`,
+              productId: hit.id,
+              name: hit.name,
+              batchNo: pl.batchNo ?? "",
+              mfgDate: "",
+              expiryDate: pl.expiryDate ?? "",
+              qty: pl.qty > 0 ? pl.qty : 1,
+              purchasePricePaise: pl.ratePaise as Paise,
+              mrpPaise: (pl.mrpPaise ?? hit.mrpPaise) as Paise,
+            },
+          ]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -86,6 +157,14 @@ export function GrnScreen() {
 
   const removeLine = useCallback((idx: number) => {
     setLines((ls) => ls.filter((_, i) => i !== idx));
+  }, []);
+
+  const skipImportedLine = useCallback((idx: number) => {
+    setImportedLineStates((prev) => {
+      const next = prev.slice();
+      next[idx] = { kind: "skipped" };
+      return next;
+    });
   }, []);
 
   const totalCost = lines.reduce((s, l) => s + l.purchasePricePaise * l.qty, 0);
@@ -163,26 +242,75 @@ export function GrnScreen() {
             <table style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", fontSize: 11 }}>
               <thead><tr style={{ background: "#dbeafe" }}>
                 <th style={{ textAlign: "left", padding: 4 }}>Parsed product</th>
+                <th style={{ textAlign: "left", padding: 4 }}>Match</th>
                 <th style={{ textAlign: "left", padding: 4 }}>Batch</th>
                 <th style={{ textAlign: "left", padding: 4 }}>Expiry</th>
                 <th style={{ textAlign: "right", padding: 4 }}>Qty</th>
                 <th style={{ textAlign: "right", padding: 4 }}>Rate</th>
+                <th />
               </tr></thead>
               <tbody>
-                {importedDraft.parsedLines.map((l, i) => (
-                  <tr key={i} data-testid={`grn-imported-line-${i}`}>
-                    <td style={{ padding: 4 }}>{l.productHint}</td>
-                    <td style={{ padding: 4 }}>{l.batchNo ?? "—"}</td>
-                    <td style={{ padding: 4 }}>{l.expiryDate ?? "—"}</td>
-                    <td style={{ padding: 4, textAlign: "right" }}>{l.qty}</td>
-                    <td style={{ padding: 4, textAlign: "right" }}>{(l.ratePaise / 100).toFixed(2)}</td>
-                  </tr>
-                ))}
+                {importedDraft.parsedLines.map((l, i) => {
+                  const state = importedLineStates[i] ?? { kind: "pending" };
+                  let badge: string;
+                  let badgeTestId: string;
+                  let actionCell: React.ReactNode = null;
+                  if (state.kind === "pending") {
+                    badge = "…";
+                    badgeTestId = "grn-imp-match-pending";
+                  } else if (state.kind === "skipped") {
+                    badge = "skipped";
+                    badgeTestId = "grn-imp-match-skipped";
+                  } else {
+                    const m = state.match;
+                    if (m.kind === "matched") {
+                      const tier = confidenceTier(m.confidence);
+                      badge = `${tier} · ${m.product!.name}`;
+                      badgeTestId = `grn-imp-match-${tier}`;
+                      if (tier === "low") {
+                        actionCell = (
+                          <>
+                            <button
+                              data-testid={`grn-imp-skip-${i}`}
+                              onClick={() => skipImportedLine(i)}
+                              style={{ marginRight: 4 }}
+                            >Skip</button>
+                            <span style={{ color: "#888" }}>use search ↓</span>
+                          </>
+                        );
+                      }
+                    } else {
+                      badge = "no match";
+                      badgeTestId = "grn-imp-match-unmatched";
+                      actionCell = (
+                        <>
+                          <button
+                            data-testid={`grn-imp-skip-${i}`}
+                            onClick={() => skipImportedLine(i)}
+                            style={{ marginRight: 4 }}
+                          >Skip</button>
+                          <span style={{ color: "#888" }}>use search ↓</span>
+                        </>
+                      );
+                    }
+                  }
+                  return (
+                    <tr key={i} data-testid={`grn-imported-line-${i}`} data-match-state={state.kind}>
+                      <td style={{ padding: 4 }}>{l.productHint}</td>
+                      <td style={{ padding: 4 }} data-testid={badgeTestId}>{badge}</td>
+                      <td style={{ padding: 4 }}>{l.batchNo ?? "—"}</td>
+                      <td style={{ padding: 4 }}>{l.expiryDate ?? "—"}</td>
+                      <td style={{ padding: 4, textAlign: "right" }}>{l.qty}</td>
+                      <td style={{ padding: 4, textAlign: "right" }}>{(l.ratePaise / 100).toFixed(2)}</td>
+                      <td style={{ padding: 4 }}>{actionCell}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
           <div style={{ marginTop: 6, color: "#555" }}>
-            Match each parsed line to a product using the search below, then save with F9.
+            High/medium-confidence matches are auto-appended below. Low / no-match rows stay here — skip or search manually, then save with F9.
           </div>
         </div>
       )}
