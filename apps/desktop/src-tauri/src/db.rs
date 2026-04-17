@@ -51,6 +51,8 @@ pub const MIGRATION_0012: &str =
     include_str!("../../../../packages/shared-db/migrations/0012_rx_records.sql");
 pub const MIGRATION_0013: &str =
     include_str!("../../../../packages/shared-db/migrations/0013_print_audit.sql");
+pub const MIGRATION_0014: &str =
+    include_str!("../../../../packages/shared-db/migrations/0014_gstr1_returns.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -157,6 +159,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
         conn.execute_batch(MIGRATION_0013)?;
         conn.execute(
             "INSERT INTO _migrations (version, name) VALUES (13, '0013_print_audit')",
+            [],
+        )?;
+    }
+    if !applied(14, conn) {
+        conn.execute_batch(MIGRATION_0014)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (14, '0014_gstr1_returns')",
             [],
         )?;
     }

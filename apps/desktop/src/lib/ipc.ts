@@ -113,7 +113,11 @@ export type IpcCall =
   | { cmd: "record_expiry_override"; args: { input: ExpiryOverrideInputDTO } }
   | { cmd: "get_nearest_expiry"; args: { productId: string } }
   | { cmd: "get_bill_full"; args: { billId: string } }
-  | { cmd: "record_print"; args: { input: RecordPrintInputDTO } };
+  | { cmd: "record_print"; args: { input: RecordPrintInputDTO } }
+  | { cmd: "generate_gstr1_payload"; args: { shopId: string; period: string } }
+  | { cmd: "save_gstr1_return"; args: { input: SaveGstr1ReturnInputDTO } }
+  | { cmd: "list_gst_returns"; args: { shopId: string } }
+  | { cmd: "mark_gstr1_filed"; args: { input: MarkGstr1FiledInputDTO } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -763,4 +767,117 @@ export async function getBillFullRpc(billId: string): Promise<BillFullDTO> {
 
 export async function recordPrintRpc(input: RecordPrintInputDTO): Promise<PrintReceiptDTO> {
   return (await handler({ cmd: "record_print", args: { input } })) as PrintReceiptDTO;
+}
+
+// ───────────────────────────── A10: GSTR-1 export ─────────────────────────────
+
+export interface ShopForGstr1DTO {
+  readonly id: string;
+  readonly gstin: string;
+  readonly stateCode: string;
+  readonly name: string;
+}
+
+export interface CustomerForGstr1DTO {
+  readonly id: string;
+  readonly gstin: string | null;
+  readonly name: string;
+  readonly stateCode: string | null;
+  readonly address: string | null;
+}
+
+export interface BillLineForGstr1DTO {
+  readonly id: string;
+  readonly productId: string;
+  readonly hsn: string;
+  readonly gstRate: number;
+  readonly qty: number;
+  readonly taxableValuePaise: number;
+  readonly cgstPaise: number;
+  readonly sgstPaise: number;
+  readonly igstPaise: number;
+  readonly cessPaise: number;
+  readonly lineTotalPaise: number;
+}
+
+export interface BillForGstr1DTO {
+  readonly id: string;
+  readonly billNo: string;
+  readonly billedAt: string;
+  readonly docSeries: string;
+  readonly gstTreatment: string;
+  readonly subtotalPaise: number;
+  readonly totalDiscountPaise: number;
+  readonly totalCgstPaise: number;
+  readonly totalSgstPaise: number;
+  readonly totalIgstPaise: number;
+  readonly totalCessPaise: number;
+  readonly roundOffPaise: number;
+  readonly grandTotalPaise: number;
+  readonly isVoided: number;
+  readonly customer: CustomerForGstr1DTO | null;
+  readonly lines: readonly BillLineForGstr1DTO[];
+}
+
+export interface Gstr1InputDTO {
+  readonly shop: ShopForGstr1DTO;
+  readonly bills: readonly BillForGstr1DTO[];
+  readonly period: string;
+}
+
+export interface SaveGstr1ReturnInputDTO {
+  readonly shopId: string;
+  readonly period: string;
+  readonly jsonBlob: string;
+  readonly csvB2b: string;
+  readonly csvB2cl: string;
+  readonly csvB2cs: string;
+  readonly csvHsn: string;
+  readonly csvExemp: string;
+  readonly csvDoc: string;
+  readonly hashSha256: string;
+  readonly billCount: number;
+  readonly grandTotalPaise: number;
+}
+
+export interface MarkGstr1FiledInputDTO {
+  readonly returnId: string;
+  readonly actorUserId: string;
+}
+
+export interface GstReturnDTO {
+  readonly id: string;
+  readonly shopId: string;
+  readonly returnType: string;
+  readonly period: string;
+  readonly status: string;
+  readonly hashSha256: string;
+  readonly billCount: number;
+  readonly grandTotalPaise: number;
+  readonly generatedAt: string;
+  readonly filedAt: string | null;
+  readonly filedByUserId: string | null;
+}
+
+export async function generateGstr1PayloadRpc(
+  shopId: string,
+  period: string,
+): Promise<Gstr1InputDTO> {
+  return (await handler({ cmd: "generate_gstr1_payload", args: { shopId, period } })) as Gstr1InputDTO;
+}
+
+export async function saveGstr1ReturnRpc(
+  input: SaveGstr1ReturnInputDTO,
+): Promise<GstReturnDTO> {
+  return (await handler({ cmd: "save_gstr1_return", args: { input } })) as GstReturnDTO;
+}
+
+export async function listGstReturnsRpc(shopId: string): Promise<readonly GstReturnDTO[]> {
+  return (await handler({ cmd: "list_gst_returns", args: { shopId } })) as readonly GstReturnDTO[];
+}
+
+export async function markGstr1FiledRpc(
+  input: MarkGstr1FiledInputDTO,
+): Promise<GstReturnDTO> {
+  return (await handler({ cmd: "mark_gstr1_filed", args: { input } })) as GstReturnDTO;
 }

@@ -8,6 +8,7 @@ import SupplierTemplateScreen from "./components/SupplierTemplateScreen.js";
 import GmailInboxScreen from "./components/GmailInboxScreen.js";
 import { SettingsScreen } from "./components/SettingsScreen.js";
 import { ProductMasterScreen } from "./components/ProductMasterScreen.js";
+import { ReturnsScreen } from "./components/ReturnsScreen.js";
 import { healthCheckRpc, dbVersionRpc } from "./lib/ipc.js";
 
 type Mode =
@@ -19,12 +20,15 @@ type Mode =
   | "templates"
   | "gmail"
   | "settings"
-  | "masters";
+  | "masters"
+  | "returns";
 
 // Nav key map — Alt+digit per ADR 0009 (A5).
 // Plain F-keys are reserved for screen-contextual actions (e.g., BillingScreen F1/F2/F3/F4/F6/F10).
 // Alt+digit does not collide with billing's plain F-keys and does not interfere with the OS/browser
 // global shortcuts on Chrome (dev) or Tauri (prod).
+// Alt+0 added for Returns (A10) — ADR 0015 addendum: original draft said Alt+5 but that slot
+// was already taken by Directory; moved to Alt+0 (the only free digit).
 const NAV_BY_DIGIT: Record<string, Mode> = {
   "1": "billing",
   "2": "inventory",
@@ -35,6 +39,7 @@ const NAV_BY_DIGIT: Record<string, Mode> = {
   "7": "gmail",
   "8": "settings",
   "9": "masters",
+  "0": "returns",
 };
 
 export function App() {
@@ -78,7 +83,8 @@ export function App() {
           <span className="kbd">Alt+6</span> Templates &middot;{" "}
           <span className="kbd">Alt+7</span> Gmail &middot;{" "}
           <span className="kbd">Alt+8</span> Settings &middot;{" "}
-          <span className="kbd">Alt+9</span> Masters
+          <span className="kbd">Alt+9</span> Masters &middot;{" "}
+          <span className="kbd">Alt+0</span> Returns
         </nav>
         <div style={{ marginLeft: "auto" }} data-testid="current-mode" aria-live="polite">{mode}</div>
       </header>
@@ -92,6 +98,7 @@ export function App() {
         {mode === "gmail" && <GmailInboxScreen onGoToGrn={() => setMode("grn")} />}
         {mode === "settings" && <SettingsScreen />}
         {mode === "masters" && <ProductMasterScreen />}
+        {mode === "returns" && <ReturnsScreen />}
       </main>
       <footer className="statusbar" role="contentinfo">
         <span data-testid="lan-mode">LAN Mode</span>
