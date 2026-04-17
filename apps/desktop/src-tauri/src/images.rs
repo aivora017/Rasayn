@@ -12,6 +12,7 @@
 //  * 2 MiB hard cap — enforced both here (before DB hit) and at the CHECK constraint.
 
 use crate::db::DbState;
+use crate::phash;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,8 @@ pub struct ImageMetadata {
     pub size_bytes: i64,
     #[serde(rename = "productId")]
     pub product_id: String,
+    /// 64-bit pHash as 16 hex chars. None if decode failed (legacy/corrupt BLOB).
+    pub phash: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,6 +91,32 @@ pub struct ProductImageRow {
     pub uploaded_by: String,
     #[serde(rename = "uploadedAt")]
     pub uploaded_at: String,
+    pub phash: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SimilarImageRow {
+    #[serde(rename = "productId")]
+    pub product_id: String,
+    pub name: String,
+    pub schedule: String,
+    pub manufacturer: String,
+    pub phash: String,
+    /// Hamming distance from the query product's phash. Lower = more similar.
+    pub distance: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DuplicateSuspectRow {
+    #[serde(rename = "productIdA")]
+    pub product_id_a: String,
+    #[serde(rename = "nameA")]
+    pub name_a: String,
+    #[serde(rename = "productIdB")]
+    pub product_id_b: String,
+    #[serde(rename = "nameB")]
+    pub name_b: String,
+    pub distance: u32,
 }
 
 #[derive(Debug, Serialize)]
@@ -172,23 +201,41 @@ pub fn attach_product_image(
         .optional()
         .map_err(|e| format!("prior-image lookup: {e}"))?;
 
+    // X2b: compute perceptual hash. Decode failures are soft — log + store NULL so
+    // attachment still lands (UI already guarded by sniff). Byte-exact SHA256 plus
+    // the existing Schedule H/H1/X trigger mean we never lose the compliance gate
+    // if phash is absent.
+    let phash_val: Option<String> = match phash::compute_phash(&bytes) {
+        Ok(h) => Some(h),
+        Err(e) => {
+            tracing::warn!(
+                product = %input.product_id,
+                error = %e,
+                "phash compute failed; storing NULL"
+            );
+            None
+        }
+    };
+
     tx.execute(
-        "INSERT INTO product_images (product_id, sha256, mime, size_bytes, bytes, uploaded_by)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        "INSERT INTO product_images (product_id, sha256, mime, size_bytes, bytes, uploaded_by, phash)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT(product_id) DO UPDATE SET
            sha256 = excluded.sha256,
            mime = excluded.mime,
            size_bytes = excluded.size_bytes,
            bytes = excluded.bytes,
            uploaded_by = excluded.uploaded_by,
-           uploaded_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+           uploaded_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+           phash = excluded.phash",
         params![
             input.product_id,
             sha,
             mime,
             size,
             bytes,
-            input.actor_user_id
+            input.actor_user_id,
+            phash_val
         ],
     )
     .map_err(|e| format!("upsert product_image: {e}"))?;
@@ -199,9 +246,16 @@ pub fn attach_product_image(
         "attach"
     };
     tx.execute(
-        "INSERT INTO product_image_audit (product_id, action, prior_sha256, new_sha256, actor_user_id)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![input.product_id, action, prior_sha, &sha, input.actor_user_id],
+        "INSERT INTO product_image_audit (product_id, action, prior_sha256, new_sha256, actor_user_id, phash)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            input.product_id,
+            action,
+            prior_sha,
+            &sha,
+            input.actor_user_id,
+            phash_val
+        ],
     )
     .map_err(|e| format!("audit insert: {e}"))?;
 
@@ -212,6 +266,7 @@ pub fn attach_product_image(
         mime: mime.to_string(),
         size_bytes: size,
         product_id: input.product_id,
+        phash: phash_val,
     })
 }
 
@@ -224,7 +279,7 @@ pub fn get_product_image(
     let conn = state.0.lock().map_err(|e| format!("db lock: {e}"))?;
     let row = conn
         .query_row(
-            "SELECT product_id, sha256, mime, size_bytes, bytes, uploaded_by, uploaded_at
+            "SELECT product_id, sha256, mime, size_bytes, bytes, uploaded_by, uploaded_at, phash
              FROM product_images WHERE product_id = ?1",
             [&product_id],
             |r| {
@@ -237,6 +292,7 @@ pub fn get_product_image(
                     bytes_b64: B64.encode(&bytes),
                     uploaded_by: r.get(5)?,
                     uploaded_at: r.get(6)?,
+                    phash: r.get(7)?,
                 })
             },
         )
@@ -286,8 +342,8 @@ pub fn delete_product_image(
     })?;
 
     tx.execute(
-        "INSERT INTO product_image_audit (product_id, action, prior_sha256, new_sha256, actor_user_id)
-         VALUES (?1, 'delete', ?2, NULL, ?3)",
+        "INSERT INTO product_image_audit (product_id, action, prior_sha256, new_sha256, actor_user_id, phash)
+         VALUES (?1, 'delete', ?2, NULL, ?3, NULL)",
         params![product_id, prior, actor_user_id],
     )
     .map_err(|e| format!("audit insert: {e}"))?;
@@ -343,6 +399,137 @@ pub fn list_products_missing_image(
         .map_err(|e| format!("collect: {e}"))?;
 
     Ok(rows)
+}
+
+/// Find products whose image is perceptually similar to the given product's image.
+/// Uses SHA256→pHash lookup then computes Hamming distance against all other products
+/// with a non-NULL phash. Returns candidates with distance <= max_distance, sorted ascending.
+#[tauri::command]
+pub fn find_similar_images(
+    state: State<'_, DbState>,
+    product_id: String,
+    max_distance: u32,
+) -> Result<Vec<SimilarImageRow>, String> {
+    let conn = state.0.lock().map_err(|e| format!("db lock: {e}"))?;
+
+    // Fetch the query product's pHash.
+    let query_phash: Option<String> = conn
+        .query_row(
+            "SELECT phash FROM product_images WHERE product_id = ?1",
+            [&product_id],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("query phash lookup: {e}"))?
+        .flatten();
+    let Some(query_phash) = query_phash else {
+        // No phash on the query product — nothing to compare. Return empty rather than error;
+        // the UI can render a "pHash not computed yet" hint.
+        return Ok(Vec::new());
+    };
+
+    // Pull all candidate rows with non-NULL phash (excluding the query itself).
+    // 5k SKU upper bound × 64-bit popcount ~1 ms; no prefix bucketing needed at this scale.
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.name, p.schedule, p.manufacturer, pi.phash
+             FROM product_images pi
+             JOIN products p ON p.id = pi.product_id
+             WHERE pi.phash IS NOT NULL
+               AND pi.product_id != ?1",
+        )
+        .map_err(|e| format!("prepare: {e}"))?;
+
+    let mut out: Vec<SimilarImageRow> = Vec::new();
+    let rows = stmt
+        .query_map([&product_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        })
+        .map_err(|e| format!("query: {e}"))?;
+
+    for row in rows {
+        let (pid, name, schedule, manufacturer, phash_hex) =
+            row.map_err(|e| format!("row: {e}"))?;
+        let distance = match phash::hamming_distance(&query_phash, &phash_hex) {
+            Ok(d) => d,
+            Err(_) => continue, // malformed stored phash — skip, do not fail the query
+        };
+        if distance <= max_distance {
+            out.push(SimilarImageRow {
+                product_id: pid,
+                name,
+                schedule,
+                manufacturer,
+                phash: phash_hex,
+                distance,
+            });
+        }
+    }
+
+    out.sort_by_key(|r| r.distance);
+    Ok(out)
+}
+
+/// Enumerate pairs of active products whose images are near-duplicates
+/// (Hamming distance <= max_distance). Intended for the compliance dashboard —
+/// surfaces the "same product entered twice" pilot-data error.
+///
+/// O(N^2) over products-with-phash. Fine at pilot scale (5k SKU → 12.5M pairs,
+/// ~100 ms). If this ever shows up in perf, add the substr(phash, 1, 2) prefix bucket.
+#[tauri::command]
+pub fn get_duplicate_suspects(
+    state: State<'_, DbState>,
+    max_distance: u32,
+) -> Result<Vec<DuplicateSuspectRow>, String> {
+    let conn = state.0.lock().map_err(|e| format!("db lock: {e}"))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.name, pi.phash
+             FROM product_images pi
+             JOIN products p ON p.id = pi.product_id
+             WHERE pi.phash IS NOT NULL AND p.is_active = 1
+             ORDER BY p.id",
+        )
+        .map_err(|e| format!("prepare: {e}"))?;
+
+    let rows: Vec<(String, String, String)> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| format!("query: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("collect: {e}"))?;
+
+    let mut out: Vec<DuplicateSuspectRow> = Vec::new();
+    for i in 0..rows.len() {
+        for j in (i + 1)..rows.len() {
+            let d = match phash::hamming_distance(&rows[i].2, &rows[j].2) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            if d <= max_distance {
+                out.push(DuplicateSuspectRow {
+                    product_id_a: rows[i].0.clone(),
+                    name_a: rows[i].1.clone(),
+                    product_id_b: rows[j].0.clone(),
+                    name_b: rows[j].1.clone(),
+                    distance: d,
+                });
+            }
+        }
+    }
+    out.sort_by_key(|r| r.distance);
+    Ok(out)
 }
 
 #[cfg(test)]

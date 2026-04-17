@@ -14,6 +14,7 @@ const ROW: ProductImageRowDTO = {
   bytesB64: PNG_B64,
   uploadedBy: "user_1",
   uploadedAt: "2026-04-17T00:00:00.000Z",
+  phash: null,
 };
 
 describe("ProductImageThumb (X2a)", () => {

@@ -80,6 +80,8 @@ fn main() {
             images::get_product_image,
             images::delete_product_image,
             images::list_products_missing_image,
+            images::find_similar_images,
+            images::get_duplicate_suspects,
             oauth::gmail_connect,
             oauth::gmail_status,
             oauth::gmail_disconnect,
