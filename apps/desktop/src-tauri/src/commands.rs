@@ -3747,6 +3747,7 @@ pub struct CancelIrnInput {
 /// a stubbed impl until the vendor contract signs. MockAdapter is what
 /// tests + demo pilots use.
 pub trait EinvoiceAdapter: Send + Sync {
+    #[allow(dead_code)]
     fn vendor_name(&self) -> &'static str;
     fn submit(&self, payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner>;
     fn cancel(&self, irn: &str, reason: &str, remarks: &str) -> Result<(), IrnErrorInner>;
@@ -3848,7 +3849,7 @@ pub fn generate_irn_payload(
 
     // Shop row for the bill
     let (
-        shop_id,
+        _shop_id,
         shop_gstin,
         shop_name,
         shop_state_code,
@@ -3971,8 +3972,7 @@ pub fn generate_irn_payload(
             ))
         })
         .map_err(|e| e.to_string())?;
-    let mut sl: i64 = 1;
-    for row in line_iter {
+    for (sl, row) in (1_i64..).zip(line_iter) {
         let (_pid, pname, hsn, qty, mrp, disc, taxable, rate, cg, sg, ig, total) =
             row.map_err(|e| e.to_string())?;
         lines.push(IrnLineOut {
@@ -3990,7 +3990,6 @@ pub fn generate_irn_payload(
             igst_paise: ig,
             line_total_paise: total,
         });
-        sl += 1;
     }
 
     Ok(IrnPayloadOut {
@@ -4052,7 +4051,7 @@ pub fn submit_irn(input: SubmitIrnInput, state: State<DbState>) -> Result<IrnRec
     if einvoice_enabled == 0 {
         return Err("EINVOICE_DISABLED".to_string());
     }
-    if turnover <= 5_00_00_000_00 {
+    if turnover <= 5_000_000_000 {
         return Err("TURNOVER_BELOW_THRESHOLD".to_string());
     }
 
@@ -4304,8 +4303,7 @@ fn drop_and_generate(
                 ))
             })
             .map_err(|e| e.to_string())?;
-        let mut sl: i64 = 1;
-        for row in it {
+        for (sl, row) in (1_i64..).zip(it) {
             let (pname, hsn, qty, mrp, disc, taxable, rate, cg, sg, ig, total) =
                 row.map_err(|e| e.to_string())?;
             lines.push(IrnLineOut {
@@ -4323,7 +4321,6 @@ fn drop_and_generate(
                 igst_paise: ig,
                 line_total_paise: total,
             });
-            sl += 1;
         }
     }
 
