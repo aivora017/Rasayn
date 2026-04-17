@@ -18,5 +18,6 @@ export default [
   "packages/search-repo",
   "packages/seed-tool",
   "packages/shared-db",
+  "packages/stock-reconcile",
   "packages/shared-types",
 ];
