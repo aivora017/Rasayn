@@ -121,9 +121,8 @@ pub fn attach_product_image(
             MAX_IMAGE_BYTES
         ));
     }
-    let mime = sniff_mime(&bytes).ok_or_else(|| {
-        "Image format not recognised. Allowed: PNG, JPEG, WebP".to_string()
-    })?;
+    let mime = sniff_mime(&bytes)
+        .ok_or_else(|| "Image format not recognised. Allowed: PNG, JPEG, WebP".to_string())?;
     if let Some(reported) = &input.reported_mime {
         if !reported.is_empty() && reported != mime {
             tracing::warn!(
@@ -138,9 +137,7 @@ pub fn attach_product_image(
     let size = bytes.len() as i64;
 
     let mut conn = state.0.lock().map_err(|e| format!("db lock: {e}"))?;
-    let tx = conn
-        .transaction()
-        .map_err(|e| format!("begin tx: {e}"))?;
+    let tx = conn.transaction().map_err(|e| format!("begin tx: {e}"))?;
 
     // Existence + actor check — FK to products(id) + users(id) is enforced below,
     // but a friendly error beats a bare FK failure string in the UI.
@@ -185,7 +182,14 @@ pub fn attach_product_image(
            bytes = excluded.bytes,
            uploaded_by = excluded.uploaded_by,
            uploaded_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')",
-        params![input.product_id, sha, mime, size, bytes, input.actor_user_id],
+        params![
+            input.product_id,
+            sha,
+            mime,
+            size,
+            bytes,
+            input.actor_user_id
+        ],
     )
     .map_err(|e| format!("upsert product_image: {e}"))?;
 
