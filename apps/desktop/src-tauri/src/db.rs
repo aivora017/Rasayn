@@ -59,6 +59,8 @@ pub const MIGRATION_0016: &str =
     include_str!("../../../../packages/shared-db/migrations/0016_a12_einvoice_irn.sql");
 pub const MIGRATION_0017: &str =
     include_str!("../../../../packages/shared-db/migrations/0017_x2_product_images.sql");
+pub const MIGRATION_0018: &str =
+    include_str!("../../../../packages/shared-db/migrations/0018_x2b_phash.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -193,6 +195,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
         conn.execute_batch(MIGRATION_0017)?;
         conn.execute(
             "INSERT INTO _migrations (version, name) VALUES (17, '0017_x2_product_images')",
+            [],
+        )?;
+    }
+    if !applied(18, conn) {
+        conn.execute_batch(MIGRATION_0018)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (18, '0018_x2b_phash')",
             [],
         )?;
     }
