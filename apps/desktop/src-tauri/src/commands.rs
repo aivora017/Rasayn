@@ -2244,10 +2244,7 @@ pub struct BillFullOut {
 }
 
 #[tauri::command]
-pub fn get_bill_full(
-    bill_id: String,
-    state: State<DbState>,
-) -> Result<BillFullOut, String> {
+pub fn get_bill_full(bill_id: String, state: State<DbState>) -> Result<BillFullOut, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
 
     // --- bill header ---
@@ -2525,7 +2522,13 @@ pub fn record_print(
     c.execute(
         "INSERT INTO print_audit (id, bill_id, layout, actor_user_id, is_duplicate)
          VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, input.bill_id, input.layout, input.actor_user_id, is_duplicate],
+        params![
+            id,
+            input.bill_id,
+            input.layout,
+            input.actor_user_id,
+            is_duplicate
+        ],
     )
     .map_err(|e| e.to_string())?;
     let stamped_at: String = c
