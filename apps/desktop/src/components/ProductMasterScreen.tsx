@@ -27,7 +27,7 @@ import {
   type DrugSchedule,
   type GstRate,
 } from "@pharmacare/shared-types";
-import { validate } from "@pharmacare/sku-images";
+import { validate, type ValidationError } from "@pharmacare/sku-images";
 
 const ACTOR_USER_ID = "user_sourav_owner";
 
@@ -421,7 +421,7 @@ export function ProductMasterScreen(): JSX.Element {
                       const bytes = new Uint8Array(buf);
                       const result = await validate({ bytes, reportedMime: f.type });
                       if (!result.ok) {
-                        setErrs(result.errors.map((er) => er.message));
+                        setErrs(result.errors.map((er: ValidationError) => er.message));
                         setForm((prev) =>
                           prev
                             ? {
