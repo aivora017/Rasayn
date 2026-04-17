@@ -108,7 +108,10 @@ export type IpcCall =
   | { cmd: "upsert_product"; args: { input: ProductWriteDTO } }
   | { cmd: "get_product"; args: { id: string } }
   | { cmd: "list_products"; args: { args?: ListProductsArgs } }
-  | { cmd: "deactivate_product"; args: { id: string } };
+  | { cmd: "deactivate_product"; args: { id: string } }
+  | { cmd: "user_get"; args: { id: string } }
+  | { cmd: "record_expiry_override"; args: { input: ExpiryOverrideInputDTO } }
+  | { cmd: "get_nearest_expiry"; args: { productId: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -572,4 +575,63 @@ export async function gmailFetchAttachmentRpc(
     cmd: "gmail_fetch_attachment",
     args: { shopId, messageId, attachmentId, filename, mimeType },
   })) as GmailAttachmentPayload;
+}
+
+// ---------------------------------------------------------------------------
+// A13 (ADR 0013) · Expiry guard IPC surface
+// ---------------------------------------------------------------------------
+// Thin wrappers used by BillingScreen + OwnerOverrideModal.
+//   * userGetRpc        — fetch active user for role gating
+//   * getNearestExpiryRpc — fetch the FEFO batch for a product so the UI can
+//                           render the red/amber chip without pre-allocating.
+//   * recordExpiryOverrideRpc — persist an owner override so save_bill
+//                               will accept a near-expiry line.
+// ---------------------------------------------------------------------------
+
+export type UserRole = "owner" | "pharmacist" | "cashier" | "viewer";
+
+export interface UserDTO {
+  readonly id: string;
+  readonly name: string;
+  readonly role: UserRole;
+  readonly isActive: boolean;
+}
+
+export interface ExpiryStatusDTO {
+  readonly batchId: string;
+  readonly batchNo: string;
+  readonly expiryDate: string;
+  readonly qtyOnHand: number;
+  readonly daysToExpiry: number;
+}
+
+export interface ExpiryOverrideInputDTO {
+  readonly batchId: string;
+  readonly actorUserId: string;
+  readonly reason: string;
+}
+
+export interface ExpiryOverrideResultDTO {
+  readonly auditId: string;
+  readonly daysPastExpiry: number;
+}
+
+export async function userGetRpc(id: string): Promise<UserDTO | null> {
+  return (await handler({ cmd: "user_get", args: { id } })) as UserDTO | null;
+}
+
+export async function getNearestExpiryRpc(productId: string): Promise<ExpiryStatusDTO | null> {
+  return (await handler({
+    cmd: "get_nearest_expiry",
+    args: { productId },
+  })) as ExpiryStatusDTO | null;
+}
+
+export async function recordExpiryOverrideRpc(
+  input: ExpiryOverrideInputDTO,
+): Promise<ExpiryOverrideResultDTO> {
+  return (await handler({
+    cmd: "record_expiry_override",
+    args: { input },
+  })) as ExpiryOverrideResultDTO;
 }

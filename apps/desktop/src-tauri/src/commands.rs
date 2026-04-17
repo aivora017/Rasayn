@@ -270,6 +270,55 @@ pub fn save_bill(
         }
     }
 
+    // A13 · Expiry guard (ADR 0013). Defensive re-check: batch's expiry_date
+    // is trusted from DB, not from the input. Hard Rule 9 — expired sale is a
+    // criminal offence under D&C Act s.27; never trust the client.
+    //   * days_to_expiry <= 0  -> EXPIRED_BATCH (no override possible).
+    //   * 0 < days <= 30       -> requires a fresh expiry_override_audit row
+    //                             keyed by (batch_id, cashier_id) in the last
+    //                             10 minutes.
+    //   * days > 30            -> pass.
+    for l in input.lines.iter() {
+        let row: Option<(String, String)> = c
+            .query_row(
+                "SELECT expiry_date,
+                        CAST((julianday(expiry_date) - julianday('now')) AS TEXT) AS days
+                   FROM batches WHERE id = ?1",
+                params![l.batch_id],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+            )
+            .ok();
+        let Some((expiry_date, days_s)) = row else {
+            return Err(format!("BATCH_NOT_FOUND:{}", l.batch_id));
+        };
+        let days_f: f64 = days_s.parse().unwrap_or(f64::NAN);
+        let days: i64 = days_f.floor() as i64;
+        if days <= 0 {
+            return Err(format!(
+                "EXPIRED_BATCH:batch_id={}:expiry={}:days_past={}",
+                l.batch_id, expiry_date, -days
+            ));
+        }
+        if days <= 30 {
+            let has_override: i64 = c
+                .query_row(
+                    "SELECT COUNT(*) FROM expiry_override_audit
+                      WHERE batch_id = ?1
+                        AND actor_user_id = ?2
+                        AND created_at > datetime('now','-10 minutes')",
+                    params![l.batch_id, input.cashier_id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            if has_override == 0 {
+                return Err(format!(
+                    "NEAR_EXPIRY_NO_OVERRIDE:batch_id={}:expiry={}:days={}",
+                    l.batch_id, expiry_date, days
+                ));
+            }
+        }
+    }
+
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let mut subtotal = 0i64;
     let mut cgst = 0i64;
@@ -356,6 +405,18 @@ pub fn save_bill(
             params![lid, bill_id, l.product_id, l.batch_id, l.qty, l.mrp_paise,
                     l.discount_pct.unwrap_or(0.0), disc, taxable, l.gst_rate, cg, sg, ig, 0i64, total])
             .map_err(|e| e.to_string())?;
+        // A13 · Stamp the bill_line_id onto the override audit row (if any)
+        // that allowed this line through. Safe no-op when no override used.
+        tx.execute(
+            "UPDATE expiry_override_audit
+                SET bill_line_id = ?1, bill_no = ?2
+              WHERE batch_id = ?3
+                AND actor_user_id = ?4
+                AND bill_line_id IS NULL
+                AND created_at > datetime('now','-10 minutes')",
+            params![lid, input.bill_no, l.batch_id, input.cashier_id],
+        )
+        .map_err(|e| e.to_string())?;
     }
     for (pi, t) in resolved_tenders.iter().enumerate() {
         tx.execute(
@@ -1841,4 +1902,202 @@ pub fn list_payments_by_bill(
         })
         .map_err(|e| e.to_string())?;
     iter.collect::<Result<_, _>>().map_err(|e| e.to_string())
+}
+
+// -----------------------------------------------------------------------------
+// A13 · User lookup (role gating for expiry-override and future compliance)
+// -----------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserOut {
+    pub id: String,
+    pub shop_id: String,
+    pub name: String,
+    pub role: String,
+    pub is_active: i64,
+}
+
+#[tauri::command]
+pub fn user_get(id: String, state: State<DbState>) -> Result<Option<UserOut>, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let row = c.query_row(
+        "SELECT id, shop_id, name, role, is_active FROM users WHERE id = ?1",
+        params![id],
+        |r| {
+            Ok(UserOut {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                name: r.get(2)?,
+                role: r.get(3)?,
+                is_active: r.get(4)?,
+            })
+        },
+    );
+    match row {
+        Ok(u) => Ok(Some(u)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+// -----------------------------------------------------------------------------
+// A13 · Expiry override (ADR 0013)
+// -----------------------------------------------------------------------------
+// The cashier or owner calls this before save_bill when a line has a batch
+// with 0 < days_to_expiry <= 30. save_bill then looks for a matching fresh
+// row and allows the line. Caller is responsible for confirming the user is
+// an owner BEFORE invoking this command (UI gate), but Rust re-checks the
+// role here as a defence-in-depth measure.
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpiryOverrideInput {
+    pub product_id: String,
+    pub batch_id: String,
+    pub actor_user_id: String,
+    pub reason: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpiryOverrideOut {
+    pub id: String,
+    pub batch_id: String,
+    pub actor_user_id: String,
+    pub actor_role: String,
+    pub days_past_expiry: i64, // negative when still in the warn-window
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn record_expiry_override(
+    input: ExpiryOverrideInput,
+    state: State<DbState>,
+) -> Result<ExpiryOverrideOut, String> {
+    if input.reason.trim().len() < 4 {
+        return Err("REASON_TOO_SHORT:min=4".into());
+    }
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+
+    // Defence-in-depth: role check.
+    let actor_role: String = c
+        .query_row(
+            "SELECT role FROM users WHERE id = ?1 AND is_active = 1",
+            params![input.actor_user_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("USER_NOT_FOUND:{}:{}", input.actor_user_id, e))?;
+    if actor_role != "owner" {
+        return Err(format!("OVERRIDE_FORBIDDEN:role={}", actor_role));
+    }
+
+    // Pull batch expiry to compute days_past_expiry at the moment of override.
+    let (batch_expiry, days_f): (String, f64) = c
+        .query_row(
+            "SELECT expiry_date,
+                    CAST((julianday('now') - julianday(expiry_date)) AS REAL)
+               FROM batches WHERE id = ?1",
+            params![input.batch_id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?)),
+        )
+        .map_err(|e| format!("BATCH_NOT_FOUND:{}:{}", input.batch_id, e))?;
+    // days_past is +ve when already past expiry, negative while still in warn.
+    let days_past: i64 = days_f.floor() as i64;
+
+    // Hard Rule 9: expired batches are never overridable.
+    if days_past >= 0 {
+        return Err(format!(
+            "EXPIRED_BATCH_NOT_OVERRIDABLE:batch_id={}:expiry={}",
+            input.batch_id, batch_expiry
+        ));
+    }
+
+    let id = format!(
+        "eo_{}_{}",
+        &input.batch_id,
+        chrono::Utc::now().timestamp_millis()
+    );
+    c.execute(
+        "INSERT INTO expiry_override_audit
+           (id, bill_line_id, bill_no, product_id, batch_id, actor_user_id,
+            actor_role, reason, days_past_expiry)
+         VALUES (?1, NULL, NULL, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            id,
+            input.product_id,
+            input.batch_id,
+            input.actor_user_id,
+            actor_role,
+            input.reason.trim(),
+            days_past
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let created_at: String = c
+        .query_row(
+            "SELECT created_at FROM expiry_override_audit WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(ExpiryOverrideOut {
+        id,
+        batch_id: input.batch_id,
+        actor_user_id: input.actor_user_id,
+        actor_role,
+        days_past_expiry: days_past,
+        created_at,
+    })
+}
+
+// -----------------------------------------------------------------------------
+// A13 · get_nearest_expiry (ADR 0013)
+// -----------------------------------------------------------------------------
+// Returns the next-to-expire in-stock batch for a product, with days_to_expiry
+// pre-computed in SQL. Used by BillingScreen to render the red/amber chip as
+// soon as a line is added, without pre-allocating FEFO.
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpiryStatusOut {
+    pub batch_id: String,
+    pub batch_no: String,
+    pub expiry_date: String,
+    pub qty_on_hand: i64,
+    pub days_to_expiry: i64,
+}
+
+#[tauri::command]
+pub fn get_nearest_expiry(
+    product_id: String,
+    state: State<DbState>,
+) -> Result<Option<ExpiryStatusOut>, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let row = c.query_row(
+        "SELECT id, batch_no, expiry_date, qty_on_hand,
+                CAST((julianday(expiry_date) - julianday('now')) AS REAL)
+           FROM batches
+          WHERE product_id = ?1 AND qty_on_hand > 0
+          ORDER BY expiry_date ASC, batch_no ASC
+          LIMIT 1",
+        params![product_id],
+        |r| {
+            let days_f: f64 = r.get(4)?;
+            Ok(ExpiryStatusOut {
+                batch_id: r.get(0)?,
+                batch_no: r.get(1)?,
+                expiry_date: r.get(2)?,
+                qty_on_hand: r.get(3)?,
+                days_to_expiry: days_f.floor() as i64,
+            })
+        },
+    );
+    match row {
+        Ok(v) => Ok(Some(v)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
 }
