@@ -2,6 +2,7 @@
 mod commands;
 mod db;
 mod oauth;
+mod images;
 mod products;
 #[cfg(test)]
 mod products_perf;
@@ -74,6 +75,10 @@ fn main() {
             products::get_product,
             products::list_products,
             products::deactivate_product,
+            images::attach_product_image,
+            images::get_product_image,
+            images::delete_product_image,
+            images::list_products_missing_image,
             oauth::gmail_connect,
             oauth::gmail_status,
             oauth::gmail_disconnect,

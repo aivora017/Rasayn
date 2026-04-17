@@ -129,7 +129,11 @@ export type IpcCall =
   | { cmd: "retry_irn"; args: { billId: string; actorUserId: string } }
   | { cmd: "cancel_irn"; args: { input: CancelIrnInputDTO } }
   | { cmd: "list_irn_records"; args: { shopId: string; status?: string; limit?: number } }
-  | { cmd: "get_irn_for_bill"; args: { billId: string } };
+  | { cmd: "get_irn_for_bill"; args: { billId: string } }
+  | { cmd: "attach_product_image"; args: { input: AttachImageInputDTO } }
+  | { cmd: "get_product_image"; args: { productId: string } }
+  | { cmd: "delete_product_image"; args: { productId: string; actorUserId: string } }
+  | { cmd: "list_products_missing_image"; args: Record<string, never> };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1150,4 +1154,63 @@ export async function listIrnRecordsRpc(
 
 export async function getIrnForBillRpc(billId: string): Promise<IrnRecordDTO | null> {
   return (await handler({ cmd: "get_irn_for_bill", args: { billId } })) as IrnRecordDTO | null;
+}
+
+// --- X2 SKU images -------------------------------------------------------
+// ADR: docs/adr/0018-x2-sku-images.md
+
+export interface AttachImageInputDTO {
+  readonly productId: string;
+  readonly bytesB64: string;
+  readonly reportedMime?: string | null;
+  readonly actorUserId: string;
+}
+
+export interface ImageMetadataDTO {
+  readonly sha256: string;
+  readonly mime: "image/png" | "image/jpeg" | "image/webp";
+  readonly sizeBytes: number;
+  readonly productId: string;
+}
+
+export interface ProductImageRowDTO {
+  readonly productId: string;
+  readonly sha256: string;
+  readonly mime: "image/png" | "image/jpeg" | "image/webp";
+  readonly sizeBytes: number;
+  readonly bytesB64: string;
+  readonly uploadedBy: string;
+  readonly uploadedAt: string;
+}
+
+export interface MissingImageRowDTO {
+  readonly productId: string;
+  readonly name: string;
+  readonly schedule: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
+  readonly manufacturer: string;
+  /** "blocker" for Schedule H/H1/X, "warning" otherwise. */
+  readonly severity: "blocker" | "warning";
+}
+
+export async function attachProductImageRpc(
+  input: AttachImageInputDTO,
+): Promise<ImageMetadataDTO> {
+  return (await handler({ cmd: "attach_product_image", args: { input } })) as ImageMetadataDTO;
+}
+
+export async function getProductImageRpc(
+  productId: string,
+): Promise<ProductImageRowDTO | null> {
+  return (await handler({ cmd: "get_product_image", args: { productId } })) as ProductImageRowDTO | null;
+}
+
+export async function deleteProductImageRpc(
+  productId: string,
+  actorUserId: string,
+): Promise<void> {
+  await handler({ cmd: "delete_product_image", args: { productId, actorUserId } });
+}
+
+export async function listProductsMissingImageRpc(): Promise<readonly MissingImageRowDTO[]> {
+  return (await handler({ cmd: "list_products_missing_image", args: {} })) as readonly MissingImageRowDTO[];
 }
