@@ -10,6 +10,9 @@ import {
   listCandidateBatches,
   NppaCapExceededError,
   InsufficientStockError,
+  RxRequiredError,
+  recordPrescription,
+  RxInvalidInputError,
 } from "./index.js";
 
 const FAR_FUTURE_1 = "2027-06-30";
@@ -262,8 +265,18 @@ describe("bill-repo · saveBill (transactional)", () => {
   });
 
   it("3-line bill: per-line cgst+sgst sums equal invoice totals (exact)", () => {
+    // Seed a walk-in customer + prescription so the A7 RX gate passes — this
+    // test exercises tax math, not the rx gate.
+    db.prepare("INSERT INTO customers (id, shop_id, name, phone) VALUES ('c1','shop1','Walk-In','9')").run();
+    const rx1 = recordPrescription(db, {
+      shopId: "shop1", customerId: "c1",
+      doctorName: "Dr. A", doctorRegNo: "MCI-T1", patientName: "Patient",
+      issuedDate: "2026-04-17", kind: "paper", imagePath: null, notes: null,
+    }).rxId;
     saveBill(db, "bill_005", baseInput({
       billNo: "INV-0005",
+      customerId: "c1",
+      rxId: rx1,
       lines: [
         { productId: "p_para", batchId: "b_a1",  mrpPaise: rupeesToPaise(110) as Paise, qty: 3, gstRate: 12 },
         { productId: "p_amox", batchId: "b_amox", mrpPaise: rupeesToPaise(50)  as Paise, qty: 2, gstRate: 12, discountPct: 5 },
@@ -280,8 +293,16 @@ describe("bill-repo · saveBill (transactional)", () => {
   });
 
   it("round_off_paise bounded to ±50, grand_total ends in 00", () => {
+    db.prepare("INSERT INTO customers (id, shop_id, name, phone) VALUES ('c1','shop1','Walk-In','9')").run();
+    const rx2 = recordPrescription(db, {
+      shopId: "shop1", customerId: "c1",
+      doctorName: "Dr. B", doctorRegNo: "MCI-T2", patientName: "Patient",
+      issuedDate: "2026-04-17", kind: "paper", imagePath: null, notes: null,
+    }).rxId;
     saveBill(db, "bill_006", baseInput({
       billNo: "INV-0006",
+      customerId: "c1",
+      rxId: rx2,
       lines: [
         { productId: "p_para", batchId: "b_a1", mrpPaise: rupeesToPaise(110) as Paise, qty: 7, gstRate: 12 },
         { productId: "p_amox", batchId: "b_amox", mrpPaise: rupeesToPaise(50) as Paise, qty: 3, gstRate: 12, discountPct: 3.5 },
@@ -570,5 +591,205 @@ describe("bill-repo · A13 · recordExpiryOverride", () => {
         reason: "trying to override an expired batch",
       }),
     ).toThrow(ExpiryOverrideNotNeededError);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// A7 (ADR 0011) · Rx capture — save_bill RX_REQUIRED gate + recordPrescription
+// ----------------------------------------------------------------------------
+
+function fixtureWithRx(): Database.Database {
+  const db = fixture();
+  db.prepare(
+    `INSERT INTO customers (id, shop_id, name, phone) VALUES ('c1','shop1','Walk-In','9999999999')`,
+  ).run();
+  // Add NDPS product for NDPS test
+  db.prepare(
+    `INSERT INTO products (id,name,manufacturer,hsn,gst_rate,schedule,pack_form,pack_size,mrp_paise,image_sha256)
+     VALUES ('p_ndps','Fentanyl 50mcg','Sun','3004',12,'NDPS','inj',1,50000,'sha_ndps_x')`,
+  ).run();
+  db.prepare(
+    `INSERT INTO batches (id,product_id,batch_no,mfg_date,expiry_date,qty_on_hand,purchase_price_paise,mrp_paise,supplier_id)
+     VALUES ('b_ndps','p_ndps','N001','2026-01-01','2027-12-31',10,30000,50000,'sup1')`,
+  ).run();
+  return db;
+}
+
+describe("bill-repo · A7 save_bill RX_REQUIRED gate", () => {
+  it("throws RxRequiredError when Schedule H line has no rxId", () => {
+    const db = fixtureWithRx();
+    expect(() =>
+      saveBill(db, "bill_h", baseInput({
+        billNo: "INV-H-1",
+        lines: [{
+          productId: "p_amox", batchId: "b_amox",
+          mrpPaise: rupeesToPaise(50) as Paise, qty: 1, gstRate: 12,
+        }],
+      })),
+    ).toThrow(RxRequiredError);
+  });
+
+  it("throws RxRequiredError with the offending productId + schedule", () => {
+    const db = fixtureWithRx();
+    try {
+      saveBill(db, "bill_h2", baseInput({
+        billNo: "INV-H-2",
+        lines: [{
+          productId: "p_amox", batchId: "b_amox",
+          mrpPaise: rupeesToPaise(50) as Paise, qty: 1, gstRate: 12,
+        }],
+      }));
+      throw new Error("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(RxRequiredError);
+      const err = e as RxRequiredError;
+      expect(err.productId).toBe("p_amox");
+      expect(err.schedule).toBe("H");
+    }
+  });
+
+  it("throws RxRequiredError for NDPS lines without rxId (stricter compliance)", () => {
+    const db = fixtureWithRx();
+    expect(() =>
+      saveBill(db, "bill_ndps", baseInput({
+        billNo: "INV-N-1",
+        lines: [{
+          productId: "p_ndps", batchId: "b_ndps",
+          mrpPaise: rupeesToPaise(500) as Paise, qty: 1, gstRate: 12,
+        }],
+      })),
+    ).toThrow(RxRequiredError);
+  });
+
+  it("passes when rxId is provided for a Schedule H line", () => {
+    const db = fixtureWithRx();
+    const { rxId } = recordPrescription(db, {
+      shopId: "shop1",
+      customerId: "c1",
+      doctorName: "Dr. A. Shastri",
+      doctorRegNo: "MCI-99",
+      patientName: "Rahul",
+      issuedDate: "2026-04-17",
+      kind: "paper",
+      imagePath: null,
+      notes: null,
+    });
+    const r = saveBill(db, "bill_h_ok", baseInput({
+      billNo: "INV-H-OK",
+      customerId: "c1",
+      rxId,
+      lines: [{
+        productId: "p_amox", batchId: "b_amox",
+        mrpPaise: rupeesToPaise(50) as Paise, qty: 1, gstRate: 12,
+      }],
+    }));
+    expect(r.billId).toBe("bill_h_ok");
+    const row: any = db.prepare("SELECT rx_id FROM bills WHERE id = ?").get("bill_h_ok");
+    expect(row.rx_id).toBe(rxId);
+  });
+
+  it("does not require rxId when all lines are OTC", () => {
+    const db = fixtureWithRx();
+    const r = saveBill(db, "bill_otc", baseInput({
+      billNo: "INV-OTC-1",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 2, gstRate: 12,
+      }],
+    }));
+    expect(r.billId).toBe("bill_otc");
+  });
+});
+
+describe("bill-repo · A7 recordPrescription", () => {
+  it("inserts a prescription and auto-populates retention_until = issued_date + 2y", () => {
+    const db = fixtureWithRx();
+    const out = recordPrescription(db, {
+      shopId: "shop1",
+      customerId: "c1",
+      doctorName: "Dr. Meena",
+      doctorRegNo: "MCI-55",
+      patientName: "Asha",
+      issuedDate: "2026-04-17",
+      kind: "paper",
+      imagePath: null,
+      notes: null,
+    });
+    expect(out.rxId).toMatch(/^rx_\d+$/);
+    expect(out.doctorId).toMatch(/^d_\d+$/);
+    expect(out.retentionUntil).toBe("2028-04-17");
+  });
+
+  it("reuses doctor row when reg_no already exists (upsert by reg_no)", () => {
+    const db = fixtureWithRx();
+    // Pre-seed a doctor
+    db.prepare(`INSERT INTO doctors (id, reg_no, name) VALUES ('d_pre','MCI-77','Old Name')`).run();
+    const out = recordPrescription(db, {
+      shopId: "shop1",
+      customerId: "c1",
+      doctorName: "New Name",
+      doctorRegNo: "MCI-77",
+      patientName: "Ashok",
+      issuedDate: "2026-04-17",
+      kind: "digital",
+      imagePath: null,
+      notes: null,
+    });
+    expect(out.doctorId).toBe("d_pre");
+    const row: any = db.prepare("SELECT name FROM doctors WHERE id = 'd_pre'").get();
+    expect(row.name).toBe("New Name");
+  });
+
+  it("stores patient name in notes when no explicit notes given", () => {
+    const db = fixtureWithRx();
+    const out = recordPrescription(db, {
+      shopId: "shop1",
+      customerId: "c1",
+      doctorName: "Dr. X",
+      doctorRegNo: "MCI-1",
+      patientName: "Sunita",
+      issuedDate: "2026-04-17",
+      kind: "paper",
+      imagePath: null,
+      notes: null,
+    });
+    const row: any = db.prepare("SELECT notes FROM prescriptions WHERE id = ?").get(out.rxId);
+    expect(row.notes).toBe("patient: Sunita");
+  });
+
+  it("rejects doctor_name shorter than 2 characters", () => {
+    const db = fixtureWithRx();
+    expect(() => recordPrescription(db, {
+      shopId: "shop1", customerId: "c1",
+      doctorName: "A", doctorRegNo: "MCI-1", patientName: "Rahul",
+      issuedDate: "2026-04-17", kind: "paper", imagePath: null, notes: null,
+    })).toThrow(RxInvalidInputError);
+  });
+
+  it("rejects missing reg_no", () => {
+    const db = fixtureWithRx();
+    expect(() => recordPrescription(db, {
+      shopId: "shop1", customerId: "c1",
+      doctorName: "Dr. X", doctorRegNo: "  ", patientName: "Rahul",
+      issuedDate: "2026-04-17", kind: "paper", imagePath: null, notes: null,
+    })).toThrow(RxInvalidInputError);
+  });
+
+  it("rejects malformed issued_date", () => {
+    const db = fixtureWithRx();
+    expect(() => recordPrescription(db, {
+      shopId: "shop1", customerId: "c1",
+      doctorName: "Dr. X", doctorRegNo: "MCI-1", patientName: "Rahul",
+      issuedDate: "17-04-2026", kind: "paper", imagePath: null, notes: null,
+    })).toThrow(RxInvalidInputError);
+  });
+
+  it("rejects invalid kind", () => {
+    const db = fixtureWithRx();
+    expect(() => recordPrescription(db, {
+      shopId: "shop1", customerId: "c1",
+      doctorName: "Dr. X", doctorRegNo: "MCI-1", patientName: "Rahul",
+      issuedDate: "2026-04-17", kind: "telegram" as any, imagePath: null, notes: null,
+    })).toThrow(RxInvalidInputError);
   });
 });

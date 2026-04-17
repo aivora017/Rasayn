@@ -270,6 +270,30 @@ pub fn save_bill(
         }
     }
 
+    // A7 · Rx-required gate (ADR 0011). Schedule H/H1/X lines require
+    // bills.rx_id to be set. Server-side authority: the UI opens RxCaptureModal
+    // on F8 when any H/H1/X line is present and rx_id is null, but defense in
+    // depth requires this check here and a block trigger in migration 0012.
+    // Hard Rule 9 — D&C Act 1940 s.18 prohibits sale of Schedule H without
+    // a valid Rx, and Rules 1945 r.65 mandates 2-year retention.
+    if input.rx_id.is_none() {
+        for l in input.lines.iter() {
+            let schedule: String = c
+                .query_row(
+                    "SELECT schedule FROM products WHERE id = ?1",
+                    params![l.product_id],
+                    |r| r.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if matches!(schedule.as_str(), "H" | "H1" | "X" | "NDPS") {
+                return Err(format!(
+                    "RX_REQUIRED:product_id={}:schedule={}",
+                    l.product_id, schedule
+                ));
+            }
+        }
+    }
+
     // A13 · Expiry guard (ADR 0013). Defensive re-check: batch's expiry_date
     // is trusted from DB, not from the input. Hard Rule 9 — expired sale is a
     // criminal offence under D&C Act s.27; never trust the client.
