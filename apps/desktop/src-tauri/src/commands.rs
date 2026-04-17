@@ -2547,3 +2547,551 @@ pub fn record_print(
         stamped_at,
     })
 }
+
+// ───────────────────────────── A10: GSTR-1 export ─────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShopForGstr1 {
+    pub id: String,
+    pub gstin: String,
+    pub state_code: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerForGstr1 {
+    pub id: String,
+    pub gstin: Option<String>,
+    pub name: String,
+    pub state_code: Option<String>,
+    pub address: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillLineForGstr1 {
+    pub id: String,
+    pub product_id: String,
+    pub hsn: String,
+    pub gst_rate: i64,
+    pub qty: f64,
+    pub taxable_value_paise: i64,
+    pub cgst_paise: i64,
+    pub sgst_paise: i64,
+    pub igst_paise: i64,
+    pub cess_paise: i64,
+    pub line_total_paise: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillForGstr1 {
+    pub id: String,
+    pub bill_no: String,
+    pub billed_at: String,
+    pub doc_series: String,
+    pub gst_treatment: String,
+    pub subtotal_paise: i64,
+    pub total_discount_paise: i64,
+    pub total_cgst_paise: i64,
+    pub total_sgst_paise: i64,
+    pub total_igst_paise: i64,
+    pub total_cess_paise: i64,
+    pub round_off_paise: i64,
+    pub grand_total_paise: i64,
+    pub is_voided: i64,
+    pub customer: Option<CustomerForGstr1>,
+    pub lines: Vec<BillLineForGstr1>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Gstr1InputOut {
+    pub shop: ShopForGstr1,
+    pub bills: Vec<BillForGstr1>,
+    pub period: String,
+}
+
+/// Read-path: given a shop + period (MMYYYY), return a composite payload that
+/// the TS `@pharmacare/gstr1` package consumes to produce the JSON/CSV.
+///
+/// Selection: bills whose `billed_at` falls in (MM,YYYY) *IST* — we push the
+/// IST conversion down to TS to keep the Rust side timezone-agnostic.
+/// We include voided bills so the doc section can count cancellations.
+#[tauri::command]
+pub fn generate_gstr1_payload(
+    shop_id: String,
+    period: String,
+    state: State<DbState>,
+) -> Result<Gstr1InputOut, String> {
+    // Validate period format
+    if period.len() != 6 || !period.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("PERIOD_INVALID:{}", period));
+    }
+    let month: i64 = period[0..2].parse().map_err(|_| "PERIOD_INVALID")?;
+    if !(1..=12).contains(&month) {
+        return Err(format!("PERIOD_INVALID:month={}", month));
+    }
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let c = &*conn;
+
+    // Shop
+    let shop = c
+        .query_row(
+            "SELECT id, gstin, state_code, name FROM shops WHERE id = ?1",
+            params![shop_id],
+            |r| {
+                Ok(ShopForGstr1 {
+                    id: r.get(0)?,
+                    gstin: r.get(1)?,
+                    state_code: r.get(2)?,
+                    name: r.get(3)?,
+                })
+            },
+        )
+        .map_err(|e| format!("SHOP_NOT_FOUND:{}", e))?;
+
+    // Period range filter — SQLite substring on billed_at (ISO8601, UTC). We pull
+    // a wider window (prev+next day buffer) and let TS filter by IST.
+    let yyyy = &period[2..6];
+    let mm = &period[0..2];
+    // Build approximate UTC window: from (yyyy-mm-01T00:00:00Z - 1 day) to (yyyy-(mm+1)-01T00:00:00Z + 1 day)
+    // Simpler: fetch any bill where substr(billed_at,1,7) in {prev-month, this-month, next-month}
+    let (pm_mm, pm_yyyy) = prev_month(mm, yyyy);
+    let (nm_mm, nm_yyyy) = next_month(mm, yyyy);
+    let pattern_this = format!("{}-{}", yyyy, mm);
+    let pattern_prev = format!("{}-{}", pm_yyyy, pm_mm);
+    let pattern_next = format!("{}-{}", nm_yyyy, nm_mm);
+
+    let mut bills: Vec<BillForGstr1> = Vec::new();
+    let mut stmt = c
+        .prepare(
+            "SELECT id, bill_no, billed_at, doc_series, gst_treatment,
+                    subtotal_paise, total_discount_paise,
+                    total_cgst_paise, total_sgst_paise, total_igst_paise, total_cess_paise,
+                    round_off_paise, grand_total_paise, is_voided, customer_id
+             FROM bills
+             WHERE shop_id = ?1
+               AND (substr(billed_at,1,7) = ?2
+                    OR substr(billed_at,1,7) = ?3
+                    OR substr(billed_at,1,7) = ?4)
+             ORDER BY billed_at ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(
+            params![shop_id, pattern_this, pattern_prev, pattern_next],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,  // id
+                    r.get::<_, String>(1)?,  // bill_no
+                    r.get::<_, String>(2)?,  // billed_at
+                    r.get::<_, String>(3)?,  // doc_series
+                    r.get::<_, String>(4)?,  // gst_treatment
+                    r.get::<_, i64>(5)?,
+                    r.get::<_, i64>(6)?,
+                    r.get::<_, i64>(7)?,
+                    r.get::<_, i64>(8)?,
+                    r.get::<_, i64>(9)?,
+                    r.get::<_, i64>(10)?,
+                    r.get::<_, i64>(11)?,
+                    r.get::<_, i64>(12)?,
+                    r.get::<_, i64>(13)?, // is_voided
+                    r.get::<_, Option<String>>(14)?, // customer_id
+                ))
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut bill_tuples: Vec<(
+        String, String, String, String, String,
+        i64, i64, i64, i64, i64, i64, i64, i64, i64,
+        Option<String>,
+    )> = Vec::new();
+    for row in rows {
+        bill_tuples.push(row.map_err(|e| e.to_string())?);
+    }
+
+    for t in bill_tuples {
+        let customer: Option<CustomerForGstr1> = match &t.14 {
+            Some(cid) => c
+                .query_row(
+                    "SELECT id, name, phone, gstin, address FROM customers WHERE id = ?1",
+                    params![cid],
+                    |r| {
+                        let gstin: Option<String> = r.get(3)?;
+                        let address: Option<String> = r.get(4)?;
+                        let state_code = gstin.as_ref().and_then(|g| {
+                            if g.len() >= 2 {
+                                Some(g[0..2].to_string())
+                            } else {
+                                None
+                            }
+                        });
+                        Ok(CustomerForGstr1 {
+                            id: r.get(0)?,
+                            name: r.get(1)?,
+                            gstin,
+                            state_code,
+                            address,
+                        })
+                    },
+                )
+                .ok(),
+            None => None,
+        };
+
+        // Lines — JOIN products for HSN
+        let mut lstmt = c
+            .prepare(
+                "SELECT bl.id, bl.product_id, p.hsn, bl.gst_rate, bl.qty,
+                        bl.taxable_value_paise, bl.cgst_paise, bl.sgst_paise,
+                        bl.igst_paise, bl.cess_paise, bl.line_total_paise
+                 FROM bill_lines bl
+                 JOIN products p ON p.id = bl.product_id
+                 WHERE bl.bill_id = ?1
+                 ORDER BY rowid ASC",
+            )
+            .map_err(|e| e.to_string())?;
+        let lrows = lstmt
+            .query_map(params![t.0], |r| {
+                Ok(BillLineForGstr1 {
+                    id: r.get(0)?,
+                    product_id: r.get(1)?,
+                    hsn: r.get(2)?,
+                    gst_rate: r.get(3)?,
+                    qty: r.get(4)?,
+                    taxable_value_paise: r.get(5)?,
+                    cgst_paise: r.get(6)?,
+                    sgst_paise: r.get(7)?,
+                    igst_paise: r.get(8)?,
+                    cess_paise: r.get(9)?,
+                    line_total_paise: r.get(10)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        let mut lines: Vec<BillLineForGstr1> = Vec::new();
+        for lr in lrows {
+            lines.push(lr.map_err(|e| e.to_string())?);
+        }
+
+        bills.push(BillForGstr1 {
+            id: t.0,
+            bill_no: t.1,
+            billed_at: t.2,
+            doc_series: t.3,
+            gst_treatment: t.4,
+            subtotal_paise: t.5,
+            total_discount_paise: t.6,
+            total_cgst_paise: t.7,
+            total_sgst_paise: t.8,
+            total_igst_paise: t.9,
+            total_cess_paise: t.10,
+            round_off_paise: t.11,
+            grand_total_paise: t.12,
+            is_voided: t.13,
+            customer,
+            lines,
+        });
+    }
+
+    Ok(Gstr1InputOut {
+        shop,
+        bills,
+        period,
+    })
+}
+
+fn prev_month(mm: &str, yyyy: &str) -> (String, String) {
+    let m: i64 = mm.parse().unwrap_or(1);
+    let y: i64 = yyyy.parse().unwrap_or(2026);
+    if m == 1 {
+        (format!("{:02}", 12), format!("{:04}", y - 1))
+    } else {
+        (format!("{:02}", m - 1), yyyy.to_string())
+    }
+}
+
+fn next_month(mm: &str, yyyy: &str) -> (String, String) {
+    let m: i64 = mm.parse().unwrap_or(1);
+    let y: i64 = yyyy.parse().unwrap_or(2026);
+    if m == 12 {
+        (format!("{:02}", 1), format!("{:04}", y + 1))
+    } else {
+        (format!("{:02}", m + 1), yyyy.to_string())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveGstr1ReturnInput {
+    pub shop_id: String,
+    pub period: String,
+    pub json_blob: String,
+    pub csv_b2b: String,
+    pub csv_b2cl: String,
+    pub csv_b2cs: String,
+    pub csv_hsn: String,
+    pub csv_exemp: String,
+    pub csv_doc: String,
+    pub hash_sha256: String,
+    pub bill_count: i64,
+    pub grand_total_paise: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GstReturnOut {
+    pub id: String,
+    pub shop_id: String,
+    pub return_type: String,
+    pub period: String,
+    pub status: String,
+    pub hash_sha256: String,
+    pub bill_count: i64,
+    pub grand_total_paise: i64,
+    pub generated_at: String,
+    pub filed_at: Option<String>,
+    pub filed_by_user_id: Option<String>,
+}
+
+/// Persist a generated GSTR-1 return. Draft rows are upserted by unique
+/// (shop_id, return_type, period, status); filed rows are immutable (regeneration
+/// produces a new amended row instead).
+#[tauri::command]
+pub fn save_gstr1_return(
+    input: SaveGstr1ReturnInput,
+    state: State<DbState>,
+) -> Result<GstReturnOut, String> {
+    if input.period.len() != 6 {
+        return Err(format!("PERIOD_INVALID:{}", input.period));
+    }
+    if input.hash_sha256.len() != 64 {
+        return Err("HASH_INVALID".into());
+    }
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let c = &*conn;
+
+    // Does a filed row already exist for this period? If so, this becomes 'amended'.
+    let filed_exists: i64 = c
+        .query_row(
+            "SELECT COUNT(*) FROM gst_returns
+             WHERE shop_id = ?1 AND return_type = 'GSTR1' AND period = ?2 AND status = 'filed'",
+            params![input.shop_id, input.period],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let status = if filed_exists > 0 { "amended" } else { "draft" };
+
+    // If same (shop, period, status) row exists AND hash matches, no-op; else upsert.
+    let existing: Option<(String, String)> = c
+        .query_row(
+            "SELECT id, hash_sha256 FROM gst_returns
+             WHERE shop_id = ?1 AND return_type = 'GSTR1' AND period = ?2 AND status = ?3",
+            params![input.shop_id, input.period, status],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .ok();
+
+    let id = match existing {
+        Some((eid, ehash)) if ehash == input.hash_sha256 => {
+            // No-op — return existing
+            return read_gst_return(c, &eid);
+        }
+        Some((eid, _)) => {
+            c.execute(
+                "UPDATE gst_returns
+                 SET json_blob=?2, csv_b2b=?3, csv_b2cl=?4, csv_b2cs=?5, csv_hsn=?6, csv_exemp=?7, csv_doc=?8,
+                     hash_sha256=?9, bill_count=?10, grand_total_paise=?11,
+                     generated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                 WHERE id=?1",
+                params![
+                    eid,
+                    input.json_blob,
+                    input.csv_b2b,
+                    input.csv_b2cl,
+                    input.csv_b2cs,
+                    input.csv_hsn,
+                    input.csv_exemp,
+                    input.csv_doc,
+                    input.hash_sha256,
+                    input.bill_count,
+                    input.grand_total_paise
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+            eid
+        }
+        None => {
+            let new_id = format!("gr_{}", chrono::Utc::now().timestamp_millis());
+            c.execute(
+                "INSERT INTO gst_returns
+                 (id, shop_id, return_type, period, status,
+                  json_blob, csv_b2b, csv_b2cl, csv_b2cs, csv_hsn, csv_exemp, csv_doc,
+                  hash_sha256, bill_count, grand_total_paise)
+                 VALUES (?1, ?2, 'GSTR1', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                params![
+                    new_id,
+                    input.shop_id,
+                    input.period,
+                    status,
+                    input.json_blob,
+                    input.csv_b2b,
+                    input.csv_b2cl,
+                    input.csv_b2cs,
+                    input.csv_hsn,
+                    input.csv_exemp,
+                    input.csv_doc,
+                    input.hash_sha256,
+                    input.bill_count,
+                    input.grand_total_paise
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+            new_id
+        }
+    };
+
+    read_gst_return(c, &id)
+}
+
+fn read_gst_return(c: &Connection, id: &str) -> Result<GstReturnOut, String> {
+    c.query_row(
+        "SELECT id, shop_id, return_type, period, status, hash_sha256,
+                bill_count, grand_total_paise, generated_at, filed_at, filed_by_user_id
+         FROM gst_returns WHERE id = ?1",
+        params![id],
+        |r| {
+            Ok(GstReturnOut {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                return_type: r.get(2)?,
+                period: r.get(3)?,
+                status: r.get(4)?,
+                hash_sha256: r.get(5)?,
+                bill_count: r.get(6)?,
+                grand_total_paise: r.get(7)?,
+                generated_at: r.get(8)?,
+                filed_at: r.get(9)?,
+                filed_by_user_id: r.get(10)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_gst_returns(
+    shop_id: String,
+    state: State<DbState>,
+) -> Result<Vec<GstReturnOut>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let c = &*conn;
+    let mut stmt = c
+        .prepare(
+            "SELECT id, shop_id, return_type, period, status, hash_sha256,
+                    bill_count, grand_total_paise, generated_at, filed_at, filed_by_user_id
+             FROM gst_returns WHERE shop_id = ?1
+             ORDER BY period DESC, generated_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![shop_id], |r| {
+            Ok(GstReturnOut {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                return_type: r.get(2)?,
+                period: r.get(3)?,
+                status: r.get(4)?,
+                hash_sha256: r.get(5)?,
+                bill_count: r.get(6)?,
+                grand_total_paise: r.get(7)?,
+                generated_at: r.get(8)?,
+                filed_at: r.get(9)?,
+                filed_by_user_id: r.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkFiledInput {
+    pub return_id: String,
+    pub actor_user_id: String,
+}
+
+/// Flip a draft return → filed. Owner-role gate; back-fills bills.filed_period
+/// for all bills whose billed_at substring matches the period (approximate — TS
+/// layer has already filtered by IST; this is a defensive coverage stamp).
+#[tauri::command]
+pub fn mark_gstr1_filed(
+    input: MarkFiledInput,
+    state: State<DbState>,
+) -> Result<GstReturnOut, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let c = &*conn;
+
+    // Actor must be owner + active (same gate as record_expiry_override)
+    let (role, active): (String, i64) = c
+        .query_row(
+            "SELECT role, is_active FROM users WHERE id = ?1",
+            params![input.actor_user_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|e| format!("USER_NOT_FOUND:{}", e))?;
+    if active != 1 {
+        return Err("USER_INACTIVE".into());
+    }
+    if role != "owner" {
+        return Err(format!("ROLE_REQUIRED:owner:got={}", role));
+    }
+
+    // Return must be draft or amended
+    let (shop_id, period, status): (String, String, String) = c
+        .query_row(
+            "SELECT shop_id, period, status FROM gst_returns WHERE id = ?1",
+            params![input.return_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .map_err(|e| format!("RETURN_NOT_FOUND:{}", e))?;
+
+    if status != "draft" && status != "amended" {
+        return Err(format!("INVALID_STATUS:{}", status));
+    }
+
+    // Flip → filed
+    c.execute(
+        "UPDATE gst_returns
+         SET status = 'filed',
+             filed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+             filed_by_user_id = ?2
+         WHERE id = ?1",
+        params![input.return_id, input.actor_user_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Back-fill bills.filed_period for in-period bills (same approx match as generate)
+    let yyyy = &period[2..6];
+    let mm = &period[0..2];
+    let pattern = format!("{}-{}", yyyy, mm);
+    c.execute(
+        "UPDATE bills
+         SET filed_period = ?2
+         WHERE shop_id = ?1
+           AND substr(billed_at,1,7) = ?3
+           AND filed_period IS NULL
+           AND is_voided = 0",
+        params![shop_id, period, pattern],
+    )
+    .map_err(|e| e.to_string())?;
+
+    read_gst_return(c, &input.return_id)
+}
