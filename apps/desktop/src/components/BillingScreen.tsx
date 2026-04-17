@@ -9,9 +9,11 @@ import {
   searchCustomersRpc, listPrescriptionsRpc, createPrescriptionRpc, upsertDoctorRpc,
   userGetRpc,
   getBillFullRpc, recordPrintRpc,
+  submitIrnRpc, retryIrnRpc, getIrnForBillRpc,
   type ProductHit, type BatchPick, type SaveBillInput,
   type Customer, type Prescription, type Tender, type UserDTO,
   type ExpiryOverrideResultDTO,
+  type IrnRecordDTO,
 } from "../lib/ipc.js";
 import { renderInvoiceHtml, resolveLayout } from "@pharmacare/invoice-print";
 
@@ -85,6 +87,9 @@ export function BillingScreen() {
   const [printing, setPrinting] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  // A12 (ADR 0017) · IRN chip — reflects e-invoice state of the last saved bill.
+  const [irnRecord, setIrnRecord] = useState<IrnRecordDTO | null>(null);
+  const [submittingIrn, setSubmittingIrn] = useState(false);
 
   // A13 · Expiry override state. `overrideTarget` drives the modal; the
   // resolved `ExpiryOverrideResultDTO` is stashed on the line to prove to the
@@ -292,6 +297,7 @@ export function BillingScreen() {
     setToast(null);
     // Focus the primary input — the keyboard-first entry point.
     focusProductSearch();
+    setIrnRecord(null);
   }, []);
 
   const doSave = useCallback(async (tenders?: readonly Tender[]) => {
@@ -325,6 +331,8 @@ export function BillingScreen() {
     try {
       const r = await saveBillRpc(billId, payload);
       setLastSavedBillId(billId);
+      // A12 · IRN chip starts empty; user clicks "Submit to IRP" to create it.
+      setIrnRecord(null);
       setToast({ kind: "ok", msg: `Saved · ${payload.billNo} · ${formatINR(r.grandTotalPaise as Paise)} · F9 to print` });
       setLines([]);
       setCustomer(null); setRxId(null); setCustQuery(""); setRxList([]);
@@ -337,6 +345,55 @@ export function BillingScreen() {
       setSaving(false);
     }
   }, [canSave, lines, customer, rxId]);
+
+
+  // A12 (ADR 0017) · Submit bill to e-invoice IRP, or retry a failed submission.
+  const submitIrn = useCallback(async () => {
+    if (!lastSavedBillId) {
+      setToast({ kind: "err", msg: "No bill to submit — save one first (F10)" });
+      return;
+    }
+    if (!currentUser) {
+      setToast({ kind: "err", msg: "User not loaded — cannot submit IRN" });
+      return;
+    }
+    if (submittingIrn) return;
+    setSubmittingIrn(true);
+    try {
+      const rec = await submitIrnRpc({ billId: lastSavedBillId, actorUserId: currentUser.id });
+      setIrnRecord(rec);
+      if (rec.status === "acked") {
+        setToast({ kind: "ok", msg: `IRN acked · ${rec.irn ?? "(no irn)"}` });
+      } else if (rec.status === "failed") {
+        setToast({ kind: "err", msg: `IRN failed · ${rec.errorMsg ?? rec.errorCode ?? "unknown"}` });
+      } else {
+        setToast({ kind: "ok", msg: `IRN · ${rec.status}` });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setToast({ kind: "err", msg: `IRN submit failed: ${msg}` });
+    } finally {
+      setSubmittingIrn(false);
+    }
+  }, [lastSavedBillId, currentUser, submittingIrn]);
+
+  const retryIrn = useCallback(async () => {
+    if (!lastSavedBillId || !currentUser || submittingIrn) return;
+    setSubmittingIrn(true);
+    try {
+      const rec = await retryIrnRpc(lastSavedBillId, currentUser.id);
+      setIrnRecord(rec);
+      setToast({
+        kind: rec.status === "acked" ? "ok" : rec.status === "failed" ? "err" : "ok",
+        msg: `IRN · ${rec.status}${rec.errorMsg ? ` · ${rec.errorMsg}` : ""}`,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setToast({ kind: "err", msg: `IRN retry failed: ${msg}` });
+    } finally {
+      setSubmittingIrn(false);
+    }
+  }, [lastSavedBillId, currentUser, submittingIrn]);
 
   // A9 (ADR 0014) · F9 reprint — fetch full bill, write print_audit,
   // render the invoice HTML, and hand it to a hidden iframe for browser-native
@@ -519,6 +576,20 @@ export function BillingScreen() {
     return undefined;
   }, [toast]);
 
+
+  // A12 · Refresh IRN record whenever the saved bill id changes.
+  useEffect(() => {
+    if (!lastSavedBillId) {
+      setIrnRecord(null);
+      return;
+    }
+    let live = true;
+    void getIrnForBillRpc(lastSavedBillId).then((rec) => {
+      if (live) setIrnRecord(rec);
+    }).catch(() => { /* silent — chip just shows "Submit" */ });
+    return () => { live = false; };
+  }, [lastSavedBillId]);
+
   const patch = (idx: number, p: Partial<DraftLine>) =>
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...p } : l)));
 
@@ -566,6 +637,99 @@ export function BillingScreen() {
             }}
           >
             {toast.msg}
+          </div>
+        )}
+
+        {lastSavedBillId && (
+          <div
+            data-testid="irn-chip"
+            data-irn-status={irnRecord ? irnRecord.status : "none"}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "6px 10px", marginBottom: 10, borderRadius: 4,
+              border: "1px solid #334155", background: "#0f172a",
+              fontSize: 12, color: "#cbd5e1",
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>e-Invoice IRN</span>
+            {(() => {
+              if (!irnRecord) {
+                return (
+                  <>
+                    <span style={{ color: "#94a3b8" }}>not submitted</span>
+                    <button
+                      data-testid="irn-submit"
+                      onClick={() => void submitIrn()}
+                      disabled={submittingIrn}
+                      style={{
+                        marginLeft: "auto",
+                        padding: "4px 10px",
+                        background: submittingIrn ? "#475569" : "#16a34a",
+                        color: "#fff",
+                        border: "none",
+                        cursor: submittingIrn ? "wait" : "pointer",
+                        fontWeight: 600,
+                      }}
+                    >{submittingIrn ? "Submitting…" : "Submit to IRP"}</button>
+                  </>
+                );
+              }
+              const s = irnRecord.status;
+              const palette: Record<string, string> = {
+                pending: "#b45309",
+                submitted: "#2563eb",
+                acked: "#16a34a",
+                failed: "#dc2626",
+                cancelled: "#64748b",
+              };
+              return (
+                <>
+                  <span
+                    data-testid="irn-status-badge"
+                    style={{
+                      background: palette[s] ?? "#475569",
+                      color: "#fff",
+                      padding: "2px 8px",
+                      borderRadius: 3,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                    }}
+                  >{s}</span>
+                  {irnRecord.irn && (
+                    <code
+                      data-testid="irn-number"
+                      style={{ fontSize: 11, color: "#e2e8f0" }}
+                    >{irnRecord.irn.slice(0, 8)}…{irnRecord.irn.slice(-6)}</code>
+                  )}
+                  {s === "failed" && irnRecord.errorMsg && (
+                    <span
+                      data-testid="irn-error"
+                      style={{ fontSize: 11, color: "#fca5a5" }}
+                    >{irnRecord.errorMsg}</span>
+                  )}
+                  <span style={{ color: "#64748b", fontSize: 11 }}>
+                    attempt {irnRecord.attemptCount} · {irnRecord.vendor}
+                  </span>
+                  {(s === "failed" || s === "pending") && (
+                    <button
+                      data-testid="irn-retry"
+                      onClick={() => void retryIrn()}
+                      disabled={submittingIrn}
+                      style={{
+                        marginLeft: "auto",
+                        padding: "3px 10px",
+                        background: submittingIrn ? "#475569" : "#2563eb",
+                        color: "#fff",
+                        border: "none",
+                        cursor: submittingIrn ? "wait" : "pointer",
+                        fontWeight: 600,
+                      }}
+                    >{submittingIrn ? "Retrying…" : "Retry"}</button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 

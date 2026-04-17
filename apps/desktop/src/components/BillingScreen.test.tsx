@@ -606,3 +606,117 @@ describe("BillingScreen · A9 F9 invoice print", () => {
     );
   });
 });
+
+describe("BillingScreen · A12 e-invoice IRN chip", () => {
+  const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+
+  type IrnStatus = "pending" | "submitted" | "acked" | "failed" | "cancelled";
+  function mockIrn(partial: Partial<{ status: IrnStatus; irn: string | null; errorMsg: string | null; attemptCount: number }> = {}) {
+    return {
+      id: "ir_1", billId: "bill_a5", shopId: "shop_vaidyanath_kalyan",
+      vendor: "cygnet", status: partial.status ?? "acked",
+      irn: partial.irn === undefined ? "a".repeat(64) : partial.irn,
+      ackNo: "ACK-1", ackDate: "2026-04-17T10:00:00+05:30",
+      signedInvoice: null, qrCode: null,
+      errorCode: null, errorMsg: partial.errorMsg ?? null,
+      attemptCount: partial.attemptCount ?? 1,
+      submittedAt: "2026-04-17T09:59:00+05:30",
+      cancelledAt: null, cancelReason: null, cancelRemarks: null,
+      actorUserId: owner.id, createdAt: "2026-04-17T09:58:00+05:30",
+    };
+  }
+
+  function irnHandler(opts: {
+    existing?: ReturnType<typeof mockIrn> | null;
+    submitResult?: ReturnType<typeof mockIrn>;
+    retryResult?: ReturnType<typeof mockIrn>;
+    calls?: IpcCall[];
+  } = {}) {
+    return async (call: IpcCall): Promise<unknown> => {
+      opts.calls?.push(call);
+      if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
+      if (call.cmd === "db_version") return 2;
+      if (call.cmd === "search_products") {
+        const q = call.args.q.toLowerCase();
+        return FIXTURES.filter((f) => f.name.toLowerCase().includes(q));
+      }
+      if (call.cmd === "pick_fefo_batch") return BATCH;
+      if (call.cmd === "list_fefo_candidates") return [BATCH, BATCH_ALT];
+      if (call.cmd === "save_bill") return { billId: "bill_a5", grandTotalPaise: 11200, linesInserted: 1 };
+      if (call.cmd === "search_customers") return [];
+      if (call.cmd === "list_prescriptions") return [];
+      if (call.cmd === "list_stock") return [];
+      if (call.cmd === "user_get") return owner;
+      if (call.cmd === "get_nearest_expiry") return null;
+      if (call.cmd === "get_irn_for_bill") return opts.existing ?? null;
+      if (call.cmd === "submit_irn") return opts.submitResult ?? mockIrn({ status: "acked" });
+      if (call.cmd === "retry_irn") return opts.retryResult ?? mockIrn({ status: "acked" });
+      return null;
+    };
+  }
+
+  it("chip hidden until F10 save; after save shows 'not submitted' with Submit button", async () => {
+    setIpcHandler(irnHandler({ existing: null }));
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.queryByTestId("irn-chip")).not.toBeInTheDocument();
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() =>
+      expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "ok"),
+    );
+    const chip = await screen.findByTestId("irn-chip");
+    expect(chip).toHaveAttribute("data-irn-status", "none");
+    expect(screen.getByTestId("irn-submit")).toBeInTheDocument();
+  });
+
+  it("Submit click calls submit_irn and chip flips to acked", async () => {
+    const calls: IpcCall[] = [];
+    setIpcHandler(irnHandler({ existing: null, submitResult: mockIrn({ status: "acked" }), calls }));
+    const user = userEvent.setup();
+    render(<App />);
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await screen.findByTestId("irn-chip");
+    fireEvent.click(screen.getByTestId("irn-submit"));
+    await waitFor(() =>
+      expect(screen.getByTestId("irn-chip")).toHaveAttribute("data-irn-status", "acked"),
+    );
+    expect(calls.some((c) => c.cmd === "submit_irn")).toBe(true);
+    expect(screen.getByTestId("irn-status-badge").textContent?.toLowerCase()).toBe("acked");
+    expect(screen.getByTestId("irn-number")).toBeInTheDocument();
+  });
+
+  it("failed status exposes errorMsg + Retry button; retry flips to acked", async () => {
+    const calls: IpcCall[] = [];
+    setIpcHandler(irnHandler({
+      existing: mockIrn({ status: "failed", irn: null, errorMsg: "3026 invalid GSTIN", attemptCount: 2 }),
+      retryResult: mockIrn({ status: "acked", attemptCount: 3 }),
+      calls,
+    }));
+    const user = userEvent.setup();
+    render(<App />);
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    const chip = await screen.findByTestId("irn-chip");
+    await waitFor(() => expect(chip).toHaveAttribute("data-irn-status", "failed"));
+    expect(screen.getByTestId("irn-error").textContent).toMatch(/invalid GSTIN/);
+    fireEvent.click(screen.getByTestId("irn-retry"));
+    await waitFor(() =>
+      expect(screen.getByTestId("irn-chip")).toHaveAttribute("data-irn-status", "acked"),
+    );
+    expect(calls.some((c) => c.cmd === "retry_irn")).toBe(true);
+  });
+
+  it("F1 reset clears the chip even after a prior save", async () => {
+    setIpcHandler(irnHandler({ existing: null }));
+    const user = userEvent.setup();
+    render(<App />);
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await screen.findByTestId("irn-chip");
+    fireEvent.keyDown(window, { key: "F1" });
+    await waitFor(() => expect(screen.queryByTestId("irn-chip")).not.toBeInTheDocument());
+  });
+});
+

@@ -30,15 +30,20 @@ import {
   listGstReturnsRpc,
   markGstr1FiledRpc,
   userGetRpc,
+  listIrnRecordsRpc,
+  cancelIrnRpc,
   type Gstr1InputDTO,
   type GstReturnDTO,
   type UserDTO,
+  type IrnRecordDTO,
 } from "../lib/ipc.js";
 
 const SHOP_ID = "shop_vaidyanath_kalyan";
 const OWNER_USER_ID = "user_sourav_owner";
 
 type PreviewTab = "summary" | "b2b" | "b2cl" | "b2cs" | "hsn" | "exemp" | "doc";
+type ReturnsMode = "gstr1" | "irn";
+type IrnStatusFilter = "all" | "pending" | "submitted" | "acked" | "failed" | "cancelled";
 
 function ymNow(): { mm: string; yyyy: string } {
   const d = new Date();
@@ -138,6 +143,15 @@ export function ReturnsScreen() {
   const [tab, setTab] = useState<PreviewTab>("summary");
   const [confirmFile, setConfirmFile] = useState(false);
   const periodRef = useRef<HTMLInputElement | null>(null);
+  // A12 (ADR 0017) · IRN Records mode + filters
+  const [mode, setMode] = useState<ReturnsMode>("gstr1");
+  const [irnRecords, setIrnRecords] = useState<readonly IrnRecordDTO[]>([]);
+  const [irnFilter, setIrnFilter] = useState<IrnStatusFilter>("all");
+  const [irnBusy, setIrnBusy] = useState(false);
+  const [irnErr, setIrnErr] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<IrnRecordDTO | null>(null);
+  const [cancelReasonCode, setCancelReasonCode] = useState<"1" | "2" | "3" | "4">("2");
+  const [cancelRemarks, setCancelRemarks] = useState("");
 
   // Load current user + history on mount
   useEffect(() => {
@@ -151,6 +165,63 @@ export function ReturnsScreen() {
     const h = await listGstReturnsRpc(SHOP_ID);
     setHistory(h);
   }, []);
+
+  // A12 · IRN list refresh (used on tab switch + filter change + after cancel).
+  const refreshIrn = useCallback(async () => {
+    setIrnBusy(true);
+    setIrnErr(null);
+    try {
+      const status = irnFilter === "all" ? undefined : irnFilter;
+      const rows = await listIrnRecordsRpc(SHOP_ID, status, 200);
+      setIrnRecords(rows);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setIrnErr(`Failed to load IRN records: ${msg}`);
+    } finally {
+      setIrnBusy(false);
+    }
+  }, [irnFilter]);
+
+  const doCancelIrn = useCallback(async () => {
+    if (!cancelTarget) return;
+    if (!currentUser) {
+      setIrnErr("User not loaded — cannot cancel IRN");
+      return;
+    }
+    setIrnBusy(true);
+    setIrnErr(null);
+    try {
+      const rem = cancelRemarks.trim();
+      await cancelIrnRpc(rem
+        ? {
+            irnRecordId: cancelTarget.id,
+            actorUserId: currentUser.id,
+            cancelReason: cancelReasonCode,
+            cancelRemarks: rem,
+          }
+        : {
+            irnRecordId: cancelTarget.id,
+            actorUserId: currentUser.id,
+            cancelReason: cancelReasonCode,
+          });
+      setCancelTarget(null);
+      setCancelRemarks("");
+      await refreshIrn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setIrnErr(`Cancel failed: ${msg}`);
+    } finally {
+      setIrnBusy(false);
+    }
+  }, [cancelTarget, currentUser, cancelReasonCode, cancelRemarks, refreshIrn]);
+
+  // Load IRN records on mode/filter change.
+  useEffect(() => {
+    if (mode !== "irn") return;
+    let live = true;
+    void refreshIrn().then(() => { /* state already set */ if (!live) return; });
+    return () => { live = false; };
+  }, [mode, refreshIrn]);
 
   const generate = useCallback(async () => {
     if (busy) return;
@@ -257,7 +328,23 @@ export function ReturnsScreen() {
   return (
     <div style={{ padding: 16 }} data-testid="returns-screen">
       <h2 style={{ margin: "0 0 12px" }}>GSTR-1 Returns</h2>
+      <div data-testid="ret-mode-switch" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {(["gstr1", "irn"] as ReturnsMode[]).map((m) => (
+          <button
+            key={m}
+            data-testid={`ret-mode-${m}`}
+            onClick={() => setMode(m)}
+            style={{
+              padding: "6px 14px", fontSize: 13, fontWeight: 600,
+              background: mode === m ? "#1e3a8a" : "#e2e8f0",
+              color: mode === m ? "#fff" : "#0f172a",
+              border: "none", cursor: "pointer",
+            }}
+          >{m === "gstr1" ? "GSTR-1" : "IRN Records"}</button>
+        ))}
+      </div>
 
+{mode === "gstr1" && (<>
       {/* Period + action row */}
       <div style={{ display: "flex", gap: 8, alignItems: "end", marginBottom: 12, flexWrap: "wrap" }}>
         <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
@@ -523,6 +610,161 @@ export function ReturnsScreen() {
           </div>
         </div>
       )}
+</>)}
+
+      {mode === "irn" && (
+        <div data-testid="irn-panel">
+          <div style={{ display: "flex", gap: 8, alignItems: "end", marginBottom: 12, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
+              Status
+              <select
+                data-testid="irn-filter"
+                value={irnFilter}
+                onChange={(e) => setIrnFilter(e.target.value as IrnStatusFilter)}
+                style={{ padding: "6px 8px" }}
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="submitted">Submitted</option>
+                <option value="acked">Acked</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <button
+              data-testid="irn-refresh"
+              onClick={() => void refreshIrn()}
+              disabled={irnBusy}
+              style={{ padding: "6px 14px" }}
+            >{irnBusy ? "Loading…" : "Refresh"}</button>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b" }}>
+              {irnRecords.length} records
+            </span>
+          </div>
+
+          {irnErr && (
+            <div data-testid="irn-err" role="alert" style={{ color: "#b00020", marginBottom: 10 }}>{irnErr}</div>
+          )}
+
+          <table data-testid="irn-table" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <th style={{ padding: 6 }}>Bill</th>
+                <th style={{ padding: 6 }}>Status</th>
+                <th style={{ padding: 6 }}>IRN</th>
+                <th style={{ padding: 6 }}>Vendor</th>
+                <th style={{ padding: 6 }}>Attempts</th>
+                <th style={{ padding: 6 }}>Submitted</th>
+                <th style={{ padding: 6 }}>Ack</th>
+                <th style={{ padding: 6 }}>Error</th>
+                <th style={{ padding: 6 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {irnRecords.map((r) => (
+                <tr key={r.id} data-testid={`irn-row-${r.id}`} style={{ borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: 6 }}><code>{r.billId.slice(0, 14)}…</code></td>
+                  <td style={{ padding: 6 }} data-irn-status={r.status}>
+                    <span style={{
+                      padding: "2px 6px",
+                      borderRadius: 3,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      color: "#fff",
+                      background: r.status === "acked" ? "#16a34a"
+                        : r.status === "failed" ? "#dc2626"
+                        : r.status === "cancelled" ? "#64748b"
+                        : r.status === "submitted" ? "#2563eb"
+                        : "#b45309",
+                    }}>{r.status}</span>
+                  </td>
+                  <td style={{ padding: 6, fontFamily: "monospace", fontSize: 11 }}>
+                    {r.irn ? `${r.irn.slice(0, 8)}…${r.irn.slice(-6)}` : "—"}
+                  </td>
+                  <td style={{ padding: 6 }}>{r.vendor}</td>
+                  <td style={{ padding: 6, textAlign: "center" }}>{r.attemptCount}</td>
+                  <td style={{ padding: 6 }}>{r.submittedAt ? r.submittedAt.slice(0, 19).replace("T", " ") : "—"}</td>
+                  <td style={{ padding: 6 }}>{r.ackDate ? r.ackDate.slice(0, 19).replace("T", " ") : "—"}</td>
+                  <td style={{ padding: 6, color: "#b00020" }}>
+                    {r.errorMsg ? `${r.errorCode ?? ""} ${r.errorMsg}`.trim() : ""}
+                  </td>
+                  <td style={{ padding: 6 }}>
+                    {(r.status === "submitted" || r.status === "acked") && (
+                      <button
+                        data-testid={`irn-cancel-${r.id}`}
+                        onClick={() => { setCancelTarget(r); setCancelRemarks(""); setCancelReasonCode("2"); }}
+                        style={{ padding: "3px 10px", background: "#dc2626", color: "#fff", border: "none", fontSize: 11 }}
+                      >Cancel</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {irnRecords.length === 0 && !irnBusy && (
+                <tr><td colSpan={9} style={{ padding: 12, color: "#64748b", textAlign: "center" }}>
+                  No IRN records for this filter.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {cancelTarget && (
+            <div
+              data-testid="irn-cancel-dialog"
+              role="dialog"
+              aria-modal="true"
+              style={{
+                position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+                display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
+              }}
+            >
+              <div style={{ background: "#fff", padding: 20, borderRadius: 6, minWidth: 400, maxWidth: 520 }}>
+                <h3 style={{ marginTop: 0 }}>Cancel IRN</h3>
+                <p style={{ fontSize: 13, color: "#334155" }}>
+                  Bill <code>{cancelTarget.billId}</code> — current status <strong>{cancelTarget.status}</strong>
+                </p>
+                <label style={{ display: "block", fontSize: 12, marginBottom: 8 }}>
+                  Reason
+                  <select
+                    data-testid="irn-cancel-reason"
+                    value={cancelReasonCode}
+                    onChange={(e) => setCancelReasonCode(e.target.value as "1"|"2"|"3"|"4")}
+                    style={{ display: "block", marginTop: 4, padding: "4px 6px", width: "100%" }}
+                  >
+                    <option value="1">1 — Duplicate</option>
+                    <option value="2">2 — Data entry mistake</option>
+                    <option value="3">3 — Order cancelled</option>
+                    <option value="4">4 — Other</option>
+                  </select>
+                </label>
+                <label style={{ display: "block", fontSize: 12, marginBottom: 12 }}>
+                  Remarks (optional)
+                  <input
+                    data-testid="irn-cancel-remarks"
+                    value={cancelRemarks}
+                    onChange={(e) => setCancelRemarks(e.target.value)}
+                    style={{ display: "block", marginTop: 4, padding: "4px 6px", width: "100%" }}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button
+                    data-testid="irn-cancel-close"
+                    onClick={() => setCancelTarget(null)}
+                    style={{ padding: "6px 14px" }}
+                  >Close</button>
+                  <button
+                    data-testid="irn-cancel-confirm"
+                    onClick={() => void doCancelIrn()}
+                    disabled={irnBusy}
+                    style={{ padding: "6px 14px", background: "#dc2626", color: "#fff", border: "none" }}
+                  >Confirm Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
