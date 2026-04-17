@@ -3108,3 +3108,530 @@ pub fn mark_gstr1_filed(
 
     read_gst_return(c, &input.return_id)
 }
+
+// =============================================================================
+// A11 · Stock reconcile (ADR 0016, migration 0015)
+// =============================================================================
+// Physical-count sessions → preview variance → owner finalizes → writes
+// stock_adjustments + stock_movements rows and back-fills batches.qty_on_hand
+// inside a single transaction.
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CountSessionOut {
+    pub id: String,
+    pub shop_id: String,
+    pub title: String,
+    pub status: String,
+    pub opened_by: String,
+    pub opened_at: String,
+    pub finalized_by: Option<String>,
+    pub finalized_at: Option<String>,
+    pub line_count: i64,
+    pub adjustment_count: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenCountSessionInput {
+    pub shop_id: String,
+    pub title: String,
+    pub opened_by_user_id: String,
+}
+
+#[tauri::command]
+pub fn open_count_session(
+    input: OpenCountSessionInput,
+    state: State<DbState>,
+) -> Result<CountSessionOut, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    // Validate the user belongs to the shop and is active.
+    let (role, is_active): (String, i64) = c
+        .query_row(
+            "SELECT role, is_active FROM users WHERE id = ?1 AND shop_id = ?2",
+            params![input.opened_by_user_id, input.shop_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "UNKNOWN_USER".to_string())?;
+    if is_active != 1 {
+        return Err("USER_INACTIVE".to_string());
+    }
+    if role != "owner" && role != "pharmacist" && role != "cashier" {
+        return Err("FORBIDDEN_ROLE".to_string());
+    }
+    let id = gen_id("pc");
+    c.execute(
+        "INSERT INTO physical_counts (id, shop_id, title, opened_by) VALUES (?1, ?2, ?3, ?4)",
+        params![id, input.shop_id, input.title, input.opened_by_user_id],
+    )
+    .map_err(|e| e.to_string())?;
+    read_count_session(&c, &id)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordCountLineInput {
+    pub session_id: String,
+    pub batch_id: String,
+    pub counted_qty: i64,
+    pub counted_by_user_id: String,
+    pub notes: Option<String>,
+}
+
+#[tauri::command]
+pub fn record_count_line(input: RecordCountLineInput, state: State<DbState>) -> Result<(), String> {
+    if input.counted_qty < 0 {
+        return Err("NEGATIVE_QTY".to_string());
+    }
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    // Session must be open.
+    let status: String = c
+        .query_row(
+            "SELECT status FROM physical_counts WHERE id = ?1",
+            params![input.session_id],
+            |r| r.get(0),
+        )
+        .map_err(|_| "UNKNOWN_SESSION".to_string())?;
+    if status != "open" {
+        return Err(format!("SESSION_{}", status.to_uppercase()));
+    }
+    // Batch must exist.
+    let product_id: String = c
+        .query_row(
+            "SELECT product_id FROM batches WHERE id = ?1",
+            params![input.batch_id],
+            |r| r.get(0),
+        )
+        .map_err(|_| "UNKNOWN_BATCH".to_string())?;
+
+    // Is there already a line? If yes, append to revisions + overwrite qty.
+    let existing: Option<(String, i64, Option<String>, String)> = c
+        .query_row(
+            "SELECT id, counted_qty, notes, revisions FROM physical_count_lines
+             WHERE physical_count_id = ?1 AND batch_id = ?2",
+            params![input.session_id, input.batch_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok();
+
+    if let Some((line_id, old_qty, old_notes, revisions)) = existing {
+        // Append revision entry.
+        let rev_json = {
+            let old_notes_json = match old_notes {
+                Some(n) => serde_json::to_string(&n).unwrap_or_else(|_| "null".into()),
+                None => "null".into(),
+            };
+            let now = current_iso();
+            let new_entry = format!(
+                r#"{{"ts":"{}","by":"{}","old_qty":{},"old_notes":{}}}"#,
+                now, input.counted_by_user_id, old_qty, old_notes_json
+            );
+            // Parse existing JSON array → push new entry → stringify.
+            let mut arr: serde_json::Value =
+                serde_json::from_str(&revisions).unwrap_or(serde_json::Value::Array(vec![]));
+            if let Some(v) = arr.as_array_mut() {
+                let parsed: serde_json::Value =
+                    serde_json::from_str(&new_entry).unwrap_or(serde_json::Value::Null);
+                v.push(parsed);
+            }
+            arr.to_string()
+        };
+        c.execute(
+            "UPDATE physical_count_lines
+             SET counted_qty = ?1, counted_by = ?2, counted_at = ?3, notes = ?4, revisions = ?5
+             WHERE id = ?6",
+            params![
+                input.counted_qty,
+                input.counted_by_user_id,
+                current_iso(),
+                input.notes,
+                rev_json,
+                line_id,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    } else {
+        let line_id = gen_id("pcl");
+        c.execute(
+            "INSERT INTO physical_count_lines
+             (id, physical_count_id, batch_id, product_id, counted_qty, counted_by, notes)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                line_id,
+                input.session_id,
+                input.batch_id,
+                product_id,
+                input.counted_qty,
+                input.counted_by_user_id,
+                input.notes,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchStateRow {
+    pub batch_id: String,
+    pub product_id: String,
+    pub product_name: String,
+    pub batch_no: String,
+    pub expiry_date: String,
+    pub system_qty: i64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CountLineRow {
+    pub batch_id: String,
+    pub product_id: String,
+    pub counted_qty: i64,
+    pub counted_by: String,
+    pub counted_at: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CountSessionSnapshot {
+    pub session: CountSessionOut,
+    pub system: Vec<BatchStateRow>,
+    pub lines: Vec<CountLineRow>,
+}
+
+#[tauri::command]
+pub fn get_count_session(
+    session_id: String,
+    state: State<DbState>,
+) -> Result<CountSessionSnapshot, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let session = read_count_session(&c, &session_id)?;
+    // Load the full shop's batch state — UI filters on client.
+    let mut stmt = c
+        .prepare(
+            "SELECT b.id, b.product_id, p.name, b.batch_no, b.expiry_date, b.qty_on_hand
+             FROM batches b
+             JOIN products p ON p.id = b.product_id
+             WHERE b.qty_on_hand >= 0
+             ORDER BY p.name ASC, b.expiry_date ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let system: Vec<BatchStateRow> = stmt
+        .query_map([], |r| {
+            Ok(BatchStateRow {
+                batch_id: r.get(0)?,
+                product_id: r.get(1)?,
+                product_name: r.get(2)?,
+                batch_no: r.get(3)?,
+                expiry_date: r.get(4)?,
+                system_qty: r.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut stmt2 = c
+        .prepare(
+            "SELECT batch_id, product_id, counted_qty, counted_by, counted_at, notes
+             FROM physical_count_lines
+             WHERE physical_count_id = ?1
+             ORDER BY counted_at ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let lines: Vec<CountLineRow> = stmt2
+        .query_map(params![session_id], |r| {
+            Ok(CountLineRow {
+                batch_id: r.get(0)?,
+                product_id: r.get(1)?,
+                counted_qty: r.get(2)?,
+                counted_by: r.get(3)?,
+                counted_at: r.get(4)?,
+                notes: r.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(CountSessionSnapshot {
+        session,
+        system,
+        lines,
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalizeDecision {
+    pub batch_id: String,
+    pub counted_qty: i64,
+    pub reason_code: String,
+    pub reason_notes: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalizeCountInput {
+    pub session_id: String,
+    pub actor_user_id: String,
+    pub decisions: Vec<FinalizeDecision>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalizeCountOut {
+    pub session_id: String,
+    pub adjustments_written: usize,
+    pub net_delta: i64,
+    pub finalized_at: String,
+}
+
+#[tauri::command]
+pub fn finalize_count(
+    input: FinalizeCountInput,
+    state: State<DbState>,
+) -> Result<FinalizeCountOut, String> {
+    let mut c = state.0.lock().map_err(|e| e.to_string())?;
+    // Owner-gate (defence in depth).
+    let (role, is_active): (String, i64) = c
+        .query_row(
+            "SELECT role, is_active FROM users WHERE id = ?1",
+            params![input.actor_user_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "UNKNOWN_USER".to_string())?;
+    if is_active != 1 {
+        return Err("USER_INACTIVE".to_string());
+    }
+    if role != "owner" {
+        return Err("FORBIDDEN_ROLE".to_string());
+    }
+
+    let allowed_reasons = [
+        "shrinkage",
+        "damage",
+        "expiry_dump",
+        "data_entry_error",
+        "theft",
+        "transfer_out",
+        "other",
+    ];
+    for d in &input.decisions {
+        if !allowed_reasons.contains(&d.reason_code.as_str()) {
+            return Err(format!("INVALID_REASON:{}", d.reason_code));
+        }
+        if d.counted_qty < 0 {
+            return Err(format!("NEGATIVE_QTY:{}", d.batch_id));
+        }
+    }
+
+    let status: String = c
+        .query_row(
+            "SELECT status FROM physical_counts WHERE id = ?1",
+            params![input.session_id],
+            |r| r.get(0),
+        )
+        .map_err(|_| "UNKNOWN_SESSION".to_string())?;
+    if status != "open" {
+        return Err(format!("SESSION_{}", status.to_uppercase()));
+    }
+
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let mut written = 0usize;
+    let mut net_delta: i64 = 0;
+
+    for d in &input.decisions {
+        // Pull system_qty + product_id fresh inside the transaction.
+        let (product_id, system_qty): (String, i64) = tx
+            .query_row(
+                "SELECT product_id, qty_on_hand FROM batches WHERE id = ?1",
+                params![d.batch_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .map_err(|_| format!("UNKNOWN_BATCH:{}", d.batch_id))?;
+        let delta = d.counted_qty - system_qty;
+        if delta == 0 {
+            continue; // matches aren't written
+        }
+        let adj_id = gen_id("adj");
+        tx.execute(
+            "INSERT INTO stock_adjustments
+             (id, physical_count_id, batch_id, product_id,
+              system_qty_before, counted_qty, qty_delta,
+              reason_code, reason_notes, created_by)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                adj_id,
+                input.session_id,
+                d.batch_id,
+                product_id,
+                system_qty,
+                d.counted_qty,
+                delta,
+                d.reason_code,
+                d.reason_notes,
+                input.actor_user_id,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        // Stock movement (ledger row).
+        let mv_id = gen_id("mv_adj");
+        tx.execute(
+            "INSERT INTO stock_movements
+             (id, batch_id, product_id, qty_delta, movement_type,
+              ref_table, ref_id, actor_id, reason)
+             VALUES (?1, ?2, ?3, ?4, 'adjust', 'stock_adjustments', ?5, ?6, ?7)",
+            params![
+                mv_id,
+                d.batch_id,
+                product_id,
+                delta,
+                adj_id,
+                input.actor_user_id,
+                d.reason_code,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        // Back-fill qty_on_hand.
+        tx.execute(
+            "UPDATE batches SET qty_on_hand = ?1 WHERE id = ?2",
+            params![d.counted_qty, d.batch_id],
+        )
+        .map_err(|e| e.to_string())?;
+
+        written += 1;
+        net_delta += delta;
+    }
+
+    // Mark session finalized.
+    let finalized_at = current_iso();
+    tx.execute(
+        "UPDATE physical_counts
+         SET status = 'finalized', finalized_by = ?2, finalized_at = ?3
+         WHERE id = ?1",
+        params![input.session_id, input.actor_user_id, finalized_at],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(FinalizeCountOut {
+        session_id: input.session_id,
+        adjustments_written: written,
+        net_delta,
+        finalized_at,
+    })
+}
+
+#[tauri::command]
+pub fn cancel_count_session(
+    session_id: String,
+    actor_user_id: String,
+    state: State<DbState>,
+) -> Result<CountSessionOut, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let (role, is_active): (String, i64) = c
+        .query_row(
+            "SELECT role, is_active FROM users WHERE id = ?1",
+            params![actor_user_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "UNKNOWN_USER".to_string())?;
+    if is_active != 1 {
+        return Err("USER_INACTIVE".to_string());
+    }
+    if role != "owner" {
+        return Err("FORBIDDEN_ROLE".to_string());
+    }
+    let status: String = c
+        .query_row(
+            "SELECT status FROM physical_counts WHERE id = ?1",
+            params![session_id],
+            |r| r.get(0),
+        )
+        .map_err(|_| "UNKNOWN_SESSION".to_string())?;
+    if status != "open" {
+        return Err(format!("SESSION_{}", status.to_uppercase()));
+    }
+    c.execute(
+        "UPDATE physical_counts
+         SET status = 'cancelled', cancelled_by = ?2, cancelled_at = ?3
+         WHERE id = ?1",
+        params![session_id, actor_user_id, current_iso()],
+    )
+    .map_err(|e| e.to_string())?;
+    read_count_session(&c, &session_id)
+}
+
+#[tauri::command]
+pub fn list_count_sessions(
+    shop_id: String,
+    limit: Option<i64>,
+    state: State<DbState>,
+) -> Result<Vec<CountSessionOut>, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let n = limit.unwrap_or(50).clamp(1, 500);
+    let mut stmt = c
+        .prepare(
+            "SELECT pc.id, pc.shop_id, pc.title, pc.status, pc.opened_by, pc.opened_at,
+                    pc.finalized_by, pc.finalized_at,
+                    (SELECT COUNT(*) FROM physical_count_lines WHERE physical_count_id = pc.id),
+                    (SELECT COUNT(*) FROM stock_adjustments    WHERE physical_count_id = pc.id)
+             FROM physical_counts pc
+             WHERE pc.shop_id = ?1
+             ORDER BY pc.opened_at DESC
+             LIMIT ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<CountSessionOut> = stmt
+        .query_map(params![shop_id, n], |r| {
+            Ok(CountSessionOut {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                title: r.get(2)?,
+                status: r.get(3)?,
+                opened_by: r.get(4)?,
+                opened_at: r.get(5)?,
+                finalized_by: r.get(6)?,
+                finalized_at: r.get(7)?,
+                line_count: r.get(8)?,
+                adjustment_count: r.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+fn read_count_session(c: &Connection, id: &str) -> Result<CountSessionOut, String> {
+    c.query_row(
+        "SELECT pc.id, pc.shop_id, pc.title, pc.status, pc.opened_by, pc.opened_at,
+                pc.finalized_by, pc.finalized_at,
+                (SELECT COUNT(*) FROM physical_count_lines WHERE physical_count_id = pc.id),
+                (SELECT COUNT(*) FROM stock_adjustments    WHERE physical_count_id = pc.id)
+         FROM physical_counts pc
+         WHERE pc.id = ?1",
+        params![id],
+        |r| {
+            Ok(CountSessionOut {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                title: r.get(2)?,
+                status: r.get(3)?,
+                opened_by: r.get(4)?,
+                opened_at: r.get(5)?,
+                finalized_by: r.get(6)?,
+                finalized_at: r.get(7)?,
+                line_count: r.get(8)?,
+                adjustment_count: r.get(9)?,
+            })
+        },
+    )
+    .map_err(|e| format!("SESSION_NOT_FOUND:{}", e))
+}

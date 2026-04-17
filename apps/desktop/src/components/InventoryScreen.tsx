@@ -1,13 +1,78 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatINR, type Paise } from "@pharmacare/shared-types";
 import { listStockRpc, type StockRow } from "../lib/ipc.js";
+import { ReconcileTab } from "./inventory/ReconcileTab.js";
 
 type Filter = "all" | "low" | "near" | "out" | "expired";
+type TabKey = "batches" | "reconcile";
 
 const NEAR_EXPIRY_DAYS = 90;
 const LOW_STOCK_UNDER = 10;
 
 export function InventoryScreen() {
+  const [tab, setTab] = useState<TabKey>("batches");
+
+  // Tab shortcuts: B = Batches, R = Reconcile (when focus isn't in an input).
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const isTyping = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || (t as HTMLElement).isContentEditable);
+      if (isTyping) return;
+      if (e.key === "b" || e.key === "B") { setTab("batches"); }
+      else if (e.key === "r" || e.key === "R") { setTab("reconcile"); }
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, []);
+
+  return (
+    <div style={{ padding: 20 }} data-testid="inventory-screen">
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>Inventory</h2>
+        <div role="tablist" aria-label="Inventory tabs" style={{ display: "flex", gap: 4 }}>
+          <TabButton active={tab === "batches"} onClick={() => setTab("batches")} testId="inv-tab-batches">
+            Batches <kbd style={kbd}>B</kbd>
+          </TabButton>
+          <TabButton active={tab === "reconcile"} onClick={() => setTab("reconcile")} testId="inv-tab-reconcile">
+            Reconcile <kbd style={kbd}>R</kbd>
+          </TabButton>
+        </div>
+      </div>
+
+      {tab === "batches" && <BatchesTab />}
+      {tab === "reconcile" && <ReconcileTab />}
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, children, testId }: { active: boolean; onClick: () => void; children: React.ReactNode; testId: string }) {
+  return (
+    <button
+      role="tab"
+      aria-selected={active}
+      data-testid={testId}
+      data-active={active}
+      onClick={onClick}
+      style={{
+        padding: "6px 14px",
+        borderRadius: 4,
+        border: "1px solid #cbd5e1",
+        background: active ? "#0f172a" : "white",
+        color: active ? "white" : "#0f172a",
+        cursor: "pointer",
+        fontWeight: active ? 600 : 400,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+const kbd: React.CSSProperties = {
+  background: "#e2e8f0", color: "#0f172a", padding: "0 4px", borderRadius: 2, fontSize: 10, marginLeft: 4, fontFamily: "monospace",
+};
+
+function BatchesTab() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [rows, setRows] = useState<readonly StockRow[]>([]);
@@ -44,9 +109,7 @@ export function InventoryScreen() {
   }), [rows]);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ marginTop: 0 }}>Inventory</h2>
-
+    <div data-testid="batches-tab">
       <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "center" }}>
         <input
           type="search"
@@ -105,9 +168,7 @@ export function InventoryScreen() {
                 <div><strong>{r.name}</strong></div>
                 {r.genericName && <div style={{ fontSize: 12, color: "#64748b" }}>{r.genericName} · {r.manufacturer}</div>}
               </td>
-              <td>
-                <SchedBadge schedule={r.schedule} />
-              </td>
+              <td><SchedBadge schedule={r.schedule} /></td>
               <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }} data-testid={`inv-qty-${r.productId}`}>
                 {r.totalQty}
               </td>
@@ -119,9 +180,7 @@ export function InventoryScreen() {
                 )}
               </td>
               <td style={{ textAlign: "right" }}>{formatINR(r.mrpPaise as Paise)}</td>
-              <td data-testid={`inv-flags-${r.productId}`}>
-                <Flags row={r} />
-              </td>
+              <td data-testid={`inv-flags-${r.productId}`}><Flags row={r} /></td>
             </tr>
           ))}
         </tbody>

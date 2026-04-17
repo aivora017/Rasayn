@@ -117,7 +117,13 @@ export type IpcCall =
   | { cmd: "generate_gstr1_payload"; args: { shopId: string; period: string } }
   | { cmd: "save_gstr1_return"; args: { input: SaveGstr1ReturnInputDTO } }
   | { cmd: "list_gst_returns"; args: { shopId: string } }
-  | { cmd: "mark_gstr1_filed"; args: { input: MarkGstr1FiledInputDTO } };
+  | { cmd: "mark_gstr1_filed"; args: { input: MarkGstr1FiledInputDTO } }
+  | { cmd: "open_count_session"; args: { input: OpenCountSessionInputDTO } }
+  | { cmd: "record_count_line"; args: { input: RecordCountLineInputDTO } }
+  | { cmd: "get_count_session"; args: { sessionId: string } }
+  | { cmd: "finalize_count"; args: { input: FinalizeCountInputDTO } }
+  | { cmd: "cancel_count_session"; args: { sessionId: string; actorUserId: string } }
+  | { cmd: "list_count_sessions"; args: { shopId: string; limit?: number } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -880,4 +886,136 @@ export async function markGstr1FiledRpc(
   input: MarkGstr1FiledInputDTO,
 ): Promise<GstReturnDTO> {
   return (await handler({ cmd: "mark_gstr1_filed", args: { input } })) as GstReturnDTO;
+}
+
+
+// =============================================================================
+// A11 · Stock reconcile (ADR 0016)
+// =============================================================================
+
+export type ReasonCodeDTO =
+  | "shrinkage"
+  | "damage"
+  | "expiry_dump"
+  | "data_entry_error"
+  | "theft"
+  | "transfer_out"
+  | "other";
+
+export interface OpenCountSessionInputDTO {
+  shopId: string;
+  title: string;
+  openedByUserId: string;
+}
+
+export interface RecordCountLineInputDTO {
+  sessionId: string;
+  batchId: string;
+  countedQty: number;
+  countedByUserId: string;
+  notes?: string | null;
+}
+
+export interface FinalizeDecisionDTO {
+  batchId: string;
+  countedQty: number;
+  reasonCode: ReasonCodeDTO;
+  reasonNotes?: string | null;
+}
+
+export interface FinalizeCountInputDTO {
+  sessionId: string;
+  actorUserId: string;
+  decisions: ReadonlyArray<FinalizeDecisionDTO>;
+}
+
+export interface CountSessionDTO {
+  id: string;
+  shopId: string;
+  title: string;
+  status: "open" | "finalized" | "cancelled";
+  openedBy: string;
+  openedAt: string;
+  finalizedBy: string | null;
+  finalizedAt: string | null;
+  lineCount: number;
+  adjustmentCount: number;
+}
+
+export interface BatchStateDTO {
+  batchId: string;
+  productId: string;
+  productName: string;
+  batchNo: string;
+  expiryDate: string;
+  systemQty: number;
+}
+
+export interface CountLineDTO {
+  batchId: string;
+  productId: string;
+  countedQty: number;
+  countedBy: string;
+  countedAt: string;
+  notes: string | null;
+}
+
+export interface CountSessionSnapshotDTO {
+  session: CountSessionDTO;
+  system: ReadonlyArray<BatchStateDTO>;
+  lines: ReadonlyArray<CountLineDTO>;
+}
+
+export interface FinalizeCountOutDTO {
+  sessionId: string;
+  adjustmentsWritten: number;
+  netDelta: number;
+  finalizedAt: string;
+}
+
+export async function openCountSessionRpc(
+  input: OpenCountSessionInputDTO,
+): Promise<CountSessionDTO> {
+  return (await handler({ cmd: "open_count_session", args: { input } })) as CountSessionDTO;
+}
+
+export async function recordCountLineRpc(
+  input: RecordCountLineInputDTO,
+): Promise<void> {
+  await handler({ cmd: "record_count_line", args: { input } });
+}
+
+export async function getCountSessionRpc(
+  sessionId: string,
+): Promise<CountSessionSnapshotDTO> {
+  return (await handler({
+    cmd: "get_count_session",
+    args: { sessionId },
+  })) as CountSessionSnapshotDTO;
+}
+
+export async function finalizeCountRpc(
+  input: FinalizeCountInputDTO,
+): Promise<FinalizeCountOutDTO> {
+  return (await handler({ cmd: "finalize_count", args: { input } })) as FinalizeCountOutDTO;
+}
+
+export async function cancelCountSessionRpc(
+  sessionId: string,
+  actorUserId: string,
+): Promise<CountSessionDTO> {
+  return (await handler({
+    cmd: "cancel_count_session",
+    args: { sessionId, actorUserId },
+  })) as CountSessionDTO;
+}
+
+export async function listCountSessionsRpc(
+  shopId: string,
+  limit = 50,
+): Promise<ReadonlyArray<CountSessionDTO>> {
+  return (await handler({
+    cmd: "list_count_sessions",
+    args: { shopId, limit },
+  })) as ReadonlyArray<CountSessionDTO>;
 }
