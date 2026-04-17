@@ -26,6 +26,7 @@ const FIXTURES: ProductHit[] = [
   { id: "p1", name: "Crocin 500", genericName: "Paracetamol", manufacturer: "GSK", gstRate: 12, schedule: "OTC", mrpPaise: 11200 },
 ];
 const BATCH: BatchPick = { id: "b1", batchNo: "LOT-A5", expiryDate: "2027-03-31", qtyOnHand: 30, mrpPaise: 11200 };
+const BATCH_ALT: BatchPick = { id: "b2", batchNo: "LOT-A6", expiryDate: "2027-12-31", qtyOnHand: 50, mrpPaise: 11500 };
 
 function handler(calls?: IpcCall[]) {
   return async (call: IpcCall) => {
@@ -37,6 +38,7 @@ function handler(calls?: IpcCall[]) {
       return FIXTURES.filter((f) => f.name.toLowerCase().includes(q));
     }
     if (call.cmd === "pick_fefo_batch") return BATCH;
+    if (call.cmd === "list_fefo_candidates") return [BATCH, BATCH_ALT];
     if (call.cmd === "save_bill") return { billId: "bill_a5", grandTotalPaise: 11200, linesInserted: 1 };
     if (call.cmd === "search_customers") return [];
     if (call.cmd === "list_prescriptions") return [];
@@ -220,3 +222,67 @@ describe("BillingScreen · A5 keyboard shell", () => {
     expect(screen.getByRole("complementary", { name: /Bill totals/ })).toBeInTheDocument();
   });
 });
+
+describe("BillingScreen · A6 F7 batch override", () => {
+  beforeEach(() => {
+    setIpcHandler(handler());
+    _resetPendingGrnDraftForTests();
+  });
+
+  it("F7 opens the batch picker populated with FEFO candidates", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+
+    fireEvent.keyDown(window, { key: "F7" });
+    await waitFor(() => expect(screen.getByTestId("batch-override-modal")).toBeInTheDocument());
+    // Two candidates from fixture
+    expect(screen.getByTestId("batch-opt-0").textContent).toContain("LOT-A5");
+    expect(screen.getByTestId("batch-opt-1").textContent).toContain("LOT-A6");
+    // First auto-selected
+    expect(screen.getByTestId("batch-opt-0")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("↓ + Enter swaps the line batch and re-takes MRP from the picked batch", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+
+    fireEvent.keyDown(window, { key: "F7" });
+    await waitFor(() => expect(screen.getByTestId("batch-override-modal")).toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    await waitFor(() =>
+      expect(screen.getByTestId("batch-opt-1")).toHaveAttribute("aria-selected", "true"),
+    );
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    await waitFor(() => expect(screen.queryByTestId("batch-override-modal")).not.toBeInTheDocument());
+    // Line's batch label shows the new batch number
+    expect(screen.getByTestId("line-batch-0").textContent).toContain("LOT-A6");
+  });
+
+  it("Esc closes the picker without mutating the line", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+
+    const before = screen.getByTestId("line-batch-0").textContent;
+    fireEvent.keyDown(window, { key: "F7" });
+    await waitFor(() => expect(screen.getByTestId("batch-override-modal")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("batch-override-modal")).not.toBeInTheDocument());
+    expect(screen.getByTestId("line-batch-0").textContent).toBe(before);
+  });
+
+  it("F7 with no lines shows a toast and does not open the picker", async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("billing-root")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "F7" });
+    expect(screen.queryByTestId("batch-override-modal")).not.toBeInTheDocument();
+  });
+});
+

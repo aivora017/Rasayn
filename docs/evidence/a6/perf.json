@@ -1,0 +1,33 @@
+{
+  "adr": "0010",
+  "gate": "A6 — 10-line bill save, p95 < 400ms (ADR 0004 row A6)",
+  "timestamp": "2026-04-17T06:54:36.093Z",
+  "runner": {
+    "node": "v22.22.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": "12th Gen Intel(R) Core(TM) i3-12100",
+    "cpuCount": 2,
+    "totalMemGB": 2.8
+  },
+  "params": {
+    "iterations": 100,
+    "linesPerBill": 10,
+    "warmup": 5
+  },
+  "gateMs": 400,
+  "statsMs": {
+    "count": 100,
+    "mean": 0.8067502700000009,
+    "p50": 0.693545499999999,
+    "p95": 1.1815738499999822,
+    "p99": 2.300218180000007,
+    "max": 4.41418299999998
+  },
+  "notes": [
+    "Gate is authoritative on i3-8100 / 4 GB / HDD / Windows 7 (A15 regression VM).",
+    "CI (Linux / SSD / modern CPU) typically clears by 10×+. Watch the trend, not the absolute.",
+    "FEFO auto-pick enabled on every line (batchId: null).",
+    "In-memory SQLite ⇒ no HDD fsync cost. A15 re-captures on HDD VM."
+  ]
+}
