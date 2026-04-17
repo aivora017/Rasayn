@@ -2,11 +2,12 @@ import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { formatINR, type Paise, type GstRate } from "@pharmacare/shared-types";
 import { computeLine, computeInvoice, inferTreatment } from "@pharmacare/gst-engine";
 import { ProductSearch } from "./ProductSearch.js";
+import { PaymentModal } from "./PaymentModal.js";
 import {
   pickFefoBatchRpc, listFefoCandidatesRpc, saveBillRpc,
   searchCustomersRpc, listPrescriptionsRpc, createPrescriptionRpc, upsertDoctorRpc,
   type ProductHit, type BatchPick, type SaveBillInput,
-  type Customer, type Prescription,
+  type Customer, type Prescription, type Tender,
 } from "../lib/ipc.js";
 
 const RX_REQUIRED = new Set(["H", "H1", "X", "NDPS"]);
@@ -64,7 +65,6 @@ export function BillingScreen() {
 
   // Refs for keyboard-driven focus contract (A5).
   const custSearchRef = useRef<HTMLInputElement | null>(null);
-  const paymentConfirmRef = useRef<HTMLButtonElement | null>(null);
   const lineDiscountRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   // ProductSearch encapsulates its own input ref (autoFocus on mount). To
@@ -174,13 +174,17 @@ export function BillingScreen() {
     focusProductSearch();
   }, []);
 
-  const doSave = useCallback(async () => {
+  const doSave = useCallback(async (tenders?: readonly Tender[]) => {
     if (!canSave) return;
+    const resolvedMode: SaveBillInput["paymentMode"] =
+      !tenders || tenders.length === 0 ? "cash"
+        : tenders.length === 1 ? tenders[0]!.mode
+          : "split";
     const payload: SaveBillInput = {
       shopId: SHOP.id,
       billNo: genBillNo(),
       cashierId: SHOP.cashierId,
-      paymentMode: "cash",
+      paymentMode: resolvedMode,
       customerStateCode: SHOP.stateCode,
       customerId: customer?.id ?? null,
       rxId: rxId,
@@ -194,6 +198,7 @@ export function BillingScreen() {
           gstRate: l.gstRate,
           discountPct: l.discountPct,
         })),
+      ...(tenders && tenders.length > 0 ? { tenders } : {}),
     };
     const billId = `bill_${Date.now()}`;
     setSaving(true);
@@ -276,25 +281,21 @@ export function BillingScreen() {
         return;
       }
       if (e.key === "F10") {
+        // When PaymentModal is open, its own window handler intercepts F10.
+        if (paymentOpen) return;
         e.preventDefault();
-        if (paymentOpen) { void doSave(); return; }
         void doSave();
         return;
       }
       if (e.key === "Escape") {
-        if (paymentOpen) { e.preventDefault(); setPaymentOpen(false); return; }
+        // PaymentModal handles its own Esc; fall through only for other toasts.
+        if (paymentOpen) return;
         if (toast) { setToast(null); }
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [doSave, resetBill, canSave, paymentOpen, toast, lines]);
-
-  // Autofocus payment-confirm button when the modal opens so Enter works
-  // without any Tab dance.
-  useEffect(() => {
-    if (paymentOpen) paymentConfirmRef.current?.focus();
-  }, [paymentOpen]);
 
   // A6 · autofocus the batch-override confirm button on open (ADR 0010 §2).
   useEffect(() => {
@@ -602,7 +603,7 @@ export function BillingScreen() {
         <div className="row grand"><span>Grand Total</span><span data-testid="grand-total">{formatINR(computed.totals.grandTotalPaise)}</span></div>
         <div style={{ flex: 1 }} />
         <button
-          onClick={doSave}
+          onClick={() => void doSave()}
           disabled={!canSave}
           data-testid="save-bill"
           aria-keyshortcuts="F10"
@@ -719,58 +720,12 @@ export function BillingScreen() {
         </div>
       )}
 
-      {paymentOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="payment-title"
-          data-testid="payment-modal"
-          style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
-          }}
-        >
-          <div style={{
-            background: "#1e293b", color: "#e5e7eb", padding: 24, borderRadius: 8,
-            minWidth: 360, border: "1px solid #334155",
-          }}>
-            <h3 id="payment-title" style={{ margin: "0 0 12px" }}>Payment</h3>
-            <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 16 }}>
-              Mode: Cash &middot; Due:{" "}
-              <strong data-testid="payment-amount" style={{ color: "#22c55e", fontSize: 18 }}>
-                {formatINR(computed.totals.grandTotalPaise)}
-              </strong>
-              <div style={{ fontSize: 11, marginTop: 4, color: "#64748b" }}>
-                Split-tender, card, UPI, change calc arrive in A8.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setPaymentOpen(false)}
-                data-testid="payment-cancel"
-                style={{ padding: "8px 14px", background: "#334155", color: "white", border: "none", borderRadius: 4 }}
-              >
-                Cancel (Esc)
-              </button>
-              <button
-                ref={paymentConfirmRef}
-                onClick={() => void doSave()}
-                data-testid="payment-confirm"
-                disabled={!canSave}
-                aria-keyshortcuts="F10"
-                style={{
-                  padding: "8px 14px",
-                  background: canSave ? "#16a34a" : "#64748b",
-                  color: "white", border: "none", borderRadius: 4, fontWeight: 700,
-                  cursor: canSave ? "pointer" : "not-allowed",
-                }}
-              >
-                {saving ? "Saving…" : "Confirm (F10)"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentModal
+        open={paymentOpen}
+        grandTotalPaise={computed.totals.grandTotalPaise}
+        onConfirm={(tenders) => void doSave(tenders)}
+        onCancel={() => setPaymentOpen(false)}
+      />
     </div>
   );
 }

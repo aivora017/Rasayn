@@ -169,6 +169,20 @@ pub struct SaveBillInput {
     pub payment_mode: String,
     pub customer_state_code: Option<String>,
     pub lines: Vec<SaveBillLine>,
+    /// A8 (ADR 0012) split-tender rows. Optional for backward-compat.
+    /// None or empty → synthesised as a single tender for the full grand_total
+    /// in `payment_mode`. Sum must equal grand_total ±50 paise (TENDER_TOLERANCE).
+    #[serde(default)]
+    pub tenders: Option<Vec<Tender>>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Tender {
+    pub mode: String,
+    pub amount_paise: i64,
+    #[serde(default)]
+    pub ref_no: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -296,13 +310,45 @@ pub fn save_bill(
     let grand = ((pre as f64 / 100.0).round() as i64) * 100;
     let round_off = grand - pre;
 
+    // A8 (ADR 0012) · Resolve tenders + validate sum within ±50 paise tolerance.
+    const TENDER_TOLERANCE_PAISE: i64 = 50;
+    let resolved_tenders: Vec<Tender> = match &input.tenders {
+        Some(v) if !v.is_empty() => v.clone(),
+        _ => {
+            let fallback_mode = if input.payment_mode == "split" {
+                "cash".to_string()
+            } else {
+                input.payment_mode.clone()
+            };
+            vec![Tender {
+                mode: fallback_mode,
+                amount_paise: grand,
+                ref_no: None,
+            }]
+        }
+    };
+    let tender_sum: i64 = resolved_tenders.iter().map(|t| t.amount_paise).sum();
+    if (tender_sum - grand).abs() > TENDER_TOLERANCE_PAISE {
+        return Err(format!(
+            "TENDER_MISMATCH:sum={}:grand={}:diff={}",
+            tender_sum,
+            grand,
+            tender_sum - grand
+        ));
+    }
+    let resolved_payment_mode: String = if resolved_tenders.len() > 1 {
+        "split".to_string()
+    } else {
+        resolved_tenders[0].mode.clone()
+    };
+
     tx.execute("INSERT INTO bills (id, shop_id, bill_no, customer_id, doctor_id, rx_id, cashier_id, gst_treatment,
                  subtotal_paise, total_discount_paise, total_cgst_paise, total_sgst_paise, total_igst_paise,
                  total_cess_paise, round_off_paise, grand_total_paise, payment_mode)
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
         params![bill_id, input.shop_id, input.bill_no, input.customer_id, input.doctor_id, input.rx_id,
                 input.cashier_id, treatment, subtotal, 0i64, cgst, sgst, igst, 0i64, round_off, grand,
-                input.payment_mode]).map_err(|e| e.to_string())?;
+                resolved_payment_mode]).map_err(|e| e.to_string())?;
     for (lid, l, disc, taxable, cg, sg, ig, total) in &lines_out {
         tx.execute("INSERT INTO bill_lines (id,bill_id,product_id,batch_id,qty,mrp_paise,discount_pct,discount_paise,
                     taxable_value_paise,gst_rate,cgst_paise,sgst_paise,igst_paise,cess_paise,line_total_paise)
@@ -311,9 +357,21 @@ pub fn save_bill(
                     l.discount_pct.unwrap_or(0.0), disc, taxable, l.gst_rate, cg, sg, ig, 0i64, total])
             .map_err(|e| e.to_string())?;
     }
+    for (pi, t) in resolved_tenders.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO payments (id, bill_id, mode, amount_paise, ref_no) VALUES (?1,?2,?3,?4,?5)",
+            params![format!("{}_p{}", bill_id, pi + 1), bill_id, t.mode, t.amount_paise, t.ref_no],
+        ).map_err(|e| e.to_string())?;
+    }
+
     tx.execute("INSERT INTO audit_log (actor_id, entity, entity_id, action, payload) VALUES (?1,'bill',?2,'create',?3)",
         params![input.cashier_id, bill_id,
-            serde_json::json!({"billNo": input.bill_no, "total": grand}).to_string()])
+            serde_json::json!({
+                "billNo": input.bill_no,
+                "total": grand,
+                "tenderCount": resolved_tenders.len(),
+                "paymentMode": resolved_payment_mode,
+            }).to_string()])
         .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(SaveBillResult {
@@ -1743,4 +1801,44 @@ mod backup_restore_tests {
         seed(&conn);
         assert_eq!(integrity_check(&conn).unwrap(), "ok");
     }
+}
+
+// --- A8 · list payments by bill (ADR 0012) -------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentRowOut {
+    pub id: String,
+    pub bill_id: String,
+    pub mode: String,
+    pub amount_paise: i64,
+    pub ref_no: Option<String>,
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn list_payments_by_bill(
+    bill_id: String,
+    state: State<DbState>,
+) -> Result<Vec<PaymentRowOut>, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = c
+        .prepare(
+            "SELECT id, bill_id, mode, amount_paise, ref_no, created_at
+             FROM payments WHERE bill_id = ?1 ORDER BY id ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let iter = stmt
+        .query_map(params![bill_id], |r| {
+            Ok(PaymentRowOut {
+                id: r.get(0)?,
+                bill_id: r.get(1)?,
+                mode: r.get(2)?,
+                amount_paise: r.get(3)?,
+                ref_no: r.get(4)?,
+                created_at: r.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    iter.collect::<Result<_, _>>().map_err(|e| e.to_string())
 }

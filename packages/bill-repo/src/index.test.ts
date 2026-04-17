@@ -293,3 +293,138 @@ describe("bill-repo · saveBill (transactional)", () => {
     expect(b.grand_total_paise % 100).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A8 · Payments / tenders (ADR 0012)
+// ---------------------------------------------------------------------------
+import { listPaymentsByBillId, TenderMismatchError } from "./index.js";
+
+describe("bill-repo · A8 payments", () => {
+  let db: Database.Database;
+  beforeEach(() => { db = fixture(); });
+
+  it("single-tender bill (no tenders param) writes one payments row", () => {
+    saveBill(db, "bill_p1", baseInput({
+      billNo: "INV-P-001",
+      paymentMode: "upi",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+      }],
+    }));
+    const rows = listPaymentsByBillId(db, "bill_p1");
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.mode).toBe("upi");
+    const b = readBill(db, "bill_p1")!;
+    expect(rows[0]!.amountPaise).toBe(b.grand_total_paise as unknown as number);
+    expect(b.payment_mode).toBe("upi");
+  });
+
+  it("split tender (cash + upi) writes both rows and forces payment_mode='split'", () => {
+    saveBill(db, "bill_p2", baseInput({
+      billNo: "INV-P-002",
+      paymentMode: "split",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 2, gstRate: 12,
+      }],
+      tenders: [
+        { mode: "cash", amountPaise: 10000 as Paise, refNo: null },
+        { mode: "upi",  amountPaise: 12000 as Paise, refNo: "RRN123" },
+      ],
+    }));
+    const rows = listPaymentsByBillId(db, "bill_p2");
+    expect(rows.map((r) => r.mode)).toEqual(["cash", "upi"]);
+    expect(rows[1]!.refNo).toBe("RRN123");
+    const b = readBill(db, "bill_p2")!;
+    expect(b.payment_mode).toBe("split");
+    expect((rows[0]!.amountPaise as unknown as number) + (rows[1]!.amountPaise as unknown as number))
+      .toBe(b.grand_total_paise as unknown as number);
+  });
+
+  it("throws TenderMismatchError when sum != grand_total beyond tolerance", () => {
+    expect(() => saveBill(db, "bill_p3", baseInput({
+      billNo: "INV-P-003",
+      paymentMode: "split",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 2, gstRate: 12,
+      }],
+      tenders: [
+        { mode: "cash", amountPaise: 5000  as Paise, refNo: null },
+        { mode: "upi",  amountPaise: 10000 as Paise, refNo: null }, // total 15000 vs grand 22000
+      ],
+    }))).toThrowError(TenderMismatchError);
+    expect(readBill(db, "bill_p3")).toBeUndefined();
+    expect(listPaymentsByBillId(db, "bill_p3").length).toBe(0);
+  });
+
+  it("accepts tender sum within ±50 paise tolerance", () => {
+    saveBill(db, "bill_p4", baseInput({
+      billNo: "INV-P-004",
+      paymentMode: "cash",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+      }],
+      // Bill total is 11000 paise; tender 11040 (+40 paise) is within ±50.
+      tenders: [{ mode: "cash", amountPaise: 11040 as Paise, refNo: null }],
+    }));
+    const rows = listPaymentsByBillId(db, "bill_p4");
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.amountPaise).toBe(11040);
+  });
+
+  it("TenderMismatchError exposes grandTotalPaise/tenderSumPaise/difference", () => {
+    try {
+      saveBill(db, "bill_p5", baseInput({
+        billNo: "INV-P-005",
+        paymentMode: "cash",
+        lines: [{
+          productId: "p_para", batchId: "b_a1",
+          mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+        }],
+        tenders: [{ mode: "cash", amountPaise: 5000 as Paise, refNo: null }],
+      }));
+      throw new Error("expected TenderMismatchError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(TenderMismatchError);
+      const err = e as TenderMismatchError;
+      expect(err.grandTotalPaise).toBe(11000);
+      expect(err.tenderSumPaise).toBe(5000);
+      expect(err.differencePaise).toBe(-6000);
+    }
+  });
+
+  it("audit_log payload includes tenderCount and paymentMode='split'", () => {
+    saveBill(db, "bill_p6", baseInput({
+      billNo: "INV-P-006",
+      paymentMode: "split",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+      }],
+      tenders: [
+        { mode: "cash", amountPaise: 6000 as Paise, refNo: null },
+        { mode: "card", amountPaise: 5000 as Paise, refNo: "x1234" },
+      ],
+    }));
+    const row: any = db.prepare("SELECT payload FROM audit_log WHERE entity_id='bill_p6'").get();
+    const p = JSON.parse(row.payload);
+    expect(p.tenderCount).toBe(2);
+    expect(p.paymentMode).toBe("split");
+  });
+
+  it("ON DELETE CASCADE — deleting a bill removes its payments", () => {
+    saveBill(db, "bill_p7", baseInput({
+      billNo: "INV-P-007",
+      lines: [{
+        productId: "p_para", batchId: "b_a1",
+        mrpPaise: rupeesToPaise(110) as Paise, qty: 1, gstRate: 12,
+      }],
+    }));
+    expect(listPaymentsByBillId(db, "bill_p7").length).toBe(1);
+    db.prepare("DELETE FROM bills WHERE id = ?").run("bill_p7");
+    expect(listPaymentsByBillId(db, "bill_p7").length).toBe(0);
+  });
+});

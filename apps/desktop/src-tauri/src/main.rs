@@ -34,6 +34,7 @@ fn main() {
             commands::pick_fefo_batch,
             commands::list_fefo_candidates,
             commands::save_bill,
+            commands::list_payments_by_bill,
             commands::list_stock,
             commands::save_grn,
             commands::day_book,
