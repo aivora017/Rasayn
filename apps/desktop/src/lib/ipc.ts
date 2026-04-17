@@ -31,6 +31,25 @@ export interface SaveBillLine {
   readonly discountPct?: number;
 }
 
+export type TenderMode = "cash" | "upi" | "card" | "credit" | "wallet";
+
+export interface Tender {
+  readonly mode: TenderMode;
+  readonly amountPaise: number;
+  readonly refNo?: string | null;
+}
+
+export interface PaymentRowDTO {
+  readonly id: string;
+  readonly billId: string;
+  readonly mode: TenderMode;
+  readonly amountPaise: number;
+  readonly refNo: string | null;
+  readonly createdAt: string;
+}
+
+export const TENDER_TOLERANCE_PAISE = 50 as const;
+
 export interface SaveBillInput {
   readonly shopId: string;
   readonly billNo: string;
@@ -41,6 +60,8 @@ export interface SaveBillInput {
   readonly paymentMode: "cash" | "upi" | "card" | "credit" | "wallet" | "split";
   readonly customerStateCode?: string | null;
   readonly lines: readonly SaveBillLine[];
+  /** A8 (ADR 0012). Optional; see @pharmacare/bill-repo for semantics. */
+  readonly tenders?: readonly Tender[];
 }
 
 export interface SaveBillResult {
@@ -58,6 +79,7 @@ export type IpcCall =
   | { cmd: "pick_fefo_batch"; args: { productId: string } }
   | { cmd: "list_fefo_candidates"; args: { productId: string } }
   | { cmd: "save_bill"; args: { billId: string; input: SaveBillInput } }
+  | { cmd: "list_payments_by_bill"; args: { billId: string } }
   | { cmd: "list_stock"; args: { opts?: ListStockOpts } }
   | { cmd: "save_grn"; args: { grnId: string; input: SaveGrnInput } }
   | { cmd: "day_book"; args: { shopId: string; date: string } }
@@ -115,6 +137,10 @@ export async function pickFefoBatchRpc(productId: string): Promise<BatchPick | n
 
 export async function listFefoCandidatesRpc(productId: string): Promise<readonly BatchPick[]> {
   return (await handler({ cmd: "list_fefo_candidates", args: { productId } })) as BatchPick[];
+}
+
+export async function listPaymentsByBillRpc(billId: string): Promise<readonly PaymentRowDTO[]> {
+  return (await handler({ cmd: "list_payments_by_bill", args: { billId } })) as readonly PaymentRowDTO[];
 }
 
 export async function saveBillRpc(billId: string, input: SaveBillInput): Promise<SaveBillResult> {

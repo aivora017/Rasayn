@@ -41,12 +41,16 @@ import {
 } from "@pharmacare/batch-repo";
 import {
   paise,
+  TENDER_TOLERANCE_PAISE,
   type GstRate,
   type GstTreatment,
   type Paise,
   type PaymentMode,
   type ProductId,
   type BatchId,
+  type Tender,
+  type TenderMode,
+  type PaymentRow,
 } from "@pharmacare/shared-types";
 
 // ---- Types -----------------------------------------------------------------
@@ -74,6 +78,14 @@ export interface SaveBillInput {
   /** null or undefined = walk-in (treated as same-state). */
   readonly customerStateCode: string | null;
   readonly lines: ReadonlyArray<DraftBillLine>;
+  /**
+   * A8 · Split-tender rows (ADR 0012). Optional for backward-compat:
+   * - undefined / empty      → single-tender bill = [{mode: paymentMode, amount: grand_total}]
+   * - one row (len 1)        → same effect; paymentMode on bills is this row's mode
+   * - two+ rows (len >= 2)   → paymentMode on bills is forced to 'split'
+   * Sum(amountPaise) MUST equal grand_total_paise ±TENDER_TOLERANCE_PAISE.
+   */
+  readonly tenders?: ReadonlyArray<Tender>;
 }
 
 export interface SaveBillResult {
@@ -120,6 +132,24 @@ export class NppaCapExceededError extends Error {
     this.mrpPaise = mrpPaise;
     this.capPaise = capPaise;
     this.productName = productName;
+  }
+}
+
+/** Thrown when sum(tenders) does not match grand_total within tolerance. */
+export class TenderMismatchError extends Error {
+  public readonly grandTotalPaise: number;
+  public readonly tenderSumPaise: number;
+  public readonly differencePaise: number;
+  constructor(grandTotalPaise: number, tenderSumPaise: number) {
+    const diff = tenderSumPaise - grandTotalPaise;
+    super(
+      `Tender mismatch: tenders sum ${tenderSumPaise} vs grand_total ${grandTotalPaise} ` +
+      `(diff ${diff > 0 ? "+" : ""}${diff} paise; tolerance ±${TENDER_TOLERANCE_PAISE})`,
+    );
+    this.name = "TenderMismatchError";
+    this.grandTotalPaise = grandTotalPaise;
+    this.tenderSumPaise = tenderSumPaise;
+    this.differencePaise = diff;
   }
 }
 
@@ -258,6 +288,23 @@ export function saveBill(
   const computed = computeBill(db, input);
   const { treatment, lines, totals } = computed;
 
+  // A8 (ADR 0012) · Resolve tenders:
+  // - empty/undefined → single tender = full grand_total in declared paymentMode
+  // - one row         → same (mode = row.mode, paymentMode = row.mode)
+  // - multiple rows   → split; bills.payment_mode forced to 'split'
+  const tendersIn: readonly Tender[] = input.tenders && input.tenders.length > 0
+    ? input.tenders
+    : [{
+        mode: input.paymentMode === "split" ? "cash" : (input.paymentMode as TenderMode),
+        amountPaise: totals.grandTotalPaise as Paise,
+      }];
+  const tenderSum = tendersIn.reduce((a, t) => a + (t.amountPaise as number), 0);
+  if (Math.abs(tenderSum - totals.grandTotalPaise) > TENDER_TOLERANCE_PAISE) {
+    throw new TenderMismatchError(totals.grandTotalPaise, tenderSum);
+  }
+  const resolvedPaymentMode: PaymentMode =
+    tendersIn.length > 1 ? "split" : (tendersIn[0]!.mode as PaymentMode);
+
   const txn = db.transaction(() => {
     db.prepare(`
       INSERT INTO bills (id, shop_id, bill_no, customer_id, doctor_id, rx_id, cashier_id,
@@ -284,7 +331,7 @@ export function saveBill(
       cess: totals.cessPaise,
       round_off: totals.roundOffPaise,
       grand_total: totals.grandTotalPaise,
-      payment_mode: input.paymentMode,
+      payment_mode: resolvedPaymentMode,
     });
 
     const insertLine = db.prepare(`
@@ -315,12 +362,28 @@ export function saveBill(
       });
     });
 
+    const insertPayment = db.prepare(`
+      INSERT INTO payments (id, bill_id, mode, amount_paise, ref_no)
+      VALUES (@id, @bill_id, @mode, @amount, @ref_no)
+    `);
+    tendersIn.forEach((t, i) => {
+      insertPayment.run({
+        id: `${billId}_p${i + 1}`,
+        bill_id: billId,
+        mode: t.mode,
+        amount: t.amountPaise as number,
+        ref_no: t.refNo ?? null,
+      });
+    });
+
     db.prepare(`INSERT INTO audit_log (actor_id, entity, entity_id, action, payload)
                 VALUES (?, 'bill', ?, 'create', ?)`)
       .run(input.cashierId, billId, JSON.stringify({
         billNo: input.billNo,
         total: totals.grandTotalPaise,
         lineCount: lines.length,
+        tenderCount: tendersIn.length,
+        paymentMode: resolvedPaymentMode,
         treatment,
       }));
   });
@@ -356,3 +419,27 @@ export function readBill(db: Database.Database, billId: string): BillRow | undef
 // Re-exports for UI convenience.
 export { computeLine, computeInvoice, inferTreatment, BillValidationError, InsufficientStockError };
 export type { LineInput, LineTax, InvoiceTotals, FefoCandidate };
+
+
+export function listPaymentsByBillId(
+  db: Database.Database,
+  billId: string,
+): readonly PaymentRow[] {
+  const rows = db
+    .prepare(
+      "SELECT id, bill_id, mode, amount_paise, ref_no, created_at " +
+      "FROM payments WHERE bill_id = ? ORDER BY id ASC",
+    )
+    .all(billId) as readonly {
+      id: string; bill_id: string; mode: string;
+      amount_paise: number; ref_no: string | null; created_at: string;
+    }[];
+  return rows.map((r) => ({
+    id: r.id,
+    billId: r.bill_id as unknown as PaymentRow["billId"],
+    mode: r.mode as TenderMode,
+    amountPaise: paise(r.amount_paise) as Paise,
+    refNo: r.ref_no,
+    createdAt: r.created_at,
+  }));
+}

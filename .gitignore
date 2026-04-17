@@ -21,3 +21,6 @@ vite.config.*.timestamp-*.mjs
 pharmacare.db*
 *.pre-restore-*.bak
 logs/
+
+# TypeScript incremental build metadata (regenerated on every build)
+*.tsbuildinfo
