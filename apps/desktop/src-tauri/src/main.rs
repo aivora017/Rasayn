@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod commands;
 mod db;
+mod images;
 mod oauth;
 mod products;
 #[cfg(test)]
@@ -74,6 +75,10 @@ fn main() {
             products::get_product,
             products::list_products,
             products::deactivate_product,
+            images::attach_product_image,
+            images::get_product_image,
+            images::delete_product_image,
+            images::list_products_missing_image,
             oauth::gmail_connect,
             oauth::gmail_status,
             oauth::gmail_disconnect,
