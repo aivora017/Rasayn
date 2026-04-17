@@ -3635,3 +3635,993 @@ fn read_count_session(c: &Connection, id: &str) -> Result<CountSessionOut, Strin
     )
     .map_err(|e| format!("SESSION_NOT_FOUND:{}", e))
 }
+
+// ============================================================================
+// A12 — E-invoice IRN — Cygnet primary, ClearTax secondary, MockAdapter for tests
+// ============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IrnPartyOut {
+    pub gstin: String,
+    pub legal_name: String,
+    pub address1: String,
+    pub location: String,
+    pub pincode: i64,
+    pub state_code: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IrnLineOut {
+    pub sl_no: i64,
+    pub product_name: String,
+    pub hsn: String,
+    pub qty: f64,
+    pub unit: Option<String>,
+    pub mrp_paise: i64,
+    pub discount_paise: i64,
+    pub taxable_value_paise: i64,
+    pub gst_rate: i64,
+    pub cgst_paise: i64,
+    pub sgst_paise: i64,
+    pub igst_paise: i64,
+    pub line_total_paise: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IrnBillOut {
+    pub bill_id: String,
+    pub bill_no: String,
+    pub billed_at_iso: String,
+    pub gst_treatment: String,
+    pub subtotal_paise: i64,
+    pub cgst_paise: i64,
+    pub sgst_paise: i64,
+    pub igst_paise: i64,
+    pub round_off_paise: i64,
+    pub grand_total_paise: i64,
+    pub seller: IrnPartyOut,
+    pub buyer: IrnPartyOut,
+    pub lines: Vec<IrnLineOut>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IrnShopOut {
+    pub annual_turnover_paise: i64,
+    pub einvoice_enabled: bool,
+    pub einvoice_vendor: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IrnPayloadOut {
+    pub shop: IrnShopOut,
+    pub bill: IrnBillOut,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IrnRecordOut {
+    pub id: String,
+    pub bill_id: String,
+    pub shop_id: String,
+    pub vendor: String,
+    pub status: String,
+    pub irn: Option<String>,
+    pub ack_no: Option<String>,
+    pub ack_date: Option<String>,
+    pub signed_invoice: Option<String>,
+    pub qr_code: Option<String>,
+    pub error_code: Option<String>,
+    pub error_msg: Option<String>,
+    pub attempt_count: i64,
+    pub last_attempt_at: Option<String>,
+    pub submitted_at: Option<String>,
+    pub cancelled_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitIrnInput {
+    pub bill_id: String,
+    pub actor_user_id: String,
+    /// When "mock", uses the in-process mock adapter. Otherwise routed to the
+    /// shop's configured vendor (Cygnet default).
+    pub vendor_override: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelIrnInput {
+    pub irn_record_id: String,
+    pub actor_user_id: String,
+    pub cancel_reason: String,
+    pub cancel_remarks: Option<String>,
+}
+
+/// Pluggable adapter. A real CygnetAdapter would wrap reqwest; shipped as
+/// a stubbed impl until the vendor contract signs. MockAdapter is what
+/// tests + demo pilots use.
+pub trait EinvoiceAdapter: Send + Sync {
+    #[allow(dead_code)]
+    fn vendor_name(&self) -> &'static str;
+    fn submit(&self, payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner>;
+    fn cancel(&self, irn: &str, reason: &str, remarks: &str) -> Result<(), IrnErrorInner>;
+}
+
+#[derive(Debug, Clone)]
+pub struct IrnAckInner {
+    pub irn: String,
+    pub ack_no: String,
+    pub ack_date: String,
+    pub signed_invoice: String,
+    pub qr_code: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct IrnErrorInner {
+    pub code: String,
+    pub msg: String,
+}
+
+pub struct MockAdapter;
+
+impl EinvoiceAdapter for MockAdapter {
+    fn vendor_name(&self) -> &'static str {
+        "mock"
+    }
+    fn submit(&self, payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner> {
+        Ok(IrnAckInner {
+            irn: format!("IRN_{}_{}", payload.bill.bill_id, current_iso()),
+            ack_no: format!("ACK_{}", payload.bill.bill_no),
+            ack_date: current_iso(),
+            signed_invoice: format!("SIGNED({})", payload.bill.bill_no),
+            qr_code: format!("QR({})", payload.bill.bill_no),
+        })
+    }
+    fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
+        Ok(())
+    }
+}
+
+/// Placeholder impl — the real wire call lands once the Cygnet contract closes.
+/// Kept behind a feature flag at shop level (`einvoice_enabled`) so it's
+/// impossible to accidentally submit real invoices with this stub.
+pub struct CygnetAdapter;
+impl EinvoiceAdapter for CygnetAdapter {
+    fn vendor_name(&self) -> &'static str {
+        "cygnet"
+    }
+    fn submit(&self, _payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner> {
+        Err(IrnErrorInner {
+            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
+            msg: "Cygnet adapter stub — real HTTP wire not yet wired up; contract pending"
+                .to_string(),
+        })
+    }
+    fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
+        Err(IrnErrorInner {
+            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
+            msg: "Cygnet cancel stub".to_string(),
+        })
+    }
+}
+
+pub struct ClearTaxAdapter;
+impl EinvoiceAdapter for ClearTaxAdapter {
+    fn vendor_name(&self) -> &'static str {
+        "cleartax"
+    }
+    fn submit(&self, _payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner> {
+        Err(IrnErrorInner {
+            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
+            msg: "ClearTax adapter stub — secondary vendor plan, contract pending".to_string(),
+        })
+    }
+    fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
+        Err(IrnErrorInner {
+            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
+            msg: "ClearTax cancel stub".to_string(),
+        })
+    }
+}
+
+fn adapter_for(vendor: &str) -> Box<dyn EinvoiceAdapter> {
+    match vendor {
+        "mock" => Box::new(MockAdapter),
+        "cygnet" => Box::new(CygnetAdapter),
+        "cleartax" => Box::new(ClearTaxAdapter),
+        _ => Box::new(CygnetAdapter),
+    }
+}
+
+/// Build the IRN payload from a saved bill. Read-only.
+#[tauri::command]
+pub fn generate_irn_payload(
+    bill_id: String,
+    state: State<DbState>,
+) -> Result<IrnPayloadOut, String> {
+    let db = state.0.lock().map_err(|e| e.to_string())?;
+
+    // Shop row for the bill
+    let (
+        _shop_id,
+        shop_gstin,
+        shop_name,
+        shop_state_code,
+        shop_address,
+        turnover,
+        einvoice_enabled,
+        einvoice_vendor,
+    ): (String, String, String, String, String, i64, i64, String) = db
+        .query_row(
+            "SELECT s.id, s.gstin, s.name, s.state_code, s.address,
+                    s.annual_turnover_paise, s.einvoice_enabled, s.einvoice_vendor
+             FROM bills b JOIN shops s ON s.id = b.shop_id
+             WHERE b.id = ?1",
+            rusqlite::params![bill_id],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("BILL_NOT_FOUND:{}", e))?;
+
+    // Bill header
+    let (
+        bill_no,
+        billed_at,
+        gst_treatment,
+        subtotal,
+        cgst,
+        sgst,
+        igst,
+        round_off,
+        grand_total,
+        customer_id,
+    ): (
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<String>,
+    ) = db
+        .query_row(
+            "SELECT bill_no, billed_at, gst_treatment, subtotal_paise,
+                    total_cgst_paise, total_sgst_paise, total_igst_paise,
+                    round_off_paise, grand_total_paise, customer_id
+             FROM bills WHERE id = ?1",
+            rusqlite::params![bill_id],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                    r.get(8)?,
+                    r.get(9)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("BILL_ROW_ERR:{}", e))?;
+
+    // Customer / buyer (required for B2B IRN)
+    let (buyer_gstin, buyer_name, buyer_address): (String, String, String) =
+        if let Some(cid) = &customer_id {
+            db.query_row(
+                "SELECT COALESCE(gstin,''), name, COALESCE(address,'')
+                 FROM customers WHERE id = ?1",
+                rusqlite::params![cid],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .map_err(|e| format!("CUSTOMER_ERR:{}", e))?
+        } else {
+            (String::new(), String::new(), String::new())
+        };
+
+    // Lines
+    let mut stmt = db
+        .prepare(
+            "SELECT bl.product_id, p.name, p.hsn,
+                    bl.qty, bl.mrp_paise, bl.discount_paise, bl.taxable_value_paise,
+                    bl.gst_rate, bl.cgst_paise, bl.sgst_paise, bl.igst_paise,
+                    bl.line_total_paise
+             FROM bill_lines bl
+             JOIN products p ON p.id = bl.product_id
+             WHERE bl.bill_id = ?1
+             ORDER BY rowid ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut lines: Vec<IrnLineOut> = Vec::new();
+    let line_iter = stmt
+        .query_map(rusqlite::params![bill_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, f64>(3)?,
+                r.get::<_, i64>(4)?,
+                r.get::<_, i64>(5)?,
+                r.get::<_, i64>(6)?,
+                r.get::<_, i64>(7)?,
+                r.get::<_, i64>(8)?,
+                r.get::<_, i64>(9)?,
+                r.get::<_, i64>(10)?,
+                r.get::<_, i64>(11)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    for (sl, row) in (1_i64..).zip(line_iter) {
+        let (_pid, pname, hsn, qty, mrp, disc, taxable, rate, cg, sg, ig, total) =
+            row.map_err(|e| e.to_string())?;
+        lines.push(IrnLineOut {
+            sl_no: sl,
+            product_name: pname,
+            hsn: hsn.unwrap_or_default(),
+            qty,
+            unit: None,
+            mrp_paise: mrp,
+            discount_paise: disc,
+            taxable_value_paise: taxable,
+            gst_rate: rate,
+            cgst_paise: cg,
+            sgst_paise: sg,
+            igst_paise: ig,
+            line_total_paise: total,
+        });
+    }
+
+    Ok(IrnPayloadOut {
+        shop: IrnShopOut {
+            annual_turnover_paise: turnover,
+            einvoice_enabled: einvoice_enabled != 0,
+            einvoice_vendor,
+        },
+        bill: IrnBillOut {
+            bill_id,
+            bill_no,
+            billed_at_iso: billed_at,
+            gst_treatment,
+            subtotal_paise: subtotal,
+            cgst_paise: cgst,
+            sgst_paise: sgst,
+            igst_paise: igst,
+            round_off_paise: round_off,
+            grand_total_paise: grand_total,
+            seller: IrnPartyOut {
+                gstin: shop_gstin,
+                legal_name: shop_name,
+                address1: shop_address,
+                location: String::new(),
+                pincode: 0,
+                state_code: shop_state_code,
+            },
+            buyer: IrnPartyOut {
+                gstin: buyer_gstin,
+                legal_name: buyer_name,
+                address1: buyer_address,
+                location: String::new(),
+                pincode: 0,
+                state_code: String::new(),
+            },
+            lines,
+        },
+    })
+}
+
+/// Submit the IRN. Validates turnover + einvoice_enabled, opens a transaction,
+/// writes irn_records(status=pending) → calls adapter → on success updates
+/// status=acked with ack fields → on failure updates status=failed.
+/// Always increments attempt_count and writes einvoice_audit.
+#[tauri::command]
+pub fn submit_irn(input: SubmitIrnInput, state: State<DbState>) -> Result<IrnRecordOut, String> {
+    let mut db = state.0.lock().map_err(|e| e.to_string())?;
+
+    // Re-read shop row for defense-in-depth turnover gate
+    let (shop_id, einvoice_enabled, shop_vendor, turnover): (String, i64, String, i64) = db
+        .query_row(
+            "SELECT s.id, s.einvoice_enabled, s.einvoice_vendor, s.annual_turnover_paise
+             FROM bills b JOIN shops s ON s.id = b.shop_id WHERE b.id = ?1",
+            rusqlite::params![input.bill_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .map_err(|e| format!("BILL_NOT_FOUND:{}", e))?;
+
+    if einvoice_enabled == 0 {
+        return Err("EINVOICE_DISABLED".to_string());
+    }
+    if turnover <= 5_000_000_000 {
+        return Err("TURNOVER_BELOW_THRESHOLD".to_string());
+    }
+
+    // Validate actor exists + is_active
+    let (actor_active,): (i64,) = db
+        .query_row(
+            "SELECT is_active FROM users WHERE id = ?1",
+            rusqlite::params![input.actor_user_id],
+            |r| Ok((r.get(0)?,)),
+        )
+        .map_err(|e| format!("USER_NOT_FOUND:{}", e))?;
+    if actor_active == 0 {
+        return Err("USER_INACTIVE".to_string());
+    }
+
+    // Build payload via the same reader, but inline the query to stay under one lock
+    let payload = drop_and_generate(&mut db, &input.bill_id)?;
+
+    let vendor = input.vendor_override.clone().unwrap_or(shop_vendor);
+    let record_id = gen_id("irn");
+    let payload_json = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
+    let now = current_iso();
+
+    let tx = db.transaction().map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "INSERT INTO irn_records(
+            id, bill_id, shop_id, vendor, status, payload_json,
+            attempt_count, last_attempt_at, actor_user_id, created_at
+         ) VALUES (?1, ?2, ?3, ?4, 'pending', ?5, 0, ?6, ?7, ?8)",
+        rusqlite::params![
+            record_id,
+            input.bill_id,
+            shop_id,
+            vendor,
+            payload_json,
+            now,
+            input.actor_user_id,
+            now,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Audit: submit_attempt
+    tx.execute(
+        "INSERT INTO einvoice_audit(id, irn_record_id, event, actor_user_id, shop_id, details, at)
+         VALUES (?1, ?2, 'submit_attempt', ?3, ?4, ?5, ?6)",
+        rusqlite::params![
+            gen_id("ea"),
+            record_id,
+            input.actor_user_id,
+            shop_id,
+            format!("{{\"vendor\":\"{}\"}}", vendor),
+            now,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Call adapter outside DB lock risk — but trait is sync and fast enough for tests
+    let adapter = adapter_for(&vendor);
+    let submit_result = adapter.submit(&payload);
+
+    match submit_result {
+        Ok(ack) => {
+            tx.execute(
+                "UPDATE irn_records SET
+                    status = 'acked',
+                    irn = ?1, ack_no = ?2, ack_date = ?3,
+                    signed_invoice = ?4, qr_code = ?5,
+                    attempt_count = attempt_count + 1,
+                    last_attempt_at = ?6, submitted_at = ?6
+                 WHERE id = ?7",
+                rusqlite::params![
+                    ack.irn,
+                    ack.ack_no,
+                    ack.ack_date,
+                    ack.signed_invoice,
+                    ack.qr_code,
+                    now,
+                    record_id,
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+
+            tx.execute(
+                "INSERT INTO einvoice_audit(id, irn_record_id, event, actor_user_id, shop_id, at)
+                 VALUES (?1, ?2, 'submit_success', ?3, ?4, ?5)",
+                rusqlite::params![gen_id("ea"), record_id, input.actor_user_id, shop_id, now,],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Err(err) => {
+            tx.execute(
+                "UPDATE irn_records SET
+                    status = 'failed',
+                    error_code = ?1, error_msg = ?2,
+                    attempt_count = attempt_count + 1,
+                    last_attempt_at = ?3
+                 WHERE id = ?4",
+                rusqlite::params![err.code, err.msg, now, record_id],
+            )
+            .map_err(|e| e.to_string())?;
+
+            tx.execute(
+                "INSERT INTO einvoice_audit(id, irn_record_id, event, actor_user_id, shop_id, details, at)
+                 VALUES (?1, ?2, 'submit_failure', ?3, ?4, ?5, ?6)",
+                rusqlite::params![
+                    gen_id("ea"),
+                    record_id,
+                    input.actor_user_id,
+                    shop_id,
+                    format!("{{\"code\":\"{}\"}}", err.code),
+                    now,
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    // Re-read the row for return
+    read_irn_record(&db, &record_id)
+}
+
+/// Internal helper: build payload out-of-band without owning the outer lock
+/// (we already hold it; the function is sync).
+fn drop_and_generate(
+    db: &mut rusqlite::Connection,
+    bill_id: &str,
+) -> Result<IrnPayloadOut, String> {
+    let (
+        _shop_id,
+        shop_gstin,
+        shop_name,
+        shop_state_code,
+        shop_address,
+        turnover,
+        einvoice_enabled,
+        einvoice_vendor,
+    ): (String, String, String, String, String, i64, i64, String) = db
+        .query_row(
+            "SELECT s.id, s.gstin, s.name, s.state_code, s.address,
+                    s.annual_turnover_paise, s.einvoice_enabled, s.einvoice_vendor
+             FROM bills b JOIN shops s ON s.id = b.shop_id
+             WHERE b.id = ?1",
+            rusqlite::params![bill_id],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("BILL_NOT_FOUND:{}", e))?;
+
+    let (
+        bill_no,
+        billed_at,
+        gst_treatment,
+        subtotal,
+        cgst,
+        sgst,
+        igst,
+        round_off,
+        grand_total,
+        customer_id,
+    ): (
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<String>,
+    ) = db
+        .query_row(
+            "SELECT bill_no, billed_at, gst_treatment, subtotal_paise,
+                    total_cgst_paise, total_sgst_paise, total_igst_paise,
+                    round_off_paise, grand_total_paise, customer_id
+             FROM bills WHERE id = ?1",
+            rusqlite::params![bill_id],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                    r.get(8)?,
+                    r.get(9)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("BILL_ROW_ERR:{}", e))?;
+
+    let (buyer_gstin, buyer_name, buyer_address): (String, String, String) =
+        if let Some(cid) = &customer_id {
+            db.query_row(
+                "SELECT COALESCE(gstin,''), name, COALESCE(address,'')
+             FROM customers WHERE id = ?1",
+                rusqlite::params![cid],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .map_err(|e| format!("CUSTOMER_ERR:{}", e))?
+        } else {
+            (String::new(), String::new(), String::new())
+        };
+
+    let mut lines: Vec<IrnLineOut> = Vec::new();
+    {
+        let mut stmt = db
+            .prepare(
+                "SELECT p.name, p.hsn, bl.qty, bl.mrp_paise, bl.discount_paise,
+                        bl.taxable_value_paise, bl.gst_rate, bl.cgst_paise,
+                        bl.sgst_paise, bl.igst_paise, bl.line_total_paise
+                 FROM bill_lines bl
+                 JOIN products p ON p.id = bl.product_id
+                 WHERE bl.bill_id = ?1
+                 ORDER BY rowid ASC",
+            )
+            .map_err(|e| e.to_string())?;
+        let it = stmt
+            .query_map(rusqlite::params![bill_id], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, f64>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, i64>(4)?,
+                    r.get::<_, i64>(5)?,
+                    r.get::<_, i64>(6)?,
+                    r.get::<_, i64>(7)?,
+                    r.get::<_, i64>(8)?,
+                    r.get::<_, i64>(9)?,
+                    r.get::<_, i64>(10)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for (sl, row) in (1_i64..).zip(it) {
+            let (pname, hsn, qty, mrp, disc, taxable, rate, cg, sg, ig, total) =
+                row.map_err(|e| e.to_string())?;
+            lines.push(IrnLineOut {
+                sl_no: sl,
+                product_name: pname,
+                hsn: hsn.unwrap_or_default(),
+                qty,
+                unit: None,
+                mrp_paise: mrp,
+                discount_paise: disc,
+                taxable_value_paise: taxable,
+                gst_rate: rate,
+                cgst_paise: cg,
+                sgst_paise: sg,
+                igst_paise: ig,
+                line_total_paise: total,
+            });
+        }
+    }
+
+    Ok(IrnPayloadOut {
+        shop: IrnShopOut {
+            annual_turnover_paise: turnover,
+            einvoice_enabled: einvoice_enabled != 0,
+            einvoice_vendor,
+        },
+        bill: IrnBillOut {
+            bill_id: bill_id.to_string(),
+            bill_no,
+            billed_at_iso: billed_at,
+            gst_treatment,
+            subtotal_paise: subtotal,
+            cgst_paise: cgst,
+            sgst_paise: sgst,
+            igst_paise: igst,
+            round_off_paise: round_off,
+            grand_total_paise: grand_total,
+            seller: IrnPartyOut {
+                gstin: shop_gstin,
+                legal_name: shop_name,
+                address1: shop_address,
+                location: String::new(),
+                pincode: 0,
+                state_code: shop_state_code,
+            },
+            buyer: IrnPartyOut {
+                gstin: buyer_gstin,
+                legal_name: buyer_name,
+                address1: buyer_address,
+                location: String::new(),
+                pincode: 0,
+                state_code: String::new(),
+            },
+            lines,
+        },
+    })
+}
+
+fn read_irn_record(db: &rusqlite::Connection, id: &str) -> Result<IrnRecordOut, String> {
+    db.query_row(
+        "SELECT id, bill_id, shop_id, vendor, status, irn, ack_no, ack_date,
+                signed_invoice, qr_code, error_code, error_msg,
+                attempt_count, last_attempt_at, submitted_at, cancelled_at, created_at
+         FROM irn_records WHERE id = ?1",
+        rusqlite::params![id],
+        |r| {
+            Ok(IrnRecordOut {
+                id: r.get(0)?,
+                bill_id: r.get(1)?,
+                shop_id: r.get(2)?,
+                vendor: r.get(3)?,
+                status: r.get(4)?,
+                irn: r.get(5)?,
+                ack_no: r.get(6)?,
+                ack_date: r.get(7)?,
+                signed_invoice: r.get(8)?,
+                qr_code: r.get(9)?,
+                error_code: r.get(10)?,
+                error_msg: r.get(11)?,
+                attempt_count: r.get(12)?,
+                last_attempt_at: r.get(13)?,
+                submitted_at: r.get(14)?,
+                cancelled_at: r.get(15)?,
+                created_at: r.get(16)?,
+            })
+        },
+    )
+    .map_err(|e| format!("IRN_RECORD_NOT_FOUND:{}", e))
+}
+
+/// Retry a failed IRN. Writes a NEW irn_records row (prior row stays failed).
+#[tauri::command]
+pub fn retry_irn(
+    bill_id: String,
+    actor_user_id: String,
+    state: State<DbState>,
+) -> Result<IrnRecordOut, String> {
+    // Must not have an active record for this bill
+    {
+        let db = state.0.lock().map_err(|e| e.to_string())?;
+        let active: Option<String> = db
+            .query_row(
+                "SELECT id FROM irn_records
+                 WHERE bill_id = ?1 AND status IN ('pending','submitted','acked')
+                 LIMIT 1",
+                rusqlite::params![bill_id],
+                |r| r.get(0),
+            )
+            .ok();
+        if active.is_some() {
+            return Err("IRN_ALREADY_ACTIVE".to_string());
+        }
+    }
+
+    submit_irn(
+        SubmitIrnInput {
+            bill_id,
+            actor_user_id,
+            vendor_override: None,
+        },
+        state,
+    )
+}
+
+/// Cancel an acked IRN. Owner-gate; within 24h of ack_date.
+#[tauri::command]
+pub fn cancel_irn(input: CancelIrnInput, state: State<DbState>) -> Result<IrnRecordOut, String> {
+    let mut db = state.0.lock().map_err(|e| e.to_string())?;
+
+    let (actor_role, actor_active): (String, i64) = db
+        .query_row(
+            "SELECT role, is_active FROM users WHERE id = ?1",
+            rusqlite::params![input.actor_user_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|e| format!("USER_NOT_FOUND:{}", e))?;
+    if actor_active == 0 {
+        return Err("USER_INACTIVE".to_string());
+    }
+    if actor_role != "owner" {
+        return Err("OWNER_REQUIRED".to_string());
+    }
+
+    let (irn, status, ack_date, shop_id, vendor): (
+        Option<String>,
+        String,
+        Option<String>,
+        String,
+        String,
+    ) = db
+        .query_row(
+            "SELECT irn, status, ack_date, shop_id, vendor
+             FROM irn_records WHERE id = ?1",
+            rusqlite::params![input.irn_record_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .map_err(|e| format!("IRN_RECORD_NOT_FOUND:{}", e))?;
+
+    if status != "acked" {
+        return Err("IRN_NOT_ACKED".to_string());
+    }
+    let irn_val = irn.ok_or_else(|| "IRN_VALUE_MISSING".to_string())?;
+    let ack = ack_date.ok_or_else(|| "ACK_DATE_MISSING".to_string())?;
+
+    // 24h window check — ack_date is ISO-8601 UTC
+    let ack_dt =
+        chrono::DateTime::parse_from_rfc3339(&ack).map_err(|e| format!("ACK_DATE_PARSE:{}", e))?;
+    let now_dt = chrono::Utc::now();
+    let diff = now_dt.signed_duration_since(ack_dt.with_timezone(&chrono::Utc));
+    if diff.num_hours() >= 24 {
+        return Err("CANCEL_WINDOW_EXPIRED".to_string());
+    }
+
+    let remarks = input.cancel_remarks.clone().unwrap_or_default();
+    let adapter = adapter_for(&vendor);
+    let cancel_res = adapter.cancel(&irn_val, &input.cancel_reason, &remarks);
+
+    let now = current_iso();
+    let tx = db.transaction().map_err(|e| e.to_string())?;
+
+    match cancel_res {
+        Ok(()) => {
+            tx.execute(
+                "UPDATE irn_records SET status = 'cancelled',
+                    cancelled_at = ?1, cancel_reason = ?2, cancel_remarks = ?3
+                 WHERE id = ?4",
+                rusqlite::params![now, input.cancel_reason, remarks, input.irn_record_id],
+            )
+            .map_err(|e| e.to_string())?;
+
+            tx.execute(
+                "INSERT INTO einvoice_audit(id, irn_record_id, event, actor_user_id, shop_id, at)
+                 VALUES (?1, ?2, 'cancel_success', ?3, ?4, ?5)",
+                rusqlite::params![
+                    gen_id("ea"),
+                    input.irn_record_id,
+                    input.actor_user_id,
+                    shop_id,
+                    now,
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Err(err) => {
+            tx.execute(
+                "INSERT INTO einvoice_audit(id, irn_record_id, event, actor_user_id, shop_id, details, at)
+                 VALUES (?1, ?2, 'cancel_failure', ?3, ?4, ?5, ?6)",
+                rusqlite::params![
+                    gen_id("ea"),
+                    input.irn_record_id,
+                    input.actor_user_id,
+                    shop_id,
+                    format!("{{\"code\":\"{}\"}}", err.code),
+                    now,
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+            tx.commit().map_err(|e| e.to_string())?;
+            return Err(format!("CANCEL_FAILED:{}", err.code));
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    read_irn_record(&db, &input.irn_record_id)
+}
+
+/// List IRN records by shop + status filter (optional). Newest first.
+#[tauri::command]
+pub fn list_irn_records(
+    shop_id: String,
+    status: Option<String>,
+    limit: Option<i64>,
+    state: State<DbState>,
+) -> Result<Vec<IrnRecordOut>, String> {
+    let db = state.0.lock().map_err(|e| e.to_string())?;
+    let lim = limit.unwrap_or(500);
+
+    let mut stmt = match status {
+        Some(_) => db
+            .prepare(
+                "SELECT id, bill_id, shop_id, vendor, status, irn, ack_no, ack_date,
+                        signed_invoice, qr_code, error_code, error_msg,
+                        attempt_count, last_attempt_at, submitted_at, cancelled_at, created_at
+                 FROM irn_records
+                 WHERE shop_id = ?1 AND status = ?2
+                 ORDER BY created_at DESC
+                 LIMIT ?3",
+            )
+            .map_err(|e| e.to_string())?,
+        None => db
+            .prepare(
+                "SELECT id, bill_id, shop_id, vendor, status, irn, ack_no, ack_date,
+                        signed_invoice, qr_code, error_code, error_msg,
+                        attempt_count, last_attempt_at, submitted_at, cancelled_at, created_at
+                 FROM irn_records
+                 WHERE shop_id = ?1
+                 ORDER BY created_at DESC
+                 LIMIT ?2",
+            )
+            .map_err(|e| e.to_string())?,
+    };
+
+    let mapper = |r: &rusqlite::Row| {
+        Ok(IrnRecordOut {
+            id: r.get(0)?,
+            bill_id: r.get(1)?,
+            shop_id: r.get(2)?,
+            vendor: r.get(3)?,
+            status: r.get(4)?,
+            irn: r.get(5)?,
+            ack_no: r.get(6)?,
+            ack_date: r.get(7)?,
+            signed_invoice: r.get(8)?,
+            qr_code: r.get(9)?,
+            error_code: r.get(10)?,
+            error_msg: r.get(11)?,
+            attempt_count: r.get(12)?,
+            last_attempt_at: r.get(13)?,
+            submitted_at: r.get(14)?,
+            cancelled_at: r.get(15)?,
+            created_at: r.get(16)?,
+        })
+    };
+
+    let rows: Vec<IrnRecordOut> = match status {
+        Some(s) => stmt
+            .query_map(rusqlite::params![shop_id, s, lim], mapper)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?,
+        None => stmt
+            .query_map(rusqlite::params![shop_id, lim], mapper)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?,
+    };
+
+    Ok(rows)
+}
+
+/// Get the active IRN for a bill, if any.
+#[tauri::command]
+pub fn get_irn_for_bill(
+    bill_id: String,
+    state: State<DbState>,
+) -> Result<Option<IrnRecordOut>, String> {
+    let db = state.0.lock().map_err(|e| e.to_string())?;
+    let id: Option<String> = db
+        .query_row(
+            "SELECT id FROM irn_records
+             WHERE bill_id = ?1
+             ORDER BY created_at DESC LIMIT 1",
+            rusqlite::params![bill_id],
+            |r| r.get(0),
+        )
+        .ok();
+    match id {
+        Some(i) => read_irn_record(&db, &i).map(Some),
+        None => Ok(None),
+    }
+}

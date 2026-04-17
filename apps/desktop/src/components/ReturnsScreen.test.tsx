@@ -21,6 +21,7 @@ import {
   type Gstr1InputDTO,
   type GstReturnDTO,
   type UserDTO,
+  type IrnRecordDTO,
 } from "../lib/ipc.js";
 
 const OWNER: UserDTO = { id: "user_sourav_owner", name: "Sourav Shaw", role: "owner", isActive: true };
@@ -86,6 +87,8 @@ function installHandler(opts: {
   payload?: Gstr1InputDTO;
   savedStatus?: string;
   saveThrows?: string;
+  irn?: readonly IrnRecordDTO[];
+  cancelThrows?: string;
 } = {}): CallLog {
   const calls: CallLog = [];
   const user = opts.user ?? OWNER;
@@ -104,6 +107,14 @@ function installHandler(opts: {
       case "mark_gstr1_filed":
         saved = { ...saved, status: "filed", filedAt: "2026-04-17T10:31:00+05:30", filedByUserId: OWNER.id };
         return saved;
+      case "list_irn_records": {
+        const { status } = (call.args as { status?: string });
+        const rows = opts.irn ?? [];
+        return status ? rows.filter((r) => r.status === status) : rows;
+      }
+      case "cancel_irn":
+        if (opts.cancelThrows) throw new Error(opts.cancelThrows);
+        return { ...(opts.irn?.[0] as IrnRecordDTO), status: "cancelled" };
       default: return null;
     }
   });
@@ -257,5 +268,94 @@ describe("ReturnsScreen · A10", () => {
     fireEvent.click(screen.getByTestId("ret-generate"));
     const err = await screen.findByTestId("ret-err");
     expect(err.textContent).toMatch(/Period invalid/);
+  });
+
+  it("A12 · mode toggle defaults to GSTR-1 and hides IRN panel", async () => {
+    installHandler();
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+    expect(screen.queryByTestId("irn-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ret-mode-switch")).toBeInTheDocument();
+  });
+
+  it("A12 · switching to IRN mode loads records via list_irn_records", async () => {
+    const rec: IrnRecordDTO = {
+      id: "ir_1", billId: "bill_a", shopId: "shop_vaidyanath_kalyan",
+      vendor: "cygnet", status: "acked",
+      irn: "abcdef1234567890" + "x".repeat(48),
+      ackNo: "ACK-1", ackDate: "2026-04-17T10:00:00+05:30",
+      signedInvoice: null, qrCode: null,
+      errorCode: null, errorMsg: null, attemptCount: 1,
+      submittedAt: "2026-04-17T09:59:00+05:30",
+      cancelledAt: null, cancelReason: null, cancelRemarks: null,
+      actorUserId: "user_sourav_owner", createdAt: "2026-04-17T09:58:00+05:30",
+    };
+    const calls = installHandler({ irn: [rec] });
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("ret-mode-irn"));
+    await screen.findByTestId("irn-panel");
+    await waitFor(() => expect(screen.getByTestId(`irn-row-${rec.id}`)).toBeInTheDocument());
+    expect(calls.some((c) => c.cmd === "list_irn_records")).toBe(true);
+  });
+
+  it("A12 · status filter narrows the IRN list", async () => {
+    const recAcked: IrnRecordDTO = {
+      id: "ir_a", billId: "bill_1", shopId: "shop_vaidyanath_kalyan",
+      vendor: "cygnet", status: "acked",
+      irn: "a".repeat(64), ackNo: "ACK", ackDate: "2026-04-17T10:00:00+05:30",
+      signedInvoice: null, qrCode: null, errorCode: null, errorMsg: null,
+      attemptCount: 1, submittedAt: "2026-04-17T09:59:00+05:30",
+      cancelledAt: null, cancelReason: null, cancelRemarks: null,
+      actorUserId: OWNER.id, createdAt: "2026-04-17T09:58:00+05:30",
+    };
+    const recFailed: IrnRecordDTO = {
+      ...recAcked, id: "ir_f", status: "failed", irn: null,
+      errorCode: "3026", errorMsg: "Invalid GSTIN", attemptCount: 2, ackNo: null, ackDate: null,
+    };
+    const calls = installHandler({ irn: [recAcked, recFailed] });
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("ret-mode-irn"));
+    await screen.findByTestId("irn-panel");
+    await waitFor(() => expect(screen.getByTestId("irn-row-ir_a")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("irn-filter"), { target: { value: "failed" } });
+    await waitFor(() => expect(screen.queryByTestId("irn-row-ir_a")).not.toBeInTheDocument());
+    expect(screen.getByTestId("irn-row-ir_f")).toBeInTheDocument();
+    const listCalls = calls.filter((c) => c.cmd === "list_irn_records");
+    expect(listCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("A12 · cancel dialog submits cancel_irn with reason + remarks", async () => {
+    const rec: IrnRecordDTO = {
+      id: "ir_c", billId: "bill_c", shopId: "shop_vaidyanath_kalyan",
+      vendor: "cygnet", status: "acked",
+      irn: "b".repeat(64), ackNo: "ACK-9", ackDate: "2026-04-17T10:00:00+05:30",
+      signedInvoice: null, qrCode: null, errorCode: null, errorMsg: null,
+      attemptCount: 1, submittedAt: "2026-04-17T09:59:00+05:30",
+      cancelledAt: null, cancelReason: null, cancelRemarks: null,
+      actorUserId: OWNER.id, createdAt: "2026-04-17T09:58:00+05:30",
+    };
+    const calls = installHandler({ irn: [rec] });
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("ret-mode-irn"));
+    await screen.findByTestId("irn-panel");
+    await waitFor(() => expect(screen.getByTestId(`irn-row-${rec.id}`)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId(`irn-cancel-${rec.id}`));
+    await screen.findByTestId("irn-cancel-dialog");
+    fireEvent.change(screen.getByTestId("irn-cancel-reason"), { target: { value: "3" } });
+    fireEvent.change(screen.getByTestId("irn-cancel-remarks"), { target: { value: "order rolled back" } });
+    fireEvent.click(screen.getByTestId("irn-cancel-confirm"));
+
+    await waitFor(() => expect(screen.queryByTestId("irn-cancel-dialog")).not.toBeInTheDocument());
+    const cancelCall = calls.find((c) => c.cmd === "cancel_irn");
+    expect(cancelCall).toBeTruthy();
+    if (cancelCall && cancelCall.cmd === "cancel_irn") {
+      expect(cancelCall.args.input.cancelReason).toBe("3");
+      expect(cancelCall.args.input.cancelRemarks).toBe("order rolled back");
+    }
   });
 });

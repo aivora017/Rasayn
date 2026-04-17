@@ -55,6 +55,8 @@ pub const MIGRATION_0014: &str =
     include_str!("../../../../packages/shared-db/migrations/0014_gstr1_returns.sql");
 pub const MIGRATION_0015: &str =
     include_str!("../../../../packages/shared-db/migrations/0015_a11_stock_reconcile.sql");
+pub const MIGRATION_0016: &str =
+    include_str!("../../../../packages/shared-db/migrations/0016_a12_einvoice_irn.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -175,6 +177,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
         conn.execute_batch(MIGRATION_0015)?;
         conn.execute(
             "INSERT INTO _migrations (version, name) VALUES (15, '0015_a11_stock_reconcile')",
+            [],
+        )?;
+    }
+    if !applied(16, conn) {
+        conn.execute_batch(MIGRATION_0016)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (16, '0016_a12_einvoice_irn')",
             [],
         )?;
     }
