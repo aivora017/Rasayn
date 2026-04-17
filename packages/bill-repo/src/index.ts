@@ -765,3 +765,193 @@ export function recordPrescription(
 
   return txn();
 }
+
+// ---------------------------------------------------------------------------
+// A9 (ADR 0014) · readBillFull — TS mirror of Rust get_bill_full.
+// Returns the same nested shape (camelCase) expected by
+// @pharmacare/invoice-print's renderInvoiceHtml, enabling unit tests that
+// exercise the full DB → renderer chain without a Tauri runtime.
+// ---------------------------------------------------------------------------
+
+import type {
+  BillFull,
+  BillHeader as IpBillHeader,
+  BillLineFull,
+  CustomerFull,
+  HsnSummary,
+  PrescriptionFull,
+  ShopFull,
+} from "@pharmacare/invoice-print";
+
+export function readBillFull(db: Database.Database, billId: string): BillFull | undefined {
+  const hdrRow = db
+    .prepare(
+      `SELECT id, bill_no, billed_at, customer_id, rx_id, cashier_id,
+              gst_treatment, subtotal_paise, total_discount_paise,
+              total_cgst_paise, total_sgst_paise, total_igst_paise,
+              total_cess_paise, round_off_paise, grand_total_paise,
+              payment_mode, is_voided, shop_id
+         FROM bills WHERE id = ?`,
+    )
+    .get(billId) as Record<string, unknown> | undefined;
+  if (!hdrRow) return undefined;
+  const bill: IpBillHeader = {
+    id: hdrRow.id as string,
+    billNo: hdrRow.bill_no as string,
+    billedAt: hdrRow.billed_at as string,
+    customerId: (hdrRow.customer_id as string) ?? null,
+    rxId: (hdrRow.rx_id as string) ?? null,
+    cashierId: hdrRow.cashier_id as string,
+    gstTreatment: hdrRow.gst_treatment as string,
+    subtotalPaise: hdrRow.subtotal_paise as number,
+    totalDiscountPaise: hdrRow.total_discount_paise as number,
+    totalCgstPaise: hdrRow.total_cgst_paise as number,
+    totalSgstPaise: hdrRow.total_sgst_paise as number,
+    totalIgstPaise: hdrRow.total_igst_paise as number,
+    totalCessPaise: hdrRow.total_cess_paise as number,
+    roundOffPaise: hdrRow.round_off_paise as number,
+    grandTotalPaise: hdrRow.grand_total_paise as number,
+    paymentMode: hdrRow.payment_mode as string,
+    isVoided: hdrRow.is_voided as number,
+  };
+
+  const shopRow = db
+    .prepare(
+      `SELECT id, name, gstin, state_code, retail_license, address,
+              pharmacist_name, pharmacist_reg_no, fssai_no,
+              default_invoice_layout
+         FROM shops WHERE id = ?`,
+    )
+    .get(hdrRow.shop_id as string) as Record<string, unknown> | undefined;
+  if (!shopRow) return undefined;
+  const shop: ShopFull = {
+    id: shopRow.id as string,
+    name: shopRow.name as string,
+    gstin: shopRow.gstin as string,
+    stateCode: shopRow.state_code as string,
+    retailLicense: shopRow.retail_license as string,
+    address: shopRow.address as string,
+    pharmacistName: (shopRow.pharmacist_name as string) ?? null,
+    pharmacistRegNo: (shopRow.pharmacist_reg_no as string) ?? null,
+    fssaiNo: (shopRow.fssai_no as string) ?? null,
+    defaultInvoiceLayout: shopRow.default_invoice_layout as "thermal_80mm" | "a5_gst",
+  };
+
+  const customer: CustomerFull | null = bill.customerId
+    ? (() => {
+        const r = db
+          .prepare("SELECT id, name, phone, gstin, address FROM customers WHERE id = ?")
+          .get(bill.customerId) as Record<string, unknown> | undefined;
+        if (!r) return null;
+        return {
+          id: r.id as string,
+          name: r.name as string,
+          phone: (r.phone as string) ?? null,
+          gstin: (r.gstin as string) ?? null,
+          address: (r.address as string) ?? null,
+        };
+      })()
+    : null;
+
+  const prescription: PrescriptionFull | null = bill.rxId
+    ? (() => {
+        const r = db
+          .prepare(
+            `SELECT p.id, d.name AS doctor_name, d.reg_no AS doctor_reg_no,
+                    p.kind, p.issued_date, p.notes
+               FROM prescriptions p
+               LEFT JOIN doctors d ON d.id = p.doctor_id
+              WHERE p.id = ?`,
+          )
+          .get(bill.rxId) as Record<string, unknown> | undefined;
+        if (!r) return null;
+        return {
+          id: r.id as string,
+          doctorName: (r.doctor_name as string) ?? null,
+          doctorRegNo: (r.doctor_reg_no as string) ?? null,
+          kind: r.kind as string,
+          issuedDate: r.issued_date as string,
+          notes: (r.notes as string) ?? null,
+        };
+      })()
+    : null;
+
+  const lineRows = db
+    .prepare(
+      `SELECT bl.id, bl.product_id, p.name AS product_name, p.hsn, p.schedule,
+              bl.batch_id, b.batch_no, b.expiry_date,
+              bl.qty, bl.mrp_paise, bl.discount_pct, bl.discount_paise,
+              bl.taxable_value_paise, bl.gst_rate,
+              bl.cgst_paise, bl.sgst_paise, bl.igst_paise, bl.cess_paise,
+              bl.line_total_paise
+         FROM bill_lines bl
+         JOIN products p ON p.id = bl.product_id
+         LEFT JOIN batches b ON b.id = bl.batch_id
+        WHERE bl.bill_id = ?
+        ORDER BY bl.id ASC`,
+    )
+    .all(billId) as ReadonlyArray<Record<string, unknown>>;
+  const lines: BillLineFull[] = lineRows.map((r) => ({
+    id: r.id as string,
+    productId: r.product_id as string,
+    productName: r.product_name as string,
+    hsn: r.hsn as string,
+    batchId: r.batch_id as string,
+    batchNo: (r.batch_no as string) ?? null,
+    expiryDate: (r.expiry_date as string) ?? null,
+    qty: r.qty as number,
+    mrpPaise: r.mrp_paise as number,
+    discountPct: r.discount_pct as number,
+    discountPaise: r.discount_paise as number,
+    taxableValuePaise: r.taxable_value_paise as number,
+    gstRate: r.gst_rate as number,
+    cgstPaise: r.cgst_paise as number,
+    sgstPaise: r.sgst_paise as number,
+    igstPaise: r.igst_paise as number,
+    cessPaise: r.cess_paise as number,
+    lineTotalPaise: r.line_total_paise as number,
+    schedule: r.schedule as BillLineFull["schedule"],
+  }));
+
+  const paymentRows = db
+    .prepare(
+      `SELECT id, bill_id, mode, amount_paise, ref_no, created_at
+         FROM payments WHERE bill_id = ? ORDER BY id ASC`,
+    )
+    .all(billId) as ReadonlyArray<Record<string, unknown>>;
+  const payments = paymentRows.map((r) => ({
+    id: r.id as string,
+    billId: r.bill_id as string,
+    mode: r.mode as "cash" | "upi" | "card" | "credit" | "wallet",
+    amountPaise: r.amount_paise as number,
+    refNo: (r.ref_no as string) ?? null,
+    createdAt: r.created_at as string,
+  }));
+
+  const hsnRows = db
+    .prepare(
+      `SELECT p.hsn, bl.gst_rate,
+              SUM(bl.taxable_value_paise) AS taxable,
+              SUM(bl.cgst_paise) AS cgst,
+              SUM(bl.sgst_paise) AS sgst,
+              SUM(bl.igst_paise) AS igst,
+              SUM(bl.cess_paise) AS cess
+         FROM bill_lines bl
+         JOIN products p ON p.id = bl.product_id
+        WHERE bl.bill_id = ?
+        GROUP BY p.hsn, bl.gst_rate
+        ORDER BY p.hsn ASC`,
+    )
+    .all(billId) as ReadonlyArray<Record<string, unknown>>;
+  const hsnTaxSummary: HsnSummary[] = hsnRows.map((r) => ({
+    hsn: r.hsn as string,
+    gstRate: r.gst_rate as number,
+    taxableValuePaise: r.taxable as number,
+    cgstPaise: r.cgst as number,
+    sgstPaise: r.sgst as number,
+    igstPaise: r.igst as number,
+    cessPaise: r.cess as number,
+  }));
+
+  return { shop, bill, customer, prescription, lines, payments, hsnTaxSummary };
+}

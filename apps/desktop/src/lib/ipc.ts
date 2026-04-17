@@ -111,7 +111,9 @@ export type IpcCall =
   | { cmd: "deactivate_product"; args: { id: string } }
   | { cmd: "user_get"; args: { id: string } }
   | { cmd: "record_expiry_override"; args: { input: ExpiryOverrideInputDTO } }
-  | { cmd: "get_nearest_expiry"; args: { productId: string } };
+  | { cmd: "get_nearest_expiry"; args: { productId: string } }
+  | { cmd: "get_bill_full"; args: { billId: string } }
+  | { cmd: "record_print"; args: { input: RecordPrintInputDTO } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -634,4 +636,131 @@ export async function recordExpiryOverrideRpc(
     cmd: "record_expiry_override",
     args: { input },
   })) as ExpiryOverrideResultDTO;
+}
+
+// ---------------------------------------------------------------------------
+// A9 (ADR 0014) · Invoice print IPC surface
+// ---------------------------------------------------------------------------
+// getBillFullRpc : single read surface returning header + shop + customer +
+//                  prescription + lines + payments + HSN summary. Consumed by
+//                  packages/invoice-print's renderInvoiceHtml.
+// recordPrintRpc : writes print_audit row; returns printCount + isDuplicate
+//                  so the UI can stamp "DUPLICATE — REPRINT" on repeats.
+// ---------------------------------------------------------------------------
+
+export type InvoiceLayout = "thermal_80mm" | "a5_gst";
+
+export interface ShopFullDTO {
+  readonly id: string;
+  readonly name: string;
+  readonly gstin: string;
+  readonly stateCode: string;
+  readonly retailLicense: string;
+  readonly address: string;
+  readonly pharmacistName: string | null;
+  readonly pharmacistRegNo: string | null;
+  readonly fssaiNo: string | null;
+  readonly defaultInvoiceLayout: InvoiceLayout;
+}
+
+export interface BillHeaderDTO {
+  readonly id: string;
+  readonly billNo: string;
+  readonly billedAt: string;
+  readonly customerId: string | null;
+  readonly rxId: string | null;
+  readonly cashierId: string;
+  readonly gstTreatment: string;
+  readonly subtotalPaise: number;
+  readonly totalDiscountPaise: number;
+  readonly totalCgstPaise: number;
+  readonly totalSgstPaise: number;
+  readonly totalIgstPaise: number;
+  readonly totalCessPaise: number;
+  readonly roundOffPaise: number;
+  readonly grandTotalPaise: number;
+  readonly paymentMode: string;
+  readonly isVoided: number;
+}
+
+export interface CustomerFullDTO {
+  readonly id: string;
+  readonly name: string;
+  readonly phone: string | null;
+  readonly gstin: string | null;
+  readonly address: string | null;
+}
+
+export interface PrescriptionFullDTO {
+  readonly id: string;
+  readonly doctorName: string | null;
+  readonly doctorRegNo: string | null;
+  readonly kind: string;
+  readonly issuedDate: string;
+  readonly notes: string | null;
+}
+
+export interface BillLineFullDTO {
+  readonly id: string;
+  readonly productId: string;
+  readonly productName: string;
+  readonly hsn: string;
+  readonly batchId: string;
+  readonly batchNo: string | null;
+  readonly expiryDate: string | null;
+  readonly qty: number;
+  readonly mrpPaise: number;
+  readonly discountPct: number;
+  readonly discountPaise: number;
+  readonly taxableValuePaise: number;
+  readonly gstRate: number;
+  readonly cgstPaise: number;
+  readonly sgstPaise: number;
+  readonly igstPaise: number;
+  readonly cessPaise: number;
+  readonly lineTotalPaise: number;
+  readonly schedule: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
+}
+
+export interface HsnSummaryDTO {
+  readonly hsn: string;
+  readonly gstRate: number;
+  readonly taxableValuePaise: number;
+  readonly cgstPaise: number;
+  readonly sgstPaise: number;
+  readonly igstPaise: number;
+  readonly cessPaise: number;
+}
+
+export interface BillFullDTO {
+  readonly shop: ShopFullDTO;
+  readonly bill: BillHeaderDTO;
+  readonly customer: CustomerFullDTO | null;
+  readonly prescription: PrescriptionFullDTO | null;
+  readonly lines: readonly BillLineFullDTO[];
+  readonly payments: readonly PaymentRowDTO[];
+  readonly hsnTaxSummary: readonly HsnSummaryDTO[];
+}
+
+export interface RecordPrintInputDTO {
+  readonly billId: string;
+  readonly layout: InvoiceLayout;
+  readonly actorUserId: string;
+}
+
+export interface PrintReceiptDTO {
+  readonly id: string;
+  readonly billId: string;
+  readonly layout: InvoiceLayout;
+  readonly isDuplicate: number;
+  readonly printCount: number;
+  readonly stampedAt: string;
+}
+
+export async function getBillFullRpc(billId: string): Promise<BillFullDTO> {
+  return (await handler({ cmd: "get_bill_full", args: { billId } })) as BillFullDTO;
+}
+
+export async function recordPrintRpc(input: RecordPrintInputDTO): Promise<PrintReceiptDTO> {
+  return (await handler({ cmd: "record_print", args: { input } })) as PrintReceiptDTO;
 }

@@ -793,3 +793,69 @@ describe("bill-repo · A7 recordPrescription", () => {
     })).toThrow(RxInvalidInputError);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A9 (ADR 0014) · readBillFull integration
+// ---------------------------------------------------------------------------
+import { readBillFull } from "./index.js";
+import { renderInvoiceHtml } from "@pharmacare/invoice-print";
+
+describe("bill-repo · readBillFull (A9 invoice-print feed)", () => {
+  it("returns undefined for an unknown bill id", () => {
+    const db = fixture();
+    expect(readBillFull(db, "nope")).toBeUndefined();
+  });
+
+  it("round-trips a saveBill'd B2C cash bill with shop/lines/payments/HSN summary", () => {
+    const db = fixture();
+    const billId = "bf_1";
+    saveBill(
+      db,
+      billId,
+      baseInput({
+        billNo: "BF-1",
+        paymentMode: "cash",
+        lines: [
+          { productId: "p_para", batchId: "b_a1", mrpPaise: 11000, qty: 2, gstRate: 12, discountPct: 0 },
+        ],
+      }),
+    );
+    const full = readBillFull(db, billId);
+    expect(full).toBeDefined();
+    expect(full!.bill.billNo).toBe("BF-1");
+    expect(full!.shop.name).toBe("Vaidyanath");
+    expect(full!.shop.defaultInvoiceLayout).toBe("thermal_80mm"); // migration 0013 default
+    expect(full!.customer).toBeNull();
+    expect(full!.prescription).toBeNull();
+    expect(full!.lines).toHaveLength(1);
+    expect(full!.lines[0]!.productName).toBe("Crocin 500");
+    expect(full!.lines[0]!.hsn).toBe("3004");
+    expect(full!.lines[0]!.schedule).toBe("OTC");
+    expect(full!.lines[0]!.batchNo).toBe("A001");
+    expect(full!.payments).toHaveLength(1);
+    expect(full!.payments[0]!.mode).toBe("cash");
+    expect(full!.hsnTaxSummary).toHaveLength(1);
+    expect(full!.hsnTaxSummary[0]!.hsn).toBe("3004");
+    expect(full!.hsnTaxSummary[0]!.gstRate).toBe(12);
+  });
+
+  it("produced BillFull feeds renderInvoiceHtml without massaging (contract lock)", () => {
+    const db = fixture();
+    const billId = "bf_2";
+    saveBill(
+      db,
+      billId,
+      baseInput({
+        billNo: "BF-2",
+        lines: [
+          { productId: "p_para", batchId: "b_a1", mrpPaise: 11000, qty: 1, gstRate: 12, discountPct: 0 },
+        ],
+      }),
+    );
+    const full = readBillFull(db, billId)!;
+    const html = renderInvoiceHtml({ bill: full });
+    expect(html).toContain("BF-2");
+    expect(html).toContain("Vaidyanath");
+    expect(html).toContain("Crocin 500");
+  });
+});

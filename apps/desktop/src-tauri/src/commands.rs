@@ -2125,3 +2125,425 @@ pub fn get_nearest_expiry(
         Err(e) => Err(e.to_string()),
     }
 }
+
+// ============================================================================
+// A9 · Invoice print (ADR 0014)
+//
+// get_bill_full   : single read surface for print + GSTR-1 line export + stock
+//                   reconcile. Populates nested Shop/Bill/Customer/Prescription/
+//                   Line/Payment/HsnSummary blocks in one call.
+// record_print    : writes print_audit row and returns (printCount, isDuplicate,
+//                   stampedAt). First call per bill = isDuplicate=0 ("ORIGINAL"),
+//                   subsequent = isDuplicate=1 ("DUPLICATE — REPRINT").
+// ============================================================================
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShopOutFull {
+    pub id: String,
+    pub name: String,
+    pub gstin: String,
+    pub state_code: String,
+    pub retail_license: String,
+    pub address: String,
+    pub pharmacist_name: Option<String>,
+    pub pharmacist_reg_no: Option<String>,
+    pub fssai_no: Option<String>,
+    pub default_invoice_layout: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillOutFull {
+    pub id: String,
+    pub bill_no: String,
+    pub billed_at: String,
+    pub customer_id: Option<String>,
+    pub rx_id: Option<String>,
+    pub cashier_id: String,
+    pub gst_treatment: String,
+    pub subtotal_paise: i64,
+    pub total_discount_paise: i64,
+    pub total_cgst_paise: i64,
+    pub total_sgst_paise: i64,
+    pub total_igst_paise: i64,
+    pub total_cess_paise: i64,
+    pub round_off_paise: i64,
+    pub grand_total_paise: i64,
+    pub payment_mode: String,
+    pub is_voided: i64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerOutFull {
+    pub id: String,
+    pub name: String,
+    pub phone: Option<String>,
+    pub gstin: Option<String>,
+    pub address: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrescriptionOutFull {
+    pub id: String,
+    pub doctor_name: Option<String>,
+    pub doctor_reg_no: Option<String>,
+    pub kind: String,
+    pub issued_date: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillLineOutFull {
+    pub id: String,
+    pub product_id: String,
+    pub product_name: String,
+    pub hsn: String,
+    pub batch_id: String,
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<String>,
+    pub qty: f64,
+    pub mrp_paise: i64,
+    pub discount_pct: f64,
+    pub discount_paise: i64,
+    pub taxable_value_paise: i64,
+    pub gst_rate: i64,
+    pub cgst_paise: i64,
+    pub sgst_paise: i64,
+    pub igst_paise: i64,
+    pub cess_paise: i64,
+    pub line_total_paise: i64,
+    pub schedule: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HsnSummaryOut {
+    pub hsn: String,
+    pub gst_rate: i64,
+    pub taxable_value_paise: i64,
+    pub cgst_paise: i64,
+    pub sgst_paise: i64,
+    pub igst_paise: i64,
+    pub cess_paise: i64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillFullOut {
+    pub shop: ShopOutFull,
+    pub bill: BillOutFull,
+    pub customer: Option<CustomerOutFull>,
+    pub prescription: Option<PrescriptionOutFull>,
+    pub lines: Vec<BillLineOutFull>,
+    pub payments: Vec<PaymentRowOut>,
+    pub hsn_tax_summary: Vec<HsnSummaryOut>,
+}
+
+#[tauri::command]
+pub fn get_bill_full(bill_id: String, state: State<DbState>) -> Result<BillFullOut, String> {
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+
+    // --- bill header ---
+    let bill = c
+        .query_row(
+            "SELECT id, bill_no, billed_at, customer_id, rx_id, cashier_id,
+                    gst_treatment, subtotal_paise, total_discount_paise,
+                    total_cgst_paise, total_sgst_paise, total_igst_paise,
+                    total_cess_paise, round_off_paise, grand_total_paise,
+                    payment_mode, is_voided, shop_id
+               FROM bills WHERE id = ?1",
+            params![bill_id],
+            |r| {
+                Ok((
+                    BillOutFull {
+                        id: r.get(0)?,
+                        bill_no: r.get(1)?,
+                        billed_at: r.get(2)?,
+                        customer_id: r.get(3)?,
+                        rx_id: r.get(4)?,
+                        cashier_id: r.get(5)?,
+                        gst_treatment: r.get(6)?,
+                        subtotal_paise: r.get(7)?,
+                        total_discount_paise: r.get(8)?,
+                        total_cgst_paise: r.get(9)?,
+                        total_sgst_paise: r.get(10)?,
+                        total_igst_paise: r.get(11)?,
+                        total_cess_paise: r.get(12)?,
+                        round_off_paise: r.get(13)?,
+                        grand_total_paise: r.get(14)?,
+                        payment_mode: r.get(15)?,
+                        is_voided: r.get(16)?,
+                    },
+                    r.get::<_, String>(17)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("BILL_NOT_FOUND:{}:{}", bill_id, e))?;
+    let (bill_header, shop_id) = bill;
+
+    // --- shop ---
+    let shop = c
+        .query_row(
+            "SELECT id, name, gstin, state_code, retail_license, address,
+                    pharmacist_name, pharmacist_reg_no, fssai_no,
+                    default_invoice_layout
+               FROM shops WHERE id = ?1",
+            params![shop_id],
+            |r| {
+                Ok(ShopOutFull {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    gstin: r.get(2)?,
+                    state_code: r.get(3)?,
+                    retail_license: r.get(4)?,
+                    address: r.get(5)?,
+                    pharmacist_name: r.get(6)?,
+                    pharmacist_reg_no: r.get(7)?,
+                    fssai_no: r.get(8)?,
+                    default_invoice_layout: r.get(9)?,
+                })
+            },
+        )
+        .map_err(|e| format!("SHOP_NOT_FOUND:{}:{}", shop_id, e))?;
+
+    // --- customer (optional) ---
+    let customer = if let Some(ref cid) = bill_header.customer_id {
+        c.query_row(
+            "SELECT id, name, phone, gstin, address
+               FROM customers WHERE id = ?1",
+            params![cid],
+            |r| {
+                Ok(CustomerOutFull {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    phone: r.get(2)?,
+                    gstin: r.get(3)?,
+                    address: r.get(4)?,
+                })
+            },
+        )
+        .ok()
+    } else {
+        None
+    };
+
+    // --- prescription (optional) ---
+    let prescription = if let Some(ref rid) = bill_header.rx_id {
+        c.query_row(
+            "SELECT p.id, d.name, d.reg_no, p.kind, p.issued_date, p.notes
+               FROM prescriptions p
+               LEFT JOIN doctors d ON d.id = p.doctor_id
+               WHERE p.id = ?1",
+            params![rid],
+            |r| {
+                Ok(PrescriptionOutFull {
+                    id: r.get(0)?,
+                    doctor_name: r.get(1)?,
+                    doctor_reg_no: r.get(2)?,
+                    kind: r.get(3)?,
+                    issued_date: r.get(4)?,
+                    notes: r.get(5)?,
+                })
+            },
+        )
+        .ok()
+    } else {
+        None
+    };
+
+    // --- lines (with product HSN + schedule + batch detail) ---
+    let mut lines_stmt = c
+        .prepare(
+            "SELECT bl.id, bl.product_id, p.name AS product_name, p.hsn, p.schedule,
+                    bl.batch_id, b.batch_no, b.expiry_date,
+                    bl.qty, bl.mrp_paise, bl.discount_pct, bl.discount_paise,
+                    bl.taxable_value_paise, bl.gst_rate,
+                    bl.cgst_paise, bl.sgst_paise, bl.igst_paise, bl.cess_paise,
+                    bl.line_total_paise
+               FROM bill_lines bl
+               JOIN products p ON p.id = bl.product_id
+               LEFT JOIN batches b ON b.id = bl.batch_id
+              WHERE bl.bill_id = ?1
+              ORDER BY bl.id ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let lines: Vec<BillLineOutFull> = lines_stmt
+        .query_map(params![bill_id], |r| {
+            Ok(BillLineOutFull {
+                id: r.get(0)?,
+                product_id: r.get(1)?,
+                product_name: r.get(2)?,
+                hsn: r.get(3)?,
+                schedule: r.get(4)?,
+                batch_id: r.get(5)?,
+                batch_no: r.get(6)?,
+                expiry_date: r.get(7)?,
+                qty: r.get(8)?,
+                mrp_paise: r.get(9)?,
+                discount_pct: r.get(10)?,
+                discount_paise: r.get(11)?,
+                taxable_value_paise: r.get(12)?,
+                gst_rate: r.get(13)?,
+                cgst_paise: r.get(14)?,
+                sgst_paise: r.get(15)?,
+                igst_paise: r.get(16)?,
+                cess_paise: r.get(17)?,
+                line_total_paise: r.get(18)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+
+    // --- payments (reuse existing shape) ---
+    let mut pay_stmt = c
+        .prepare(
+            "SELECT id, bill_id, mode, amount_paise, ref_no, created_at
+               FROM payments WHERE bill_id = ?1 ORDER BY id ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let payments: Vec<PaymentRowOut> = pay_stmt
+        .query_map(params![bill_id], |r| {
+            Ok(PaymentRowOut {
+                id: r.get(0)?,
+                bill_id: r.get(1)?,
+                mode: r.get(2)?,
+                amount_paise: r.get(3)?,
+                ref_no: r.get(4)?,
+                created_at: r.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+
+    // --- HSN-wise tax summary (grouped aggregation in SQL) ---
+    let mut hsn_stmt = c
+        .prepare(
+            "SELECT p.hsn, bl.gst_rate,
+                    SUM(bl.taxable_value_paise),
+                    SUM(bl.cgst_paise), SUM(bl.sgst_paise),
+                    SUM(bl.igst_paise), SUM(bl.cess_paise)
+               FROM bill_lines bl
+               JOIN products p ON p.id = bl.product_id
+              WHERE bl.bill_id = ?1
+              GROUP BY p.hsn, bl.gst_rate
+              ORDER BY p.hsn ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let hsn_tax_summary: Vec<HsnSummaryOut> = hsn_stmt
+        .query_map(params![bill_id], |r| {
+            Ok(HsnSummaryOut {
+                hsn: r.get(0)?,
+                gst_rate: r.get(1)?,
+                taxable_value_paise: r.get(2)?,
+                cgst_paise: r.get(3)?,
+                sgst_paise: r.get(4)?,
+                igst_paise: r.get(5)?,
+                cess_paise: r.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(BillFullOut {
+        shop,
+        bill: bill_header,
+        customer,
+        prescription,
+        lines,
+        payments,
+        hsn_tax_summary,
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordPrintInput {
+    pub bill_id: String,
+    pub layout: String,
+    pub actor_user_id: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrintReceiptOut {
+    pub id: String,
+    pub bill_id: String,
+    pub layout: String,
+    pub is_duplicate: i64,
+    pub print_count: i64,
+    pub stamped_at: String,
+}
+
+#[tauri::command]
+pub fn record_print(
+    input: RecordPrintInput,
+    state: State<DbState>,
+) -> Result<PrintReceiptOut, String> {
+    if !matches!(input.layout.as_str(), "thermal_80mm" | "a5_gst") {
+        return Err(format!("INVALID_LAYOUT:{}", input.layout));
+    }
+    let c = state.0.lock().map_err(|e| e.to_string())?;
+
+    // Ensure the bill exists (catches stale IDs before we write the audit row).
+    let _bill_no: String = c
+        .query_row(
+            "SELECT bill_no FROM bills WHERE id = ?1",
+            params![input.bill_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("BILL_NOT_FOUND:{}:{}", input.bill_id, e))?;
+
+    // Ensure the actor exists.
+    let _actor_role: String = c
+        .query_row(
+            "SELECT role FROM users WHERE id = ?1 AND is_active = 1",
+            params![input.actor_user_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("USER_NOT_FOUND:{}:{}", input.actor_user_id, e))?;
+
+    // Count prior prints — first print is ORIGINAL (is_duplicate=0), any after is DUPLICATE (=1).
+    let prior: i64 = c
+        .query_row(
+            "SELECT COUNT(*) FROM print_audit WHERE bill_id = ?1",
+            params![input.bill_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let is_duplicate: i64 = if prior == 0 { 0 } else { 1 };
+    let id = format!("pa_{}", chrono::Utc::now().timestamp_millis());
+    c.execute(
+        "INSERT INTO print_audit (id, bill_id, layout, actor_user_id, is_duplicate)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            id,
+            input.bill_id,
+            input.layout,
+            input.actor_user_id,
+            is_duplicate
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    let stamped_at: String = c
+        .query_row(
+            "SELECT printed_at FROM print_audit WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(PrintReceiptOut {
+        id,
+        bill_id: input.bill_id,
+        layout: input.layout,
+        is_duplicate,
+        print_count: prior + 1,
+        stamped_at,
+    })
+}

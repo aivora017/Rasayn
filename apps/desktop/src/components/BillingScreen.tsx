@@ -8,10 +8,32 @@ import {
   pickFefoBatchRpc, listFefoCandidatesRpc, saveBillRpc,
   searchCustomersRpc, listPrescriptionsRpc, createPrescriptionRpc, upsertDoctorRpc,
   userGetRpc,
+  getBillFullRpc, recordPrintRpc,
   type ProductHit, type BatchPick, type SaveBillInput,
   type Customer, type Prescription, type Tender, type UserDTO,
   type ExpiryOverrideResultDTO,
 } from "../lib/ipc.js";
+import { renderInvoiceHtml, resolveLayout } from "@pharmacare/invoice-print";
+
+// A9 (ADR 0014) · Hidden-iframe print. The rendered HTML contains an inline
+// `window.print()` bootstrap so the cashier sees the system print dialog the
+// instant the iframe loads. The iframe stays attached briefly (the dialog is
+// modal on most OSes) and is then removed to avoid DOM leaks.
+function openPrintIframe(html: string): void {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.srcdoc = html;
+  document.body.appendChild(iframe);
+  setTimeout(() => {
+    try { document.body.removeChild(iframe); } catch { /* already gone */ }
+  }, 60_000);
+}
 
 const RX_REQUIRED = new Set(["H", "H1", "X", "NDPS"]);
 
@@ -58,6 +80,9 @@ function genBillNo(): string {
 export function BillingScreen() {
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
+  // A9 (ADR 0014) · F9 re-prints the most recently saved bill. Reset on F1.
+  const [lastSavedBillId, setLastSavedBillId] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
@@ -253,6 +278,7 @@ export function BillingScreen() {
 
   const resetBill = useCallback(() => {
     setLines([]);
+    setLastSavedBillId(null);
     setCustomer(null);
     setCustQuery("");
     setCustHits([]);
@@ -298,7 +324,8 @@ export function BillingScreen() {
     setSaving(true);
     try {
       const r = await saveBillRpc(billId, payload);
-      setToast({ kind: "ok", msg: `Saved · ${payload.billNo} · ${formatINR(r.grandTotalPaise as Paise)}` });
+      setLastSavedBillId(billId);
+      setToast({ kind: "ok", msg: `Saved · ${payload.billNo} · ${formatINR(r.grandTotalPaise as Paise)} · F9 to print` });
       setLines([]);
       setCustomer(null); setRxId(null); setCustQuery(""); setRxList([]);
       setPaymentOpen(false);
@@ -310,6 +337,44 @@ export function BillingScreen() {
       setSaving(false);
     }
   }, [canSave, lines, customer, rxId]);
+
+  // A9 (ADR 0014) · F9 reprint — fetch full bill, write print_audit,
+  // render the invoice HTML, and hand it to a hidden iframe for browser-native
+  // print. First call is ORIGINAL, subsequent calls show DUPLICATE — REPRINT.
+  const doPrint = useCallback(async () => {
+    if (!lastSavedBillId) {
+      setToast({ kind: "err", msg: "No bill to print — save one first (F10)" });
+      return;
+    }
+    if (!currentUser) {
+      setToast({ kind: "err", msg: "User not loaded — cannot stamp print audit" });
+      return;
+    }
+    if (printing) return;
+    setPrinting(true);
+    try {
+      const bill = await getBillFullRpc(lastSavedBillId);
+      const layout = resolveLayout(bill);
+      const receipt = await recordPrintRpc({
+        billId: lastSavedBillId,
+        layout,
+        actorUserId: currentUser.id,
+      });
+      const html = renderInvoiceHtml({ bill, layout, printReceipt: receipt });
+      openPrintIframe(html);
+      setToast({
+        kind: "ok",
+        msg: receipt.isDuplicate
+          ? `Reprint #${receipt.printCount} · ${layout === "a5_gst" ? "A5 GST" : "Thermal 80mm"}`
+          : `Printing · ${layout === "a5_gst" ? "A5 GST" : "Thermal 80mm"}`,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setToast({ kind: "err", msg: `Print failed: ${msg}` });
+    } finally {
+      setPrinting(false);
+    }
+  }, [lastSavedBillId, currentUser, printing]);
 
   // A5 keyboard shell — window-level so F-keys work from any focused element
   // inside the billing screen, including the embedded ProductSearch dropdown.
@@ -374,6 +439,13 @@ export function BillingScreen() {
         })();
         return;
       }
+      if (e.key === "F9") {
+        // PaymentModal should not swallow F9 — print is available post-save only.
+        if (paymentOpen) return;
+        e.preventDefault();
+        void doPrint();
+        return;
+      }
       if (e.key === "F10") {
         // When PaymentModal is open, its own window handler intercepts F10.
         if (paymentOpen) return;
@@ -389,7 +461,7 @@ export function BillingScreen() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [doSave, resetBill, canSave, paymentOpen, toast, lines]);
+  }, [doSave, doPrint, resetBill, canSave, paymentOpen, toast, lines]);
 
   // A6 · autofocus the batch-override confirm button on open (ADR 0010 §2).
   useEffect(() => {
@@ -466,6 +538,7 @@ export function BillingScreen() {
             · <span className="kbd">F6</span> payment
             · <span className="kbd">F7</span> batch
             · <span className="kbd">F10</span> save
+            · <span className="kbd">F9</span> print
           </span>
         </h2>
 

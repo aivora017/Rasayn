@@ -49,6 +49,8 @@ pub const MIGRATION_0011: &str =
     include_str!("../../../../packages/shared-db/migrations/0011_expiry_override_audit.sql");
 pub const MIGRATION_0012: &str =
     include_str!("../../../../packages/shared-db/migrations/0012_rx_records.sql");
+pub const MIGRATION_0013: &str =
+    include_str!("../../../../packages/shared-db/migrations/0013_print_audit.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -148,6 +150,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
         conn.execute_batch(MIGRATION_0012)?;
         conn.execute(
             "INSERT INTO _migrations (version, name) VALUES (12, '0012_rx_records')",
+            [],
+        )?;
+    }
+    if !applied(13, conn) {
+        conn.execute_batch(MIGRATION_0013)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (13, '0013_print_audit')",
             [],
         )?;
     }

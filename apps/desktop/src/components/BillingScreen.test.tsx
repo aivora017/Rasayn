@@ -466,3 +466,143 @@ describe("BillingScreen · A13 expiry guard", () => {
     expect(screen.queryByTestId("line-batch-0")).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// A9 (ADR 0014) · F9 invoice print flow
+// ---------------------------------------------------------------------------
+describe("BillingScreen · A9 F9 invoice print", () => {
+  const owner = { id: "user_sourav_owner", name: "Owner", role: "owner" as const, isActive: true };
+
+  function billFullFixture() {
+    return {
+      shop: {
+        id: "s_1", name: "Vaidyanath Pharmacy",
+        gstin: "27ABCDE1234F1Z5", stateCode: "27",
+        retailLicense: "20B-123456", address: "Kalyan, MH",
+        pharmacistName: null, pharmacistRegNo: null, fssaiNo: null,
+        defaultInvoiceLayout: "thermal_80mm",
+      },
+      bill: {
+        id: "bill_a5", billNo: "B-00001",
+        billedAt: "2026-04-17T14:03:00.000Z",
+        customerId: null, rxId: null, cashierId: owner.id,
+        gstTreatment: "registered",
+        subtotalPaise: 10000, totalDiscountPaise: 0,
+        totalCgstPaise: 600, totalSgstPaise: 600,
+        totalIgstPaise: 0, totalCessPaise: 0,
+        roundOffPaise: 0, grandTotalPaise: 11200,
+        paymentMode: "cash", isVoided: 0,
+      },
+      customer: null,
+      prescription: null,
+      lines: [{
+        id: "bl_1", productId: "p_paracip", productName: "Paracip 500 Tab",
+        hsn: "3004", batchId: "b1", batchNo: "LOT-A5", expiryDate: "2027-03-31",
+        qty: 1, mrpPaise: 11200, discountPct: 0, discountPaise: 0,
+        taxableValuePaise: 10000, gstRate: 12,
+        cgstPaise: 600, sgstPaise: 600, igstPaise: 0, cessPaise: 0,
+        lineTotalPaise: 11200, schedule: "OTC" as const,
+      }],
+      payments: [],
+      hsnTaxSummary: [],
+    };
+  }
+
+  function printHandler(priorPrints = 0, calls?: IpcCall[]) {
+    let n = priorPrints;
+    return async (call: IpcCall): Promise<unknown> => {
+      calls?.push(call);
+      if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
+      if (call.cmd === "db_version") return 2;
+      if (call.cmd === "search_products") {
+        const q = call.args.q.toLowerCase();
+        return FIXTURES.filter((f) => f.name.toLowerCase().includes(q));
+      }
+      if (call.cmd === "pick_fefo_batch") return BATCH;
+      if (call.cmd === "list_fefo_candidates") return [BATCH, BATCH_ALT];
+      if (call.cmd === "save_bill") return { billId: "bill_a5", grandTotalPaise: 11200, linesInserted: 1 };
+      if (call.cmd === "search_customers") return [];
+      if (call.cmd === "list_prescriptions") return [];
+      if (call.cmd === "list_stock") return [];
+      if (call.cmd === "user_get") return owner;
+      if (call.cmd === "get_nearest_expiry") return null;
+      if (call.cmd === "get_bill_full") return billFullFixture();
+      if (call.cmd === "record_print") {
+        const isDup = n > 0 ? 1 : 0;
+        n += 1;
+        return {
+          id: `pa_${n}`, billId: call.args.input.billId,
+          layout: call.args.input.layout,
+          isDuplicate: isDup, printCount: n,
+          stampedAt: "2026-04-17T14:05:00.000Z",
+        };
+      }
+      return null;
+    };
+  }
+
+  it("F9 with no saved bill surfaces an error toast", async () => {
+    setIpcHandler(printHandler());
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "F9" });
+    await waitFor(() =>
+      expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "err"),
+    );
+    expect(screen.getByTestId("toast").textContent).toMatch(/save one first/i);
+  });
+
+  it("F9 after F10 save calls get_bill_full + record_print and mounts a print iframe", async () => {
+    const calls: IpcCall[] = [];
+    setIpcHandler(printHandler(0, calls));
+    const user = userEvent.setup();
+    render(<App />);
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() =>
+      expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "ok"),
+    );
+
+    fireEvent.keyDown(window, { key: "F9" });
+    await waitFor(() => expect(calls.some((c) => c.cmd === "get_bill_full")).toBe(true));
+    await waitFor(() => expect(calls.some((c) => c.cmd === "record_print")).toBe(true));
+    const iframe = document.querySelector("iframe[aria-hidden='true']");
+    expect(iframe).not.toBeNull();
+    expect(screen.getByTestId("toast").textContent).toMatch(/Printing/);
+  });
+
+  it("second F9 stamps Reprint — record_print returns isDuplicate=1", async () => {
+    const calls: IpcCall[] = [];
+    setIpcHandler(printHandler(0, calls));
+    const user = userEvent.setup();
+    render(<App />);
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() =>
+      expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "ok"),
+    );
+    fireEvent.keyDown(window, { key: "F9" });
+    await waitFor(() => expect(screen.getByTestId("toast").textContent).toMatch(/Printing/));
+    fireEvent.keyDown(window, { key: "F9" });
+    await waitFor(() => expect(screen.getByTestId("toast").textContent).toMatch(/Reprint #2/));
+    const recordPrintCalls = calls.filter((c) => c.cmd === "record_print");
+    expect(recordPrintCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("F1 reset clears lastSavedBillId so F9 reprint is no longer possible", async () => {
+    setIpcHandler(printHandler());
+    const user = userEvent.setup();
+    render(<App />);
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() =>
+      expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "ok"),
+    );
+    fireEvent.keyDown(window, { key: "F1" });
+    await waitFor(() => expect(screen.getByTestId("empty-state")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "F9" });
+    await waitFor(() =>
+      expect(screen.getByTestId("toast")).toHaveAttribute("data-toast-kind", "err"),
+    );
+  });
+});

@@ -35,6 +35,8 @@ fn main() {
             commands::list_fefo_candidates,
             commands::save_bill,
             commands::list_payments_by_bill,
+            commands::get_bill_full,
+            commands::record_print,
             commands::user_get,
             commands::record_expiry_override,
             commands::get_nearest_expiry,
