@@ -133,7 +133,9 @@ export type IpcCall =
   | { cmd: "attach_product_image"; args: { input: AttachImageInputDTO } }
   | { cmd: "get_product_image"; args: { productId: string } }
   | { cmd: "delete_product_image"; args: { productId: string; actorUserId: string } }
-  | { cmd: "list_products_missing_image"; args: Record<string, never> };
+  | { cmd: "list_products_missing_image"; args: Record<string, never> }
+  | { cmd: "find_similar_images"; args: { productId: string; maxDistance: number } }
+  | { cmd: "get_duplicate_suspects"; args: { maxDistance: number } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1171,6 +1173,7 @@ export interface ImageMetadataDTO {
   readonly mime: "image/png" | "image/jpeg" | "image/webp";
   readonly sizeBytes: number;
   readonly productId: string;
+  readonly phash: string | null;
 }
 
 export interface ProductImageRowDTO {
@@ -1181,6 +1184,7 @@ export interface ProductImageRowDTO {
   readonly bytesB64: string;
   readonly uploadedBy: string;
   readonly uploadedAt: string;
+  readonly phash: string | null;
 }
 
 export interface MissingImageRowDTO {
@@ -1213,4 +1217,56 @@ export async function deleteProductImageRpc(
 
 export async function listProductsMissingImageRpc(): Promise<readonly MissingImageRowDTO[]> {
   return (await handler({ cmd: "list_products_missing_image", args: {} })) as readonly MissingImageRowDTO[];
+}
+
+// ------- X2b (ADR 0019): perceptual-hash similarity ---------------------
+
+export interface SimilarImageRowDTO {
+  readonly productId: string;
+  readonly name: string;
+  readonly schedule: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
+  readonly manufacturer: string;
+  /** 16-hex-char DCT pHash (see ADR 0019). */
+  readonly phash: string;
+  /** Hamming distance from the query product's phash (0 = identical, up to 64). */
+  readonly distance: number;
+}
+
+export interface DuplicateSuspectRowDTO {
+  readonly productIdA: string;
+  readonly nameA: string;
+  readonly productIdB: string;
+  readonly nameB: string;
+  /** Hamming distance between the two products' phashes. */
+  readonly distance: number;
+}
+
+/**
+ * Find products visually similar to `productId` by Hamming distance on the
+ * stored pHash. Returns empty if the query product has no stored image/phash.
+ * `maxDistance` is inclusive; per ADR 0019 use 6 for near-duplicates, 12 for
+ * "suspicious" band. Results sorted ascending by distance.
+ */
+export async function findSimilarImagesRpc(
+  productId: string,
+  maxDistance: number,
+): Promise<readonly SimilarImageRowDTO[]> {
+  return (await handler({
+    cmd: "find_similar_images",
+    args: { productId, maxDistance },
+  })) as readonly SimilarImageRowDTO[];
+}
+
+/**
+ * Sweep all active products with a stored pHash for duplicate-suspect pairs
+ * whose Hamming distance is <= `maxDistance`. O(N^2) — pilot-scale (<= 5k
+ * SKUs) only; see ADR 0019 for index-bucketing plan.
+ */
+export async function getDuplicateSuspectsRpc(
+  maxDistance: number,
+): Promise<readonly DuplicateSuspectRowDTO[]> {
+  return (await handler({
+    cmd: "get_duplicate_suspects",
+    args: { maxDistance },
+  })) as readonly DuplicateSuspectRowDTO[];
 }
