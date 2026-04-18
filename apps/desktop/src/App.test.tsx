@@ -507,6 +507,7 @@ describe("GrnScreen · receive stock", () => {
         const q = call.args.q.toLowerCase();
         return FIXTURES.filter((f) => f.name.toLowerCase().includes(q));
       }
+      if (call.cmd === "list_suppliers") return [{ id: "sup_gsk", name: "GSK Pharma" }];
       if (call.cmd === "save_grn") throw new Error("UNIQUE constraint failed: batches.product_id, batches.batch_no");
       return null;
     });
@@ -521,7 +522,12 @@ describe("GrnScreen · receive stock", () => {
     await user.type(screen.getByTestId("grn-batch-0"), "CRN2510");
     fireEvent.change(screen.getByTestId("grn-mfg-0"), { target: { value: "2026-04-01" } });
     fireEvent.change(screen.getByTestId("grn-expiry-0"), { target: { value: "2028-03-31" } });
-    await user.click(screen.getByTestId("save-grn"));
+    // Wait for save-grn to enable — list_suppliers is async, and on slower
+    // runners (CI) the supplier select may still be empty at click time,
+    // leaving the button disabled and the click a no-op.
+    const btn = screen.getByTestId("save-grn") as HTMLButtonElement;
+    await waitFor(() => expect(btn.disabled).toBe(false));
+    await user.click(btn);
     await waitFor(() =>
       expect(screen.getByTestId("grn-toast")).toHaveAttribute("data-toast-kind", "err"),
     );

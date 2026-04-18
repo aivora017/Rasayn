@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatINR, type Paise } from "@pharmacare/shared-types";
 import {
   matchParsedLine,
@@ -8,21 +8,23 @@ import {
 } from "@pharmacare/gmail-grn-bridge";
 import { ProductSearch } from "./ProductSearch.js";
 import {
+  listSuppliersRpc,
   saveGrnRpc,
   searchProductsRpc,
   type ProductHit,
   type SaveGrnInput,
+  type SupplierRow,
 } from "../lib/ipc.js";
-import { takePendingGrnDraft, type PendingGrnDraft } from "../lib/pendingGrnDraft.js";
+import {
+  peekPendingGrnDraft,
+  dismissPendingGrnDraft,
+  type PendingGrnDraft,
+} from "../lib/pendingGrnDraft.js";
 
-// Demo supplier list — will come from a suppliers IPC in a later step.
-const SUPPLIERS: readonly { id: string; name: string }[] = [
-  { id: "sup_gsk", name: "GlaxoSmithKline Pharma" },
-  { id: "sup_cipla", name: "Cipla Ltd." },
-  { id: "sup_sun", name: "Sun Pharmaceutical" },
-  { id: "sup_alembic", name: "Alembic Pharmaceuticals" },
-  { id: "sup_localwhl", name: "Kalyan Medical Distributors" },
-];
+// D03 (tech-debt 2026-04-18): the hard-coded SUPPLIERS demo list was removed.
+// Real supplier rows now come from `listSuppliersRpc(shopId)` on mount.
+// Pilot single-shop id is "shop_local" (matches ensure_default_shop seed).
+const SHOP_ID = "shop_local";
 
 interface DraftLine {
   readonly key: string;
@@ -62,7 +64,8 @@ function productHitToCandidate(h: ProductHit): CandidateProduct {
 }
 
 export function GrnScreen() {
-  const [supplierId, setSupplierId] = useState<string>(SUPPLIERS[0]!.id);
+  const [suppliers, setSuppliers] = useState<readonly SupplierRow[]>([]);
+  const [supplierId, setSupplierId] = useState<string>("");
   const [invoiceNo, setInvoiceNo] = useState<string>("");
   const [invoiceDate, setInvoiceDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [lines, setLines] = useState<readonly DraftLine[]>([]);
@@ -74,14 +77,38 @@ export function GrnScreen() {
   // "Search manually" button on low-confidence / unmatched import rows so
   // the owner sees immediate candidates without re-typing the hint.
   const [productSearchInitialQuery, setProductSearchInitialQuery] = useState<string>("");
+  // S05 — guard against React.StrictMode double-invoke of the import effect.
+  // Combined with the non-destructive peek in pendingGrnDraft.ts, this keeps
+  // the draft visible across both mounts but only triggers auto-match once.
+  const importAttemptedRef = useRef<boolean>(false);
+
+  // D03 — load suppliers once on mount. Empty/failed load still renders the
+  // screen; Save gate below requires supplierId non-empty.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listSuppliersRpc(SHOP_ID);
+        if (cancelled) return;
+        setSuppliers(rows);
+        if (rows.length > 0 && !supplierId) setSupplierId(rows[0]!.id);
+      } catch {
+        if (!cancelled) setSuppliers([]);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pick up any Gmail-inbox handoff on mount (F7 → "Send to GRN") and kick
   // off auto-match for each parsed line. High/medium confidence matches
   // auto-append DraftLines; low / unmatched stay visible in the banner with
   // Skip + Search-manually actions.
   useEffect(() => {
-    const d = takePendingGrnDraft();
+    if (importAttemptedRef.current) return;
+    const d = peekPendingGrnDraft();
     if (!d) return;
+    importAttemptedRef.current = true;
     setImportedDraft(d);
     if (d.invoiceNo) setInvoiceNo(d.invoiceNo);
     if (d.invoiceDate) setInvoiceDate(d.invoiceDate);
@@ -93,8 +120,11 @@ export function GrnScreen() {
       for (let i = 0; i < d.parsedLines.length; i += 1) {
         const pl = d.parsedLines[i]!;
         let match: LineMatch;
+        // Capture hits here so the auto-append branch can reuse them instead
+        // of issuing a second searchProductsRpc (S05b — dedupe).
+        let hits: readonly ProductHit[] = [];
         try {
-          const hits = await searchProductsRpc(pl.productHint, 5);
+          hits = await searchProductsRpc(pl.productHint, 5);
           const cands = hits.map(productHitToCandidate);
           match = matchParsedLine(pl.productHint, pl.hsn ?? null, cands);
         } catch {
@@ -109,7 +139,7 @@ export function GrnScreen() {
         // Auto-append high/medium matches. Low/unmatched stay visible and
         // require a manual action.
         if (match.kind === "matched" && confidenceTier(match.confidence) !== "low") {
-          const hit = (await searchProductsRpc(pl.productHint, 5)).find((h) => h.id === match.product!.id);
+          const hit = hits.find((h) => h.id === match.product!.id);
           if (!hit) continue;
           setLines((ls) => [
             ...ls,
@@ -187,6 +217,7 @@ export function GrnScreen() {
 
   const canSave =
     !saving &&
+    supplierId.length > 0 &&
     invoiceNo.trim().length > 0 &&
     lines.length > 0 &&
     lines.every((l) =>
@@ -220,6 +251,10 @@ export function GrnScreen() {
       setToast({ kind: "ok", msg: `Saved GRN · ${res.linesInserted} batch${res.linesInserted === 1 ? "" : "es"}` });
       setLines([]);
       setInvoiceNo("");
+      // S05 — release the imported draft (if any) on successful save so a
+      // future GrnScreen remount won't re-import the same invoice.
+      dismissPendingGrnDraft();
+      setImportedDraft(null);
     } catch (e) {
       setToast({ kind: "err", msg: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -252,7 +287,14 @@ export function GrnScreen() {
               {importedDraft.supplierHint && <> · supplier hint: <em>{importedDraft.supplierHint}</em></>}
               {importedDraft.sourceMessageId && <> · msg <code>{importedDraft.sourceMessageId}</code></>}
             </div>
-            <button data-testid="grn-imported-dismiss" onClick={() => setImportedDraft(null)}>Dismiss</button>
+            <button
+              data-testid="grn-imported-dismiss"
+              onClick={() => {
+                // S05 — release the keyed store too, not just local state.
+                dismissPendingGrnDraft();
+                setImportedDraft(null);
+              }}
+            >Dismiss</button>
           </div>
           {importedDraft.parsedLines.length > 0 && (
             <table style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", fontSize: 11 }}>
@@ -344,8 +386,12 @@ export function GrnScreen() {
             value={supplierId}
             onChange={(e) => setSupplierId(e.target.value)}
             style={{ padding: "6px 8px", minWidth: 240 }}
+            disabled={suppliers.length === 0}
           >
-            {SUPPLIERS.map((s) => (
+            {suppliers.length === 0 && (
+              <option value="">(No suppliers — add in Settings)</option>
+            )}
+            {suppliers.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
