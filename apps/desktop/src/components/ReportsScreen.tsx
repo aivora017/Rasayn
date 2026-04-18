@@ -14,12 +14,44 @@ function daysAgoISO(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function downloadCsv(filename: string, rows: readonly (readonly string[])[]) {
-  const csv = rows.map((r) => r.map((c) => {
-    const s = String(c ?? "");
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+// CSV field escape. Exported for unit testing (see G05 / coverage audit
+// 2026-04-18).
+//
+// Rules (RFC 4180 + Excel/LibreOffice formula-injection hardening):
+//  - null/undefined  → empty string, no quoting.
+//  - empty string    → empty, no quoting.
+//  - contains `,` `"` `\n` or `\r` → wrap in double-quotes, double internal `"`.
+//  - leading `=` `+` `-` `@` `\t` `\r` → prefix with `'` to neutralise
+//    Excel/LibreOffice formula evaluation (soft-S security review finding).
+//    The apostrophe is consumed by Excel on open; it does NOT appear as a
+//    literal quote in the rendered cell. If the neutralised value also
+//    needs quoting (e.g. a leading `=` followed by a comma), quoting wraps
+//    the prefixed form: `"'=SUM(A1,B1)"` → cell reads `=SUM(A1,B1)` as text.
+export function escapeCsvField(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  let s = String(value);
+  if (s.length === 0) return "";
+  // Formula-injection neutralisation. Must happen BEFORE quoting so the
+  // apostrophe lands inside the quoted span.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+// Build a CSV document from a row matrix. Exported for unit testing.
+// Row terminator is CRLF (`\r\n`) per RFC 4180; Excel/LibreOffice/Tally
+// all accept it, and it round-trips through Windows text tooling without
+// line-ending mangling.
+export function buildCsv(rows: readonly (readonly unknown[])[]): string {
+  return rows.map((r) => r.map(escapeCsvField).join(",")).join("\r\n");
+}
+
+function downloadCsv(filename: string, rows: readonly (readonly unknown[])[]) {
+  const csv = buildCsv(rows);
+  // UTF-8 BOM so Excel on Windows auto-detects encoding (without the BOM
+  // Excel defaults to the system ANSI codepage and mangles ₹ / Devanagari
+  // / CJK cells).
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
