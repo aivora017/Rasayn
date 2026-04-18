@@ -82,6 +82,7 @@ fn main() {
             images::list_products_missing_image,
             images::find_similar_images,
             images::get_duplicate_suspects,
+            images::check_similar_images_for_bytes,
             oauth::gmail_connect,
             oauth::gmail_status,
             oauth::gmail_disconnect,

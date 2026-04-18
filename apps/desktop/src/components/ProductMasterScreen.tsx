@@ -18,8 +18,10 @@ import {
   deactivateProductRpc,
   attachProductImageRpc,
   getProductImageRpc,
+  checkSimilarImagesForBytesRpc,
   type ProductRow,
   type ProductWriteDTO,
+  type SimilarImageRowDTO,
 } from "../lib/ipc.js";
 import {
   PHARMA_HSN,
@@ -30,6 +32,13 @@ import {
 import { validate, type ValidationError } from "@pharmacare/sku-images";
 
 const ACTOR_USER_ID = "user_sourav_owner";
+
+/** X2b.2 severity thresholds (ADR 0019/0022).
+ *  - distance ≤ 6  → "near-duplicate": likely the same product re-entered.
+ *  - distance ≤ 12 → "suspicious":    very similar packaging, worth a look.
+ *  - distance > 12 → not surfaced. */
+const SIMILARITY_MAX_DISTANCE = 12;
+const SIMILARITY_NEAR_DUP_THRESHOLD = 6;
 
 /** Convert a Uint8Array to base64 safely (chunked to avoid
  * String.fromCharCode(...) stack blow-ups on large arrays). */
@@ -99,6 +108,10 @@ export function ProductMasterScreen(): JSX.Element {
   const [errs, setErrs] = useState<readonly string[]>([]);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  /** X2b.2: inline similar-image suspects surfaced when the operator picks
+   *  an image. Empty when no image selected or no matches within SIMILARITY_MAX_DISTANCE. */
+  const [similarSuspects, setSimilarSuspects] = useState<readonly SimilarImageRowDTO[]>([]);
+  const [similarChecking, setSimilarChecking] = useState(false);
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
@@ -122,6 +135,7 @@ export function ProductMasterScreen(): JSX.Element {
     setForm({ ...EMPTY });
     setErrs([]);
     setMsg(null);
+    setSimilarSuspects([]);
     setTimeout(() => firstFieldRef.current?.focus(), 0);
   }, []);
 
@@ -145,6 +159,7 @@ export function ProductMasterScreen(): JSX.Element {
     });
     setErrs([]);
     setMsg(null);
+    setSimilarSuspects([]);
     setTimeout(() => firstFieldRef.current?.focus(), 0);
     // Asynchronously fetch the stored image (if any) so the owner can see it
     // without having to re-upload. We only populate the preview; we do NOT
@@ -221,6 +236,7 @@ export function ProductMasterScreen(): JSX.Element {
       } else {
         setMsg(`saved: ${saved.name}`);
         setForm(null);
+        setSimilarSuspects([]);
       }
       await reload();
     } catch (e) {
@@ -253,7 +269,7 @@ export function ProductMasterScreen(): JSX.Element {
       } else if (e.altKey && (e.key === "d" || e.key === "D")) {
         e.preventDefault(); void deactivateCursor();
       } else if (e.key === "Escape") {
-        if (form) { setForm(null); setErrs([]); }
+        if (form) { setForm(null); setErrs([]); setSimilarSuspects([]); }
       } else if (e.key === "/") {
         if (!form) { e.preventDefault(); searchRef.current?.focus(); }
       } else if (!form) {
@@ -433,6 +449,7 @@ export function ProductMasterScreen(): JSX.Element {
                               }
                             : prev,
                         );
+                        setSimilarSuspects([]);
                         return;
                       }
                       const b64 = u8ToB64(bytes);
@@ -448,6 +465,28 @@ export function ProductMasterScreen(): JSX.Element {
                             }
                           : prev,
                       );
+
+                      // X2b.2: fire pre-save similarity check. Non-blocking —
+                      // save is still allowed. Empty array on any RPC error so
+                      // we never silently block the user on an infra glitch.
+                      setSimilarChecking(true);
+                      try {
+                        const editingId =
+                          form && form.id ? form.id : undefined;
+                        const suspects = await checkSimilarImagesForBytesRpc({
+                          bytesB64: b64,
+                          reportedMime: f.type || result.metadata.mime,
+                          ...(editingId
+                            ? { excludeProductId: editingId }
+                            : {}),
+                          maxDistance: SIMILARITY_MAX_DISTANCE,
+                        });
+                        setSimilarSuspects(suspects);
+                      } catch {
+                        setSimilarSuspects([]);
+                      } finally {
+                        setSimilarChecking(false);
+                      }
                     } catch (err) {
                       setErrs([err instanceof Error ? err.message : String(err)]);
                     }
@@ -481,11 +520,101 @@ export function ProductMasterScreen(): JSX.Element {
                       }
                     : prev,
                 );
+                setSimilarSuspects([]);
               }}
             >
               Clear image
             </button>
           </div>
+
+          {form.imageBytesB64 !== null && (
+            <div
+              style={{ gridColumn: "span 2" }}
+              data-testid="pm-similar-section"
+            >
+              {similarChecking && (
+                <div
+                  className="banner"
+                  role="status"
+                  data-testid="pm-similar-checking"
+                  style={{ marginTop: 6 }}
+                >
+                  Checking image against existing products…
+                </div>
+              )}
+              {!similarChecking && similarSuspects.length > 0 && (
+                <div
+                  className="banner banner-warn"
+                  role="alert"
+                  data-testid="pm-similar-banner"
+                  style={{ marginTop: 6 }}
+                >
+                  <div data-testid="pm-similar-summary">
+                    {(() => {
+                      const near = similarSuspects.filter(
+                        (s) => s.distance <= SIMILARITY_NEAR_DUP_THRESHOLD,
+                      ).length;
+                      const suspicious = similarSuspects.length - near;
+                      const parts: string[] = [];
+                      if (near > 0)
+                        parts.push(
+                          `${near} near-duplicate${near === 1 ? "" : "s"}`,
+                        );
+                      if (suspicious > 0)
+                        parts.push(
+                          `${suspicious} suspicious match${suspicious === 1 ? "" : "es"}`,
+                        );
+                      return `This image looks similar to an existing product — ${parts.join(", ")}. Review before saving.`;
+                    })()}
+                  </div>
+                  <table
+                    className="data-table"
+                    data-testid="pm-similar-table"
+                    style={{ marginTop: 6 }}
+                  >
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Mfr</th>
+                        <th>Sch</th>
+                        <th style={{ textAlign: "right" }}>Distance</th>
+                        <th>Severity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {similarSuspects.slice(0, 10).map((s) => {
+                        const sev =
+                          s.distance <= SIMILARITY_NEAR_DUP_THRESHOLD
+                            ? "near-duplicate"
+                            : "suspicious";
+                        return (
+                          <tr
+                            key={s.productId}
+                            data-testid={`pm-similar-row-${s.productId}`}
+                          >
+                            <td>{s.name}</td>
+                            <td>{s.manufacturer}</td>
+                            <td>{s.schedule}</td>
+                            <td style={{ textAlign: "right" }}>{s.distance}</td>
+                            <td data-testid={`pm-similar-sev-${s.productId}`}>
+                              {sev}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div
+                    style={{ marginTop: 4, fontSize: "0.85em" }}
+                    data-testid="pm-similar-hint"
+                  >
+                    Save is still allowed — confirm this is a distinct SKU or
+                    cancel to pick a different image.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {errs.length > 0 && (
             <ul className="form-errors" role="alert" data-testid="pm-errors">
@@ -497,7 +626,7 @@ export function ProductMasterScreen(): JSX.Element {
             <button type="submit" disabled={saving} data-testid="pm-save">
               {saving ? "Saving…" : form.id ? "Update (Alt+S)" : "Create (Alt+S)"}
             </button>
-            <button type="button" onClick={() => { setForm(null); setErrs([]); }}>
+            <button type="button" onClick={() => { setForm(null); setErrs([]); setSimilarSuspects([]); }}>
               Cancel (Esc)
             </button>
           </div>

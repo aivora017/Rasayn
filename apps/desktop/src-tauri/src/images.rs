@@ -106,6 +106,28 @@ pub struct SimilarImageRow {
     pub distance: u32,
 }
 
+/// X2b.2 pre-save check input. Caller supplies the raw bytes they *are about
+/// to attach* (before any product row is written/updated). We decode, sniff,
+/// validate, compute pHash, and return nearest neighbours — without touching
+/// the database. Used for the ProductMasterScreen inline "this looks like X"
+/// warning at image-select time.
+#[derive(Debug, Deserialize)]
+pub struct CheckSimilarForBytesInput {
+    /// Base64 (standard) of the raw image bytes the user picked.
+    #[serde(rename = "bytesB64")]
+    pub bytes_b64: String,
+    /// Browser-reported MIME. Advisory — server still sniffs.
+    #[serde(rename = "reportedMime")]
+    pub reported_mime: Option<String>,
+    /// When editing an existing product, exclude it from results so the user
+    /// doesn't see their own image echoed back as a duplicate.
+    #[serde(rename = "excludeProductId")]
+    pub exclude_product_id: Option<String>,
+    /// Hamming-distance ceiling. Per ADR 0019: ≤6 near-duplicate, ≤12 suspicious.
+    #[serde(rename = "maxDistance")]
+    pub max_distance: u32,
+}
+
 #[derive(Debug, Serialize)]
 pub struct DuplicateSuspectRow {
     #[serde(rename = "productIdA")]
@@ -551,6 +573,102 @@ pub fn get_duplicate_suspects(
             "get_duplicate_suspects: result truncated"
         );
     }
+    out.sort_by_key(|r| r.distance);
+    Ok(out)
+}
+
+/// X2b.2 — Pre-save similarity check for raw bytes the user just selected,
+/// *before* the product row / image row are written. Mirrors the front-half
+/// of `attach_product_image` (decode + size + sniff + MIME-mismatch log) and
+/// the back-half of `find_similar_images` (Hamming sweep over stored phashes),
+/// but performs NO writes. Returns candidates with `distance <= max_distance`,
+/// sorted ascending. If pHash compute fails (rare — pathological PNG), returns
+/// empty so the UI can still let the save proceed (soft-fail parity with
+/// attach_product_image's NULL-phash policy).
+#[tauri::command]
+pub fn check_similar_images_for_bytes(
+    state: State<'_, DbState>,
+    input: CheckSimilarForBytesInput,
+) -> Result<Vec<SimilarImageRow>, String> {
+    let bytes = B64
+        .decode(input.bytes_b64.as_bytes())
+        .map_err(|e| format!("base64 decode failed: {e}"))?;
+    if bytes.is_empty() {
+        return Err("Image is empty".into());
+    }
+    if bytes.len() > MAX_IMAGE_BYTES {
+        return Err(format!(
+            "Image is {} bytes; max {} (2 MiB)",
+            bytes.len(),
+            MAX_IMAGE_BYTES
+        ));
+    }
+    let mime = sniff_mime(&bytes)
+        .ok_or_else(|| "Image format not recognised. Allowed: PNG, JPEG, WebP".to_string())?;
+    if let Some(reported) = &input.reported_mime {
+        if !reported.is_empty() && reported != mime {
+            tracing::warn!(
+                reported = %reported,
+                sniffed = %mime,
+                "check_similar_images_for_bytes: reported MIME disagrees with sniff"
+            );
+        }
+    }
+
+    let query_phash = match phash::compute_phash(&bytes) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!(error = %e, "pre-save phash compute failed; returning empty");
+            return Ok(Vec::new());
+        }
+    };
+
+    let conn = state.0.lock().map_err(|e| format!("db lock: {e}"))?;
+
+    // Same-shape query as find_similar_images, minus the self-exclusion
+    // (which here is optional and keyed to the edited product, if any).
+    let sql = "SELECT p.id, p.name, p.schedule, p.manufacturer, pi.phash
+               FROM product_images pi
+               JOIN products p ON p.id = pi.product_id
+               WHERE pi.phash IS NOT NULL";
+    let mut stmt = conn.prepare(sql).map_err(|e| format!("prepare: {e}"))?;
+
+    let mut out: Vec<SimilarImageRow> = Vec::new();
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        })
+        .map_err(|e| format!("query: {e}"))?;
+
+    let exclude = input.exclude_product_id.as_deref();
+    for row in rows {
+        let (pid, name, schedule, manufacturer, phash_hex) =
+            row.map_err(|e| format!("row: {e}"))?;
+        if exclude == Some(pid.as_str()) {
+            continue;
+        }
+        let distance = match phash::hamming_distance(&query_phash, &phash_hex) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+        if distance <= input.max_distance {
+            out.push(SimilarImageRow {
+                product_id: pid,
+                name,
+                schedule,
+                manufacturer,
+                phash: phash_hex,
+                distance,
+            });
+        }
+    }
+
     out.sort_by_key(|r| r.distance);
     Ok(out)
 }
