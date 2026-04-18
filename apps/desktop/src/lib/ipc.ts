@@ -141,7 +141,11 @@ export type IpcCall =
   | { cmd: "delete_product_image"; args: { productId: string; actorUserId: string } }
   | { cmd: "list_products_missing_image"; args: Record<string, never> }
   | { cmd: "find_similar_images"; args: { productId: string; maxDistance: number } }
-  | { cmd: "get_duplicate_suspects"; args: { maxDistance: number } };
+  | { cmd: "get_duplicate_suspects"; args: { maxDistance: number } }
+  | {
+      cmd: "check_similar_images_for_bytes";
+      args: { input: CheckSimilarForBytesInputDTO };
+    };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1284,4 +1288,32 @@ export async function getDuplicateSuspectsRpc(
     cmd: "get_duplicate_suspects",
     args: { maxDistance },
   })) as readonly DuplicateSuspectRowDTO[];
+}
+
+// ------- X2b.2 (ADR 0022): pre-save similarity check ----------------------
+
+export interface CheckSimilarForBytesInputDTO {
+  readonly bytesB64: string;
+  readonly reportedMime?: string | null;
+  /** When editing an existing product, its id — excluded from results. */
+  readonly excludeProductId?: string | null;
+  /** Hamming-distance ceiling. Per ADR 0019: 6 = near-dup, 12 = suspicious. */
+  readonly maxDistance: number;
+}
+
+/**
+ * X2b.2 — Pre-save similarity check for raw bytes the operator just picked,
+ * *before* the product row / image row are written. Decodes + validates +
+ * computes pHash + sweeps stored phashes — no DB writes. Returns empty if
+ * the decoded bytes can't produce a pHash (soft-fail parity with attach).
+ * Use in ProductMasterScreen at image-select time to surface an inline
+ * "this looks like <existing SKU>" banner without blocking save.
+ */
+export async function checkSimilarImagesForBytesRpc(
+  input: CheckSimilarForBytesInputDTO,
+): Promise<readonly SimilarImageRowDTO[]> {
+  return (await handler({
+    cmd: "check_similar_images_for_bytes",
+    args: { input },
+  })) as readonly SimilarImageRowDTO[];
 }

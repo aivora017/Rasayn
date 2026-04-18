@@ -79,6 +79,7 @@ import {
   listProductsMissingImageRpc,
   findSimilarImagesRpc,
   getDuplicateSuspectsRpc,
+  checkSimilarImagesForBytesRpc,
 } from "./ipc.js";
 
 // ----------------------------------------------------------------------------
@@ -735,5 +736,28 @@ describe("ipc.ts · command name + arg shape · A13 expiry + X2/X2b images", () 
       args: { maxDistance: 4 },
     });
     expectCamelCaseArgs(r2.call!);
+  });
+
+  it("check_similar_images_for_bytes — input wrapper + camelCase", async () => {
+    const { rec, setup } = recorder([]);
+    setup();
+    await checkSimilarImagesForBytesRpc({
+      bytesB64: "AAAA",
+      reportedMime: "image/png",
+      excludeProductId: "p_edit",
+      maxDistance: 12,
+    });
+    expect(rec.call).toEqual({
+      cmd: "check_similar_images_for_bytes",
+      args: {
+        input: {
+          bytesB64: "AAAA",
+          reportedMime: "image/png",
+          excludeProductId: "p_edit",
+          maxDistance: 12,
+        },
+      },
+    });
+    expectCamelCaseArgs(rec.call!);
   });
 });
