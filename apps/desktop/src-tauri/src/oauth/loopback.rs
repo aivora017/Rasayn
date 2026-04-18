@@ -118,10 +118,15 @@ pub(crate) fn parse_callback_request(
             continue;
         }
         if let Some((k, v)) = kv.split_once('=') {
+            // S12: malformed %-encoding -> HTTP 400 rather than silently
+            // dropping the percent sign.
+            let decoded = url_decode(v).ok_or_else(|| {
+                format!("malformed percent-encoding in query parameter `{k}`")
+            })?;
             match k {
-                "code" => code = Some(url_decode(v)),
-                "state" => state = Some(url_decode(v)),
-                "error" => error = Some(url_decode(v)),
+                "code" => code = Some(decoded),
+                "state" => state = Some(decoded),
+                "error" => error = Some(decoded),
                 _ => {}
             }
         }
@@ -152,29 +157,45 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     diff == 0
 }
 
-fn url_decode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
+/// Decode `application/x-www-form-urlencoded` into a UTF-8 `String`.
+///
+/// Hardened for S09 + S12 (docs/reviews/security-2026-04-18.md):
+///
+/// - **S09**: decode into a `Vec<u8>` buffer and finalise with
+///   `String::from_utf8_lossy`, so multi-byte UTF-8 percent-triples are
+///   reassembled correctly instead of being cast byte-by-byte into
+///   Latin-1 `char` slots. Non-UTF-8 input becomes U+FFFD rather than
+///   corrupting the output silently.
+/// - **S12**: return `Option<String>` and surface `None` on any malformed
+///   percent-encoding — trailing `%`, trailing `%X` with a single hex
+///   digit, or `%GG` with non-hex characters. The loopback layer turns
+///   `None` into an HTTP 400, which is what RFC 3986 §2.1 expects.
+fn url_decode(s: &str) -> Option<String> {
     let bytes = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(b) = u8::from_str_radix(
-                std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or("00"),
-                16,
-            ) {
-                out.push(b as char);
-                i += 3;
-                continue;
+        if bytes[i] == b'%' {
+            // S12: need two more bytes, and they must be hex.
+            if i + 2 >= bytes.len() {
+                return None;
             }
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).ok()?;
+            let b = u8::from_str_radix(hex, 16).ok()?;
+            out.push(b);
+            i += 3;
+            continue;
         }
         if bytes[i] == b'+' {
-            out.push(' ');
+            out.push(b' ');
         } else {
-            out.push(bytes[i] as char);
+            out.push(bytes[i]);
         }
         i += 1;
     }
-    out
+    // S09: assemble bytes back into a UTF-8 string. Non-UTF-8 input is
+    // replaced lossily with U+FFFD; we do not panic.
+    Some(String::from_utf8_lossy(&out).into_owned())
 }
 
 #[cfg(test)]
@@ -264,5 +285,65 @@ mod tests {
     fn bind_ephemeral_returns_port() {
         let h = bind_ephemeral().expect("bind");
         assert!(h.port > 0);
+    }
+
+    // --- S09 url_decode UTF-8 safety --------------------------------------
+
+    #[test]
+    fn s09_url_decode_preserves_multibyte_utf8() {
+        // `%E2%82%AC` is the UTF-8 encoding of the Euro sign U+20AC.
+        // Old byte-to-char code would have mangled this into three
+        // Latin-1 chars (â, ‚, ¬). New code reassembles via
+        // String::from_utf8_lossy and yields the real `€`.
+        assert_eq!(url_decode("%E2%82%AC").as_deref(), Some("\u{20AC}"));
+        // Hindi "नमस्ते" round-trips.
+        let hindi = "%E0%A4%A8%E0%A4%AE%E0%A4%B8%E0%A5%8D%E0%A4%A4%E0%A5%87";
+        assert_eq!(url_decode(hindi).as_deref(), Some("नमस्ते"));
+    }
+
+    #[test]
+    fn s09_url_decode_non_utf8_bytes_become_replacement_char_not_panic() {
+        // Lone 0xFF byte is NOT valid UTF-8. Old `b as char` would happily
+        // produce the Latin-1 ÿ; new path replaces with U+FFFD. Must not
+        // panic, and must stay total.
+        let decoded = url_decode("%FF").expect("decode must succeed");
+        assert!(
+            decoded.contains('\u{FFFD}'),
+            "expected replacement char, got {decoded:?}"
+        );
+    }
+
+    // --- S12 url_decode malformed percent-encoding ------------------------
+
+    #[test]
+    fn s12_url_decode_trailing_percent_is_none() {
+        // `%` with no following hex digits at all — previously fell through
+        // and wrote a literal `%` into output. Now surfaces as None so the
+        // loopback layer can reply 400.
+        assert_eq!(url_decode("abc%"), None);
+    }
+
+    #[test]
+    fn s12_url_decode_one_hex_digit_at_end_is_none() {
+        // `%A` — one hex digit, missing the second. Same story.
+        assert_eq!(url_decode("abc%A"), None);
+    }
+
+    #[test]
+    fn s12_url_decode_non_hex_triplet_is_none() {
+        // `%GG` — two chars but not hex. Must not silently pass through.
+        assert_eq!(url_decode("%GG"), None);
+    }
+
+    #[test]
+    fn s12_parse_callback_rejects_malformed_percent_in_code() {
+        // Malformed %-encoding in the `code` query param → 400 reason
+        // string mentions the parameter name so the operator can triage.
+        let line = "GET /callback?code=abc%&state=expected HTTP/1.1";
+        let err = parse_callback_request(line, "expected").unwrap_err();
+        assert!(
+            err.contains("malformed") && err.contains("code"),
+            "err was: {err}"
+        );
     }
 }
