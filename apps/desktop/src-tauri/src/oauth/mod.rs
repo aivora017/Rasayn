@@ -83,11 +83,16 @@ pub async fn gmail_connect(
     let auth_url =
         google::build_auth_url(&cid, &redirect, DEFAULT_SCOPES, &challenge, &state_token);
     opener::open(&auth_url).map_err(|e| format!("open browser: {e}"))?;
-    // 4. Wait for callback (blocking, 5-min timeout)
-    let code = tokio::task::spawn_blocking(move || loopback::await_code(lb, 300))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| format!("loopback: {e}"))?;
+    // 4. Wait for callback (blocking, 5-min timeout).
+    //    The loopback handler verifies `state` matches `state_token` (RFC 6749
+    //    §10.12 CSRF). Mismatched `state` or an unexpected path → 400, Err.
+    let code = {
+        let expected_state = state_token.clone();
+        tokio::task::spawn_blocking(move || loopback::await_code(lb, 300, &expected_state))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| format!("loopback: {e}"))?
+    };
     // 5. Exchange code for tokens
     let tr = tokio::task::spawn_blocking({
         let verifier = verifier.clone();
@@ -118,11 +123,14 @@ pub async fn gmail_connect(
             params![shop_id, email, scopes],
         )
         .map_err(|e| e.to_string())?;
+        // S04: build the audit payload via serde_json so attacker-controlled
+        // email claims (we do not verify the id_token signature) cannot escape
+        // the JSON envelope and forge additional fields.
         audit(
             &c,
             &shop_id,
             "gmail_connect",
-            &format!(r#"{{"email":"{}"}}"#, email),
+            &serde_json::json!({ "email": email }).to_string(),
         );
     }
     Ok(OAuthStatus {
@@ -170,8 +178,27 @@ pub fn gmail_status(shop_id: String, state: State<'_, DbState>) -> Result<OAuthS
 #[tauri::command]
 pub async fn gmail_disconnect(shop_id: String, state: State<'_, DbState>) -> Result<(), String> {
     let token = keyring_store::load_refresh(&shop_id)?;
-    if let Some(t) = token {
-        let _ = tokio::task::spawn_blocking(move || google::revoke(&t)).await;
+    // S06: surface revoke failure rather than silently dropping it. We still
+    // delete the local copy either way — the account MUST be disconnected
+    // locally — but we audit and tracing-warn so ops/compliance can tell
+    // whether Google-side revocation actually succeeded.
+    let revoke_outcome: Result<(), String> = if let Some(t) = token {
+        match tokio::task::spawn_blocking(move || google::revoke(&t)).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(join_err) => Err(format!("revoke task panicked: {join_err}")),
+        }
+    } else {
+        Ok(())
+    };
+    if let Err(ref e) = revoke_outcome {
+        // Non-fatal — keep going with local cleanup so the UI reflects the
+        // disconnect. The operator sees the error via the audit row and tracing.
+        tracing::warn!(
+            shop_id = %shop_id,
+            error = %e,
+            "gmail revoke failed; proceeding with local cleanup"
+        );
     }
     keyring_store::delete_refresh(&shop_id)?;
     let c = state.0.lock().map_err(|e| e.to_string())?;
@@ -180,7 +207,11 @@ pub async fn gmail_disconnect(shop_id: String, state: State<'_, DbState>) -> Res
         params![shop_id],
     )
     .map_err(|e| e.to_string())?;
-    audit(&c, &shop_id, "gmail_disconnect", "{}");
+    let payload = match &revoke_outcome {
+        Ok(()) => serde_json::json!({ "revoke": "ok" }),
+        Err(e) => serde_json::json!({ "revoke": "failed", "err": e }),
+    };
+    audit(&c, &shop_id, "gmail_disconnect", &payload.to_string());
     Ok(())
 }
 
@@ -221,13 +252,13 @@ pub async fn gmail_list_messages(
                 &c,
                 &shop_id_for_log,
                 "gmail_list_messages",
-                &format!(r#"{{"count":{}}}"#, v.len()),
+                &serde_json::json!({ "count": v.len() }).to_string(),
             ),
             Err(e) => audit(
                 &c,
                 &shop_id_for_log,
                 "gmail_list_messages_error",
-                &format!(r#"{{"err":{}}}"#, serde_json::Value::String(e.clone())),
+                &serde_json::json!({ "err": e }).to_string(),
             ),
         }
     }
@@ -257,17 +288,13 @@ pub async fn gmail_fetch_attachment(
                 &c,
                 &shop_id_for_log,
                 "gmail_fetch_attachment",
-                &format!(r#"{{"msg":"{}","size":{}}}"#, mid, p.size),
+                &serde_json::json!({ "msg": mid, "size": p.size }).to_string(),
             ),
             Err(e) => audit(
                 &c,
                 &shop_id_for_log,
                 "gmail_fetch_attachment_error",
-                &format!(
-                    r#"{{"msg":"{}","err":{}}}"#,
-                    mid,
-                    serde_json::Value::String(e.clone())
-                ),
+                &serde_json::json!({ "msg": mid, "err": e }).to_string(),
             ),
         }
     }

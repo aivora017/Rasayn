@@ -16,14 +16,44 @@
 
 use image::imageops::FilterType;
 use std::f64::consts::PI;
+use std::io::Cursor;
 
 const HASH_SIZE: usize = 8;
 const DCT_SIZE: usize = 32;
 
+// S02 decompression-bomb guard (2026-04-18).
+// PNG DEFLATE + zero-filled / repeating pixel data can hit compression ratios
+// >1000:1 — a crafted 2 MiB PNG could request allocation of multi-GB pixel
+// buffers, OOMing the 4 GB Win7 target (Hard Rule #7). Bound the decode with
+// `image::Limits` so the decoder refuses bombs before any huge allocation.
+//
+// Numbers: max 8192×8192 pixels covers any realistic product photograph
+// (phones shoot ~4000×3000 at the top end); 256 MiB `max_alloc` is well
+// above the ~2 MiB encoded input cap but tight enough to bound the worst
+// legitimate RGBA8 buffer (8192*8192*4 ≈ 256 MiB). Decoders that don't
+// support these limit fields will simply ignore them.
+const MAX_IMAGE_DIM: u32 = 8192;
+const MAX_ALLOC_BYTES: u64 = 256 * 1024 * 1024;
+
+fn bounded_limits() -> image::Limits {
+    let mut l = image::Limits::default();
+    l.max_image_width = Some(MAX_IMAGE_DIM);
+    l.max_image_height = Some(MAX_IMAGE_DIM);
+    l.max_alloc = Some(MAX_ALLOC_BYTES);
+    l
+}
+
 /// Compute 64-bit pHash of an image (raw bytes: PNG/JPEG/WebP).
 /// Returns 16 lowercase hex chars on success.
 pub fn compute_phash(bytes: &[u8]) -> Result<String, String> {
-    let img = image::load_from_memory(bytes).map_err(|e| format!("image decode: {e}"))?;
+    // S02: decode via `ImageReader` so we can attach `Limits`; raw
+    // `image::load_from_memory` bypasses the bomb guard.
+    let reader = image::ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| format!("image sniff: {e}"))?;
+    let mut reader = reader;
+    reader.limits(bounded_limits());
+    let img = reader.decode().map_err(|e| format!("image decode: {e}"))?;
     Ok(compute_phash_from_dynamic(&img))
 }
 
@@ -248,5 +278,30 @@ mod tests {
     fn hamming_rejects_bad_input() {
         assert!(hamming_distance("short", "0000000000000000").is_err());
         assert!(hamming_distance("zzzzzzzzzzzzzzzz", "0000000000000000").is_err());
+    }
+
+    /// S02 regression: a PNG declaring dimensions beyond the `Limits` cap
+    /// MUST fail fast at decode — before any multi-GB allocation — rather
+    /// than panic or OOM the process.
+    ///
+    /// Construct a zero-filled 16384×16384 RGB8 image then PNG-encode it.
+    /// With pixel data = 0 the PNG compresses to well under the 2 MiB input
+    /// cap; without `Limits`, decoding would allocate ~768 MiB of RGB pixels.
+    /// With `bounded_limits()` the reader refuses either at sniff or decode.
+    #[test]
+    fn rejects_oversized_png() {
+        use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
+        let w = MAX_IMAGE_DIM + 1;
+        let h = 64u32; // avoid exploding the test's own memory
+        let img = RgbImage::from_fn(w, h, |_, _| Rgb([0, 0, 0]));
+        let mut buf: Vec<u8> = Vec::new();
+        DynamicImage::ImageRgb8(img)
+            .write_to(&mut std::io::Cursor::new(&mut buf), ImageFormat::Png)
+            .unwrap();
+        let result = compute_phash(&buf);
+        assert!(
+            result.is_err(),
+            "oversized image must be rejected by Limits; got Ok"
+        );
     }
 }

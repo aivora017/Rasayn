@@ -476,12 +476,23 @@ pub fn find_similar_images(
     Ok(out)
 }
 
+/// S07 pagination cap (2026-04-18). A catalog of truly-similar-packaging
+/// products (e.g., generic paracetamol strips from 50 vendors) could produce
+/// thousands of pairs. Cap the response so the ComplianceDashboard UI stays
+/// responsive; operator can tighten `max_distance` to drill further.
+/// Tuned for the dashboard's single-table render (200 rows ≈ 1 scroll-page).
+pub const MAX_DUPLICATE_SUSPECTS: usize = 200;
+
 /// Enumerate pairs of active products whose images are near-duplicates
 /// (Hamming distance <= max_distance). Intended for the compliance dashboard —
 /// surfaces the "same product entered twice" pilot-data error.
 ///
 /// O(N^2) over products-with-phash. Fine at pilot scale (5k SKU → 12.5M pairs,
 /// ~100 ms). If this ever shows up in perf, add the substr(phash, 1, 2) prefix bucket.
+///
+/// Response capped at `MAX_DUPLICATE_SUSPECTS` rows (S07). When the cap is hit
+/// we emit a `tracing::warn!` with the hit-count so ops can see truncation;
+/// the UI surfaces the cap via a row-count hint.
 #[tauri::command]
 pub fn get_duplicate_suspects(
     state: State<'_, DbState>,
@@ -511,6 +522,7 @@ pub fn get_duplicate_suspects(
         .map_err(|e| format!("collect: {e}"))?;
 
     let mut out: Vec<DuplicateSuspectRow> = Vec::new();
+    let mut total_matches: usize = 0;
     for i in 0..rows.len() {
         for j in (i + 1)..rows.len() {
             let d = match phash::hamming_distance(&rows[i].2, &rows[j].2) {
@@ -518,15 +530,26 @@ pub fn get_duplicate_suspects(
                 Err(_) => continue,
             };
             if d <= max_distance {
-                out.push(DuplicateSuspectRow {
-                    product_id_a: rows[i].0.clone(),
-                    name_a: rows[i].1.clone(),
-                    product_id_b: rows[j].0.clone(),
-                    name_b: rows[j].1.clone(),
-                    distance: d,
-                });
+                total_matches += 1;
+                if out.len() < MAX_DUPLICATE_SUSPECTS {
+                    out.push(DuplicateSuspectRow {
+                        product_id_a: rows[i].0.clone(),
+                        name_a: rows[i].1.clone(),
+                        product_id_b: rows[j].0.clone(),
+                        name_b: rows[j].1.clone(),
+                        distance: d,
+                    });
+                }
             }
         }
+    }
+    if total_matches > MAX_DUPLICATE_SUSPECTS {
+        tracing::warn!(
+            total = total_matches,
+            returned = MAX_DUPLICATE_SUSPECTS,
+            max_distance,
+            "get_duplicate_suspects: result truncated"
+        );
     }
     out.sort_by_key(|r| r.distance);
     Ok(out)
