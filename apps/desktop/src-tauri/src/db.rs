@@ -61,6 +61,8 @@ pub const MIGRATION_0017: &str =
     include_str!("../../../../packages/shared-db/migrations/0017_x2_product_images.sql");
 pub const MIGRATION_0018: &str =
     include_str!("../../../../packages/shared-db/migrations/0018_x2b_phash.sql");
+pub const MIGRATION_0019: &str =
+    include_str!("../../../../packages/shared-db/migrations/0019_fk_indexes.sql");
 
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -202,6 +204,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
         conn.execute_batch(MIGRATION_0018)?;
         conn.execute(
             "INSERT INTO _migrations (version, name) VALUES (18, '0018_x2b_phash')",
+            [],
+        )?;
+    }
+    if !applied(19, conn) {
+        conn.execute_batch(MIGRATION_0019)?;
+        conn.execute(
+            "INSERT INTO _migrations (version, name) VALUES (19, '0019_fk_indexes')",
             [],
         )?;
     }
