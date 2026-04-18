@@ -84,6 +84,12 @@ export interface SupplierTemplate {
   };
   readonly columnMap: Record<string, number | string>;
   readonly dateFormat: "DD/MM/YYYY" | "YYYY-MM-DD" | "MM/DD/YYYY" | "DD-MMM-YYYY";
+  /**
+   * X1.3 forward-compat hook. Today HSN extraction is driven by
+   * `columnMap.hsn` inside `applySupplierTemplate`; this optional regex is
+   * reserved for a future regex-first HSN extractor. Null/absent → no-op.
+   */
+  readonly hsnRegex?: RegExp | null;
 }
 
 export interface UpsertSupplierTemplateInput {

@@ -9,6 +9,12 @@ export interface ProductHit {
   readonly name: string;
   readonly genericName: string | null;
   readonly manufacturer: string;
+  /**
+   * GST HSN code (X1.3). Optional on the wire for backward-compat with
+   * pre-X1.3 test fixtures; the Rust `search_products` command always
+   * populates it from `products.hsn` (NOT NULL column).
+   */
+  readonly hsn?: string | null;
   readonly gstRate: 0 | 5 | 12 | 18 | 28;
   readonly schedule: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
   readonly mrpPaise: number;
@@ -432,6 +438,12 @@ export interface SupplierTemplateDTO {
   readonly linePatterns: { readonly row: string };
   readonly columnMap: Readonly<Record<string, number | string>>;
   readonly dateFormat: "DD/MM/YYYY" | "YYYY-MM-DD" | "MM/DD/YYYY" | "DD-MMM-YYYY";
+  /**
+   * X1.3 forward-compat hook for a regex-based HSN extractor. Today HSN is
+   * picked via `columnMap.hsn` inside `applySupplierTemplate`; this field
+   * is reserved for a future regex-first extractor. Optional + nullable.
+   */
+  readonly hsnRegex?: string | null;
 }
 
 export interface UpsertSupplierTemplateInput {
@@ -444,6 +456,7 @@ export interface UpsertSupplierTemplateInput {
   readonly columnMap: Readonly<Record<string, number | string>>;
   readonly dateFormat?: SupplierTemplateDTO["dateFormat"];
   readonly isActive?: boolean;
+  readonly hsnRegex?: string | null;
 }
 
 export interface SupplierRow {
@@ -462,6 +475,8 @@ export interface TemplateTestResult {
   };
   readonly lines: readonly {
     readonly productHint: string;
+    /** X1.3 — extracted via columnMap.hsn in test_supplier_template. Optional for backward-compat with pre-X1.3 fixtures; Rust's Option<String> → None serializes as null/absent. */
+    readonly hsn?: string | null;
     readonly batchNo: string | null;
     readonly expiryDate: string | null;
     readonly qty: number;
