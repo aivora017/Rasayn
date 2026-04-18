@@ -70,6 +70,10 @@ export function GrnScreen() {
   const [saving, setSaving] = useState(false);
   const [importedDraft, setImportedDraft] = useState<PendingGrnDraft | null>(null);
   const [importedLineStates, setImportedLineStates] = useState<readonly ImportedLineState[]>([]);
+  // Externally-driven pre-type signal for ProductSearch. Set by the
+  // "Search manually" button on low-confidence / unmatched import rows so
+  // the owner sees immediate candidates without re-typing the hint.
+  const [productSearchInitialQuery, setProductSearchInitialQuery] = useState<string>("");
 
   // Pick up any Gmail-inbox handoff on mount (F7 → "Send to GRN") and kick
   // off auto-match for each parsed line. High/medium confidence matches
@@ -165,6 +169,18 @@ export function GrnScreen() {
       next[idx] = { kind: "skipped" };
       return next;
     });
+  }, []);
+
+  // Pre-fill the ProductSearch input with the parsed hint and scroll it into
+  // view. The scroll is a nice-to-have UX affordance — jsdom doesn't
+  // implement it, so tests won't assert on it.
+  const searchManually = useCallback((hint: string) => {
+    setProductSearchInitialQuery(hint);
+    if (typeof document !== "undefined") {
+      const el = document.querySelector('[data-testid="grn-product-search"]') as HTMLElement | null;
+      el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      el?.focus?.();
+    }
   }, []);
 
   const totalCost = lines.reduce((s, l) => s + l.purchasePricePaise * l.qty, 0);
@@ -275,7 +291,10 @@ export function GrnScreen() {
                               onClick={() => skipImportedLine(i)}
                               style={{ marginRight: 4 }}
                             >Skip</button>
-                            <span style={{ color: "#888" }}>use search ↓</span>
+                            <button
+                              data-testid={`grn-imp-search-${i}`}
+                              onClick={() => searchManually(l.productHint)}
+                            >Search manually</button>
                           </>
                         );
                       }
@@ -289,7 +308,10 @@ export function GrnScreen() {
                             onClick={() => skipImportedLine(i)}
                             style={{ marginRight: 4 }}
                           >Skip</button>
-                          <span style={{ color: "#888" }}>use search ↓</span>
+                          <button
+                            data-testid={`grn-imp-search-${i}`}
+                            onClick={() => searchManually(l.productHint)}
+                          >Search manually</button>
                         </>
                       );
                     }
@@ -359,7 +381,7 @@ export function GrnScreen() {
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <ProductSearch onPick={addFromPick} testId="grn-product-search" />
+        <ProductSearch onPick={addFromPick} testId="grn-product-search" initialQuery={productSearchInitialQuery} />
       </div>
 
       {lines.length === 0 ? (

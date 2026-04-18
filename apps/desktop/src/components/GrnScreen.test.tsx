@@ -175,6 +175,36 @@ describe("GrnScreen · X1.2 load-from-inbox", () => {
     expect((screen.getByTestId("grn-batch-1") as HTMLInputElement).value).toBe("B-A1");
   });
 
+  it("Search manually pre-fills ProductSearch input with the parsed hint", async () => {
+    setIpcHandler(makeHandler([])); // unmatched row — Search manually button present
+    setPendingGrnDraft(draftWith([
+      {
+        productHint: "UnknownMed",
+        batchNo: null, expiryDate: null,
+        qty: 3, ratePaise: 1000, mrpPaise: null, gstRate: null, confidence: 0.5,
+      },
+    ]));
+    const user = userEvent.setup();
+    render(<GrnScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId("grn-imp-search-0")).toBeInTheDocument();
+    });
+    // Pre-condition: ProductSearch input starts empty.
+    const input = screen.getByTestId("grn-product-search") as HTMLInputElement;
+    expect(input.value).toBe("");
+    await act(async () => {
+      await user.click(screen.getByTestId("grn-imp-search-0"));
+    });
+    // After clicking Search manually, the ProductSearch input reflects the hint.
+    await waitFor(() => {
+      expect((screen.getByTestId("grn-product-search") as HTMLInputElement).value).toBe("UnknownMed");
+    });
+    // Sanity: same element, resolvable by display value.
+    expect(screen.getByDisplayValue("UnknownMed")).toBe(input);
+    // Row stays in banner (not skipped) — Search manually is non-destructive.
+    expect(screen.queryByTestId("grn-imp-match-skipped")).toBeNull();
+  });
+
   it("Dismiss removes the banner but keeps already-appended DraftLines", async () => {
     setPendingGrnDraft(draftWith([
       {

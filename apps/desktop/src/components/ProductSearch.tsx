@@ -5,9 +5,17 @@ interface Props {
   readonly onPick: (hit: ProductHit) => void;
   readonly autoFocus?: boolean;
   readonly testId?: string;
+  /**
+   * When this value changes to a non-empty string, the internal query input
+   * is set to it (and the debounced search fires). Used by GrnScreen's
+   * "Search manually" action on low-confidence / unmatched import rows to
+   * pre-fill the search with the parsed productHint. Clearing to "" does
+   * not reset the input — it's one-way, opt-in.
+   */
+  readonly initialQuery?: string;
 }
 
-export function ProductSearch({ onPick, autoFocus, testId }: Props) {
+export function ProductSearch({ onPick, autoFocus, testId, initialQuery }: Props) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<readonly ProductHit[]>([]);
   const [cursor, setCursor] = useState(0);
@@ -15,6 +23,15 @@ export function ProductSearch({ onPick, autoFocus, testId }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (autoFocus) inputRef.current?.focus(); }, [autoFocus]);
+
+  // Sync externally-supplied initialQuery into local `q`. Fires whenever the
+  // parent bumps the prop, even to the same string (via a different identity)
+  // — but we gate on a non-empty value.
+  useEffect(() => {
+    if (initialQuery && initialQuery.length > 0) {
+      setQ(initialQuery);
+    }
+  }, [initialQuery]);
 
   // Debounced search.
   useEffect(() => {
