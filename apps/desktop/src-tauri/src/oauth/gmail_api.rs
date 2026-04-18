@@ -427,8 +427,7 @@ mod tests {
 
     #[test]
     fn check_body_size_above_cap_errors_with_cmd_name() {
-        let err =
-            check_body_size(Some(MAX_RESPONSE_BYTES + 1), "attach").expect_err("must cap");
+        let err = check_body_size(Some(MAX_RESPONSE_BYTES + 1), "attach").expect_err("must cap");
         // Error must carry the command (for operator diagnosis) and both
         // the observed and max byte counts.
         assert!(err.starts_with("attach:"), "err missing cmd: {err}");
