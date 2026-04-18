@@ -3,8 +3,13 @@
 > **STATUS: APPROVED** (2026-04-18)
 >
 > _Approved after resolving the five open questions from the 2026-04-18 DRAFT.
-> See §Resolved-questions at the bottom. Ready for migration 0019 authoring and
+> See §Resolved-questions at the bottom. Ready for migration 0020 authoring and
 > Rust/TS command implementation in the next sprint._
+>
+> **Amendment 2026-04-18-b:** originally planned as migration 0019. D04
+> FK-indexes migration shipped as 0019 first (PR #27, `276de46`) to unblock
+> tech-debt before A8 implementation. A8 schema is renumbered to **0020**
+> throughout. No semantic changes.
 
 **Status:** APPROVED
 **Date:** 2026-04-18
@@ -286,12 +291,12 @@ Reuse the existing `trg_stock_movements_update_batch_qty` trigger from migration
 
 ---
 
-## Migration 0019 — schema DDL (draft, not for execution)
+## Migration 0020 — schema DDL (draft, not for execution)
 
 Four new tables + three indexes + two triggers + one audit-log marker.
 
 ```sql
--- Migration 0019 · A8 Partial Refund (ADR 0021)
+-- Migration 0020 · A8 Partial Refund (ADR 0021)
 -- Line-level returns, pro-rata GST reversal, credit-note IRN.
 -- DRAFT — NOT FOR EXECUTION. See ADR 0021 for context.
 
@@ -438,7 +443,7 @@ END;
 -- ---------------------------------------------------------------------------
 ```
 
-**Table count contributed by migration 0019: 3 new tables (`return_headers`,
+**Table count contributed by migration 0020: 3 new tables (`return_headers`,
 `return_lines`, `credit_notes`) + 3 triggers + 5 indexes.** (The
 `einvoice_audit` block is conditional on migration 0016's shape; may be zero.)
 
@@ -671,7 +676,7 @@ for edge cases (chronic-illness patients with long return cycles). `max_days`
 is per-shop so a conservative Vaidyanath can stay at 30 while a high-end
 modern-trade pilot can push to 60 without a code change.
 
-**Migration 0019 addendum** — add column:
+**Migration 0020 addendum** — add column:
 ```sql
 ALTER TABLE shop_settings
   ADD COLUMN partial_refund_max_days INTEGER NOT NULL DEFAULT 30
@@ -696,7 +701,7 @@ discipline. Dual code path rejected.
   reads-and-increments a `return_no_counters` table row (PK = `(shop_id, fy_start_year)`)
   inside a transaction. Zero-collision guarantee. Same pattern as bill-no allocator.
 
-**Migration 0019 addendum** — new table:
+**Migration 0020 addendum** — new table:
 ```sql
 CREATE TABLE return_no_counters (
   shop_id         TEXT NOT NULL REFERENCES shops(id),
@@ -745,9 +750,9 @@ than blocking approval of the ADR.
 
 ## Implementation sequencing (binding)
 
-1. **Migration 0019** (schema + triggers + `return_no_counters` + `shop_settings.partial_refund_max_days` + `credit_notes` scaffold) — ship alone with migration round-trip test.
+1. **Migration 0020** (schema + triggers + `return_no_counters` + `shop_settings.partial_refund_max_days` + `credit_notes` scaffold) — ship alone with migration round-trip test.
 2. **`@pharmacare/bill-repo` pro-rata math + tender-split residual-to-largest** — pure TS, 100% unit coverage gate per §Test-strategy Unit.
-3. **Rust commands** `save_partial_return`, `list_returns_for_bill`, `get_refundable_qty`, `record_credit_note_irn`, `next_return_no` — with better-sqlite3 integration tests against migration 0019.
+3. **Rust commands** `save_partial_return`, `list_returns_for_bill`, `get_refundable_qty`, `record_credit_note_irn`, `next_return_no` — with better-sqlite3 integration tests against migration 0020.
 4. **A10 GSTR-1 `cdnr`/`cdnur`/`b2cs` emit** — golden-fixture additions, regression-check existing fixtures stay byte-identical.
 5. **A9 credit-note layout** — thermal 80mm + A5 variants, snapshot-tested.
 6. **A12 adapter CRN payload** — Cygnet primary + ClearTax secondary per ADR 0017 §12. Sandbox round-trip gate behind env var.
