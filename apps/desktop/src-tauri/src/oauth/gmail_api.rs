@@ -13,6 +13,42 @@ use serde::{Deserialize, Serialize};
 
 const API_BASE: &str = "https://gmail.googleapis.com/gmail/v1/users/me";
 
+// S03 — docs/reviews/security-2026-04-18.md: cap every Gmail response body
+// at 30 MB and warn above 10 MB. Gmail's own server caps attachments at
+// 25 MB, but the only bound on this client was a 30 s timeout — a hostile
+// proxy or TLS-inspection appliance could stream arbitrary bytes into
+// `resp.json()` / `resp.text()` and OOM the 4 GB Win7 target. Preflight
+// via Content-Length is the cheapest defense; when the header is missing
+// we log and proceed (reqwest's blocking client has no streaming cap).
+const MAX_RESPONSE_BYTES: u64 = 30 * 1024 * 1024;
+const WARN_RESPONSE_BYTES: u64 = 10 * 1024 * 1024;
+
+/// Pure helper — kept pure so it's unit-testable without mocking reqwest.
+/// Returns Err when `content_length` exceeds the cap; returns Ok but logs
+/// a warn when above the 10 MB threshold; Ok silent when absent or small.
+fn check_body_size(content_length: Option<u64>, cmd: &str) -> Result<(), String> {
+    let Some(n) = content_length else {
+        // Gmail usually sets Content-Length; if we ever see a chunked response
+        // with no preflight, we cannot bound the body here. Log once — the
+        // operator runbook says to investigate any chunked response.
+        tracing::debug!("gmail {cmd}: no Content-Length header on response");
+        return Ok(());
+    };
+    if n > MAX_RESPONSE_BYTES {
+        return Err(format!(
+            "{cmd}: response body {n} bytes exceeds cap of {MAX_RESPONSE_BYTES} bytes"
+        ));
+    }
+    if n > WARN_RESPONSE_BYTES {
+        tracing::warn!(
+            "gmail {cmd}: large response body {} MB (cap {} MB)",
+            n / (1024 * 1024),
+            MAX_RESPONSE_BYTES / (1024 * 1024),
+        );
+    }
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GmailAttachmentMeta {
@@ -76,6 +112,7 @@ pub fn list_messages(
         let s = resp.status();
         return Err(format!("list {s}: {}", resp.text().unwrap_or_default()));
     }
+    check_body_size(resp.content_length(), "list")?;
     #[derive(Deserialize)]
     struct ListResp {
         #[serde(default)]
@@ -119,6 +156,7 @@ pub fn get_message(access_token: &str, message_id: &str) -> Result<GmailMessageS
         let s = resp.status();
         return Err(format!("get {s}: {}", resp.text().unwrap_or_default()));
     }
+    check_body_size(resp.content_length(), "get")?;
     let v: serde_json::Value = resp.json().map_err(|e| format!("get parse: {e}"))?;
     Ok(summarize(&v, message_id))
 }
@@ -215,6 +253,7 @@ pub fn fetch_attachment(
         let s = resp.status();
         return Err(format!("attach {s}: {}", resp.text().unwrap_or_default()));
     }
+    check_body_size(resp.content_length(), "attach")?;
     #[derive(Deserialize)]
     struct AttResp {
         data: String,
@@ -358,5 +397,40 @@ mod tests {
             urlencode("label:distributor bills"),
             "label%3Adistributor%20bills"
         );
+    }
+
+    // --- S03 body-size cap ------------------------------------------------
+
+    #[test]
+    fn check_body_size_absent_header_is_ok() {
+        // Chunked / unknown-length response — Gmail normally sets
+        // Content-Length but we can't bound what we can't see; we log and
+        // proceed.
+        assert!(check_body_size(None, "list").is_ok());
+    }
+
+    #[test]
+    fn check_body_size_small_payload_is_ok() {
+        assert!(check_body_size(Some(1024), "get").is_ok());
+    }
+
+    #[test]
+    fn check_body_size_warn_threshold_still_ok() {
+        // 10.5 MB — above warn threshold but below the hard cap; must Ok.
+        assert!(check_body_size(Some(11 * 1024 * 1024), "attach").is_ok());
+    }
+
+    #[test]
+    fn check_body_size_at_exactly_cap_is_ok() {
+        assert!(check_body_size(Some(MAX_RESPONSE_BYTES), "attach").is_ok());
+    }
+
+    #[test]
+    fn check_body_size_above_cap_errors_with_cmd_name() {
+        let err = check_body_size(Some(MAX_RESPONSE_BYTES + 1), "attach").expect_err("must cap");
+        // Error must carry the command (for operator diagnosis) and both
+        // the observed and max byte counts.
+        assert!(err.starts_with("attach:"), "err missing cmd: {err}");
+        assert!(err.contains("exceeds cap"), "err missing cap text: {err}");
     }
 }
