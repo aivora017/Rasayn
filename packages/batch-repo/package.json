@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude '**/*.perf.test.ts' --exclude 'node_modules/**' --exclude 'dist/**'",
+    "test:perf": "vitest run src/perf.test.ts --pool=forks --poolOptions.forks.singleFork=true",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
