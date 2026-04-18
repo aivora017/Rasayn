@@ -24,11 +24,22 @@ import {
 
 const CROCIN: ProductHit = {
   id: "p-crocin", name: "Crocin 500", genericName: "Paracetamol",
-  manufacturer: "GSK", gstRate: 12, schedule: "OTC", mrpPaise: 11200,
+  manufacturer: "GSK", gstRate: 12, schedule: "OTC", mrpPaise: 11200, hsn: "30049099",
 };
 const AZITHRAL: ProductHit = {
   id: "p-azi", name: "Azithral 500 Tablet", genericName: "Azithromycin",
-  manufacturer: "Alembic", gstRate: 5, schedule: "H", mrpPaise: 9800,
+  manufacturer: "Alembic", gstRate: 5, schedule: "H", mrpPaise: 9800, hsn: "30049099",
+};
+// X1.3 fixtures — two products sharing an HSN; only one token-overlaps the
+// parsed hint enough to pass Rule 3 (Jaccard >= 0.3). Used by the new
+// hsn-assist auto-match test below.
+const CROCIN_ADV: ProductHit = {
+  id: "p-crocin-adv", name: "Crocin Advance 500", genericName: "Paracetamol",
+  manufacturer: "GSK", gstRate: 12, schedule: "OTC", mrpPaise: 12500, hsn: "30041010",
+};
+const ZYMACROL: ProductHit = {
+  id: "p-zyma", name: "Zymacrol", genericName: "Paracetamol",
+  manufacturer: "Zydus", gstRate: 12, schedule: "OTC", mrpPaise: 9000, hsn: "30041010",
 };
 
 function makeHandler(fixtures: ProductHit[], calls?: IpcCall[]) {
@@ -180,5 +191,40 @@ describe("GrnScreen · X1.2 load-from-inbox", () => {
     await user.click(screen.getByTestId("grn-imported-dismiss"));
     expect(screen.queryByTestId("grn-imported-banner")).toBeNull();
     expect(screen.getByTestId("grn-row-0")).toBeInTheDocument();
+  });
+
+  // X1.3 — when the parser surfaces an HSN and the name token-overlap is too
+  // weak for Rule 2 (Jaccard < 0.6) but passes Rule 3 (Jaccard >= 0.3 +
+  // matching HSN), the bridge should return an "hsn-assist" match. The
+  // candidate set here contains two products sharing hsn="30041010"; only
+  // one of them shares any token with the parsed hint, so that one wins.
+  it("auto-matches via hsn-assist (Rule 3) when HSN plumbing is present", async () => {
+    setIpcHandler(makeHandler([CROCIN_ADV, ZYMACROL]));
+    setPendingGrnDraft(draftWith([
+      {
+        // Jaccard("crocin oral 500", "crocin advance 500") = |{crocin,500}|/|{crocin,oral,500,advance}| = 2/4 = 0.5.
+        // Lands in [HSN_JACCARD_MIN=0.3, TOKEN_JACCARD_MIN=0.6) so Rule 2 is skipped and Rule 3 (hsn-assist) fires.
+        productHint: "Crocin Oral 500",
+        hsn: "30041010",                 // matches both candidates' HSN
+        batchNo: "B-CA1", expiryDate: "2027-05-31",
+        qty: 4, ratePaise: 9500, mrpPaise: 12500, gstRate: 12, confidence: 0.7,
+      },
+    ]));
+    render(<GrnScreen />);
+    // Rule 3 conf = Jaccard × 0.60 = 0.5 × 0.60 = 0.30 → "low" tier. Note that
+    // Rule 3 can NEVER produce medium-tier conf: that would require Jaccard
+    // ≥ 0.83, but Jaccard ≥ 0.6 already hits Rule 2 (token-overlap) which
+    // runs first. So low is the only tier hsn-assist ever produces today.
+    // Low-tier matches are intentionally held in the banner for operator
+    // confirmation — they are NOT auto-appended to the draft.
+    await waitFor(() => {
+      expect(screen.queryByTestId("grn-imp-match-low")).not.toBeNull();
+    });
+    // Winning candidate should be "Crocin Advance 500" (shared token), not
+    // Zymacrol (zero token overlap after normalisation).
+    const badge = screen.getByTestId("grn-imp-match-low");
+    expect(badge.textContent).toMatch(/Crocin Advance 500/);
+    // Low-conf rows stay in the banner; no grn-row-0 is auto-created.
+    expect(screen.queryByTestId("grn-row-0")).toBeNull();
   });
 });

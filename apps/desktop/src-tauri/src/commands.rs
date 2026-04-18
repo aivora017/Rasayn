@@ -37,6 +37,8 @@ pub struct ProductHit {
     #[serde(rename = "genericName")]
     pub generic_name: Option<String>,
     pub manufacturer: String,
+    /// GST HSN code (X1.3 — powers Rule-3 hsn-assist in gmail-grn-bridge).
+    pub hsn: String,
     #[serde(rename = "gstRate")]
     pub gst_rate: i64,
     pub schedule: String,
@@ -64,7 +66,7 @@ pub fn search_products(
     }
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = c.prepare(
-        "SELECT p.id, p.name, p.generic_name, p.manufacturer, p.gst_rate, p.schedule, p.mrp_paise
+        "SELECT p.id, p.name, p.generic_name, p.manufacturer, p.hsn, p.gst_rate, p.schedule, p.mrp_paise
          FROM products_fts
          JOIN products p ON p.id = products_fts.id
          WHERE products_fts MATCH ?1 AND p.is_active = 1
@@ -78,9 +80,10 @@ pub fn search_products(
                 name: r.get(1)?,
                 generic_name: r.get(2)?,
                 manufacturer: r.get(3)?,
-                gst_rate: r.get(4)?,
-                schedule: r.get(5)?,
-                mrp_paise: r.get(6)?,
+                hsn: r.get(4)?,
+                gst_rate: r.get(5)?,
+                schedule: r.get(6)?,
+                mrp_paise: r.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -1384,6 +1387,8 @@ pub struct TestHeader {
 #[serde(rename_all = "camelCase")]
 pub struct TestLine {
     pub product_hint: String,
+    /// X1.3: HSN extracted via columnMap.hsn when the template provides it.
+    pub hsn: Option<String>,
     pub batch_no: Option<String>,
     pub expiry_date: Option<String>,
     pub qty: i64,
@@ -1511,6 +1516,7 @@ pub fn test_supplier_template(
                         .map(|n| (n as usize) + 1)
                 };
                 let product = idx("product").and_then(get_i).unwrap_or_default();
+                let hsn = idx("hsn").and_then(get_i);
                 let batch = idx("batchNo").and_then(get_i);
                 let expiry_raw = idx("expiryDate").and_then(get_i);
                 let expiry = expiry_raw
@@ -1559,6 +1565,7 @@ pub fn test_supplier_template(
                 };
                 lines.push(TestLine {
                     product_hint: product,
+                    hsn,
                     batch_no: batch,
                     expiry_date: expiry,
                     qty,

@@ -58,7 +58,7 @@ function rsToPaise(rs: string): Paise {
 }
 
 function productHitToCandidate(h: ProductHit): CandidateProduct {
-  return { id: h.id, name: h.name, hsn: null, mrpPaise: h.mrpPaise };
+  return { id: h.id, name: h.name, hsn: h.hsn ?? null, mrpPaise: h.mrpPaise };
 }
 
 export function GrnScreen() {
@@ -92,7 +92,7 @@ export function GrnScreen() {
         try {
           const hits = await searchProductsRpc(pl.productHint, 5);
           const cands = hits.map(productHitToCandidate);
-          match = matchParsedLine(pl.productHint, null, cands);
+          match = matchParsedLine(pl.productHint, pl.hsn ?? null, cands);
         } catch {
           match = { kind: "unmatched", product: null, matchType: "none", confidence: 0, reason: "search failed" };
         }
