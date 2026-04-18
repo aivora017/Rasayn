@@ -1,12 +1,12 @@
 # ADR 0021 — A8 Partial Refund (Line-Level Returns with Pro-Rata GST Reversal)
 
-> **STATUS: DRAFT — NOT APPROVED**
+> **STATUS: APPROVED** (2026-04-18)
 >
-> _Authored 2026-04-18. Not merged. Do not implement against this document yet._
-> _Revisions expected on (a) discount apportionment, (b) >30-day refund policy,
-> (c) cash-to-credit-note tender fallback rules._
+> _Approved after resolving the five open questions from the 2026-04-18 DRAFT.
+> See §Resolved-questions at the bottom. Ready for migration 0019 authoring and
+> Rust/TS command implementation in the next sprint._
 
-**Status:** DRAFT — NOT APPROVED
+**Status:** APPROVED
 **Date:** 2026-04-18
 **Supersedes:** —
 **Superseded by:** —
@@ -182,13 +182,14 @@ half-away-from-zero at paise. The sum of all `return_lines.refund_amount_paise`
 plus `return_headers.refund_round_off_paise` (bounded ±50 paise) equals
 `return_headers.refund_total_paise`.
 
-**Discount apportionment (OPEN QUESTION — see §10):**
-For v1 of this ADR we propose: refund_discount is pro-rata on
-`bill_lines.discount_paise` by qty ratio. This preserves the invariant that
-the post-refund bill (original − return) still has coherent line math.
-An alternative is "absorb discount on the retained portion" (customer got the
-discount on what they kept, so no refund of discount) — simpler but harder to
-justify if the discount was line-level.
+**Discount apportionment (RESOLVED — pro-rata):**
+`refund_discount` is pro-rata on `bill_lines.discount_paise` by `qty_returned / qty`
+ratio, rounded half-away-from-zero at paise. Rationale locked 2026-04-18:
+(a) preserves the invariant that the post-refund bill (original − return) has
+coherent line math — customer's net discount stays proportional to what they
+kept; (b) matches Marg+ and BUSY behavior that pilot shops already expect;
+(c) eliminates a dual code path (retained-portion math diverges from A4's
+`computeLine`). See §Resolved-questions Q2.
 
 ### 4. IRN / credit-note logic
 
@@ -652,30 +653,107 @@ reduction row in `b2cs` (if below threshold). Test coverage added to
 
 ---
 
-## Open questions
+## Resolved questions (lock-in as of 2026-04-18)
 
-1. **>30-day refund window.** GST section 34(2) allows credit notes up to the
-   due date of September following the end of the financial year in which the
-   original supply was made — effectively ~6 months. Should we block partial
-   refunds > 30 days at the UI (safer, common shop policy) and allow
-   owner-override for the 30-to-180-day window? Or just allow silently up to
-   180 days? **Proposal:** block > 30 days by default, owner-override path to
-   180 days, hard-block > 180 days. Needs shop-owner sign-off.
-2. **Discount apportionment on partial return.** §3 proposes pro-rata of the
-   original line discount by qty ratio. Alternative: the discount "sticks to"
-   the retained portion (customer got discount on what they kept). Former is
-   cleaner mathematically, latter is closer to shop intuition. Needs one real
-   pilot's owner input before merging.
-3. **Credit-note numbering.** `return_no` format `CN/YYYY-YY/NNNN` — is that
-   per-shop or per-FY? Does it need a separate Doc-Series in GSTR-1 `doc_issue`?
-   (Our A10 `doc_issue` section today only tracks `INV`.)
-4. **`credit_note` tender mode — this ADR or next?** §2 punts it to ADR 0022.
-   But if a pilot shop needs UPI-fallback on day one, we may need to pull it
-   forward. Decision pending pilot feedback.
-5. **Concurrency.** Two cashiers attempting a partial refund on the same bill
-   line simultaneously — the qty-limit trigger protects the invariant, but
-   the UX should surface a clean error, not a raw `QTY_EXCEEDS_REFUNDABLE`.
-   Small, but needs a UX review.
+### Q1. >30-day refund window → **3-tier policy, shop-configurable**
+**Decision:** refund window enforced via a new `shop_settings.partial_refund_max_days`
+column (default `30`, cap `180`, hard-floor `0` means feature disabled).
+
+| Age of original bill | Behavior |
+|---|---|
+| `≤ shop_settings.partial_refund_max_days` | Normal flow (any cashier). |
+| Between max_days and `180` | **Owner override required** — re-uses the `expiry_override_audit` 10-min pattern from A13. Audit row captures `override_reason='aged_refund'`, `days_since_bill`, actor user_id. |
+| `> 180 days` | **Hard block** with `REFUND_WINDOW_EXPIRED:days=N`. No override path. GST §34(2) anchor: Sept-following-FY deadline is always ≤ 180 days for any legally refundable supply. |
+
+Rationale: matches shop intuition (month-end is the common refund cutoff),
+protects pilot shops from inadvertent non-compliance, leaves owner escape hatch
+for edge cases (chronic-illness patients with long return cycles). `max_days`
+is per-shop so a conservative Vaidyanath can stay at 30 while a high-end
+modern-trade pilot can push to 60 without a code change.
+
+**Migration 0019 addendum** — add column:
+```sql
+ALTER TABLE shop_settings
+  ADD COLUMN partial_refund_max_days INTEGER NOT NULL DEFAULT 30
+    CHECK (partial_refund_max_days >= 0 AND partial_refund_max_days <= 180);
+```
+
+### Q2. Discount apportionment → **pro-rata by qty ratio** (locked)
+See §3 "Discount apportionment (RESOLVED)". `refund_discount_paise = round_haz(bill_lines.discount_paise × qty_returned ÷ bill_lines.qty)`.
+Matches Marg+/BUSY/Tally shop expectations and A4 `computeLine` rounding
+discipline. Dual code path rejected.
+
+### Q3. Credit-note numbering → **`CN/YYYY-YY/NNNN`, per-shop per-FY, new `doc_issue` series**
+**Decision:**
+- `return_no` format: `CN/YYYY-YY/NNNN` (e.g. `CN/2026-27/0001`). Per-shop, resets
+  on April 1 of each FY. Enforced by `UNIQUE(shop_id, return_no)` constraint on
+  `return_headers` (already in §1 schema).
+- **New `doc_issue` series row per FY per shop**: A10 `generateGstr1` is extended
+  to emit a second `doc_issue` row with `document_type='CRN'` alongside the
+  existing `INV` row. The NIC GSTR-1 upload tool accepts multiple doc-types per
+  period.
+- Numerator allocation: new Rust command `next_return_no(shop_id) -> String`
+  reads-and-increments a `return_no_counters` table row (PK = `(shop_id, fy_start_year)`)
+  inside a transaction. Zero-collision guarantee. Same pattern as bill-no allocator.
+
+**Migration 0019 addendum** — new table:
+```sql
+CREATE TABLE return_no_counters (
+  shop_id         TEXT NOT NULL REFERENCES shops(id),
+  fy_start_year   INTEGER NOT NULL CHECK (fy_start_year >= 2025),
+  last_seq        INTEGER NOT NULL DEFAULT 0 CHECK (last_seq >= 0),
+  PRIMARY KEY (shop_id, fy_start_year)
+);
+```
+
+### Q4. `credit_note` tender mode → **deferred to ADR 0022** (confirmed)
+MVP behavior: `REFUND_TENDER_UNAVAILABLE:upi_unreachable` is the fail-closed
+error. Cashier re-attempts later when UPI is reachable, OR owner switches the
+refund to cash from drawer. Pilot feedback (first 10 shops × 30 days) will
+decide whether to pull ADR 0022 forward or let it bake.
+
+Justification for deferral: issuing a credit_note is NOT a one-line tender
+mode — it needs redemption flow (apply to future bill), expiry policy, transfer
+between customer accounts, and anti-money-laundering guardrails (cash-in-disguise
+via store credit is a real pattern). Cramming it into 0021 risks shipping a
+half-baked credit system. 0022 will be authored when the pilot-feedback
+pressure lands.
+
+### Q5. Concurrency → **optimistic retry with UX reload hint**
+**Decision:** the qty-limit trigger remains the last-line-of-defence invariant.
+UX path:
+1. `PartialReturnPicker` caches `bill.updated_at` (already tracked on `bills`)
+   when the bill is loaded.
+2. On `save_partial_return`, if `QTY_EXCEEDS_REFUNDABLE` is raised:
+   - Re-fetch the bill + refundable quantities.
+   - If the bill's `updated_at` changed since load → show banner
+     "Another cashier returned lines from this bill. Refreshing…" → repopulate
+     the picker with the new `refundable` column values → leave the cashier's
+     `return_qty` inputs intact but mark any row where `return_qty > new refundable`
+     in red.
+   - If `updated_at` unchanged → raw `QTY_EXCEEDS_REFUNDABLE` bubbles up as a
+     developer-facing error (shouldn't happen; log sentry-style).
+3. No DB-level pessimistic lock — SQLite's default BEGIN IMMEDIATE inside
+   `save_partial_return` serialises concurrent writers at the DB layer; the
+   trigger check runs inside that transaction. First writer wins, second sees
+   the clean retry.
+
+This is a UX polish task, tracked alongside the main implementation rather
+than blocking approval of the ADR.
+
+---
+
+## Implementation sequencing (binding)
+
+1. **Migration 0019** (schema + triggers + `return_no_counters` + `shop_settings.partial_refund_max_days` + `credit_notes` scaffold) — ship alone with migration round-trip test.
+2. **`@pharmacare/bill-repo` pro-rata math + tender-split residual-to-largest** — pure TS, 100% unit coverage gate per §Test-strategy Unit.
+3. **Rust commands** `save_partial_return`, `list_returns_for_bill`, `get_refundable_qty`, `record_credit_note_irn`, `next_return_no` — with better-sqlite3 integration tests against migration 0019.
+4. **A10 GSTR-1 `cdnr`/`cdnur`/`b2cs` emit** — golden-fixture additions, regression-check existing fixtures stay byte-identical.
+5. **A9 credit-note layout** — thermal 80mm + A5 variants, snapshot-tested.
+6. **A12 adapter CRN payload** — Cygnet primary + ClearTax secondary per ADR 0017 §12. Sandbox round-trip gate behind env var.
+7. **UX** — `PartialReturnPicker` + `TenderReversalModal` + ReturnsScreen F4 wiring + Q5 concurrency reload path. Playwright keyboard-only E2E.
+
+Each step is a separate PR. No single mega-PR — this ADR deliberately fans out across 7 surfaces.
 
 ---
 
@@ -688,4 +766,4 @@ reduction row in `b2cs` (if below threshold). Test coverage added to
 
 ---
 
-_End of ADR 0021 (DRAFT)._
+_End of ADR 0021 (APPROVED 2026-04-18)._
