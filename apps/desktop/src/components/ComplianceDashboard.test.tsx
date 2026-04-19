@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ComplianceDashboard } from "./ComplianceDashboard.js";
 import {
@@ -54,10 +54,16 @@ describe("ComplianceDashboard (X2a + X2b)", () => {
     });
   });
 
-  it("renders loading on first tick", () => {
+  it("renders loading on first tick", async () => {
     installHandler({ missing: MISSING, suspects: SUSPECTS });
     render(<ComplianceDashboard />);
+    // Snap the loading state before the async RPC resolves — this is the
+    // pre-effect signal we intentionally want to observe.
     expect(screen.getByTestId("cd-loading")).toBeTruthy();
+    // Then flush the pending refresh() promise inside an act() boundary so
+    // the post-resolve setState({ kind: "ready" }) doesn't leak past the
+    // test and trip the act() warning.
+    await act(async () => {});
   });
 
   it("X2a: renders missing-image empty state when list is []", async () => {
