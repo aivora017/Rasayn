@@ -79,10 +79,13 @@ describe("GrnScreen · X1.2 load-from-inbox", () => {
     _resetPendingGrnDraftForTests();
   });
 
-  it("renders empty state when no pending draft", () => {
+  it("renders empty state when no pending draft", async () => {
     render(<GrnScreen />);
     expect(screen.queryByTestId("grn-imported-banner")).toBeNull();
     expect(screen.getByTestId("grn-empty")).toBeInTheDocument();
+    // Flush the mount-time listSuppliersRpc useEffect so the trailing
+    // setSuppliers state update lands inside act().
+    await act(async () => {});
   });
 
   it("prefills invoice # and invoice date from pending draft", async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App.js";
 import { setIpcHandler, type IpcCall, type ProductHit, type BatchPick, type StockRow } from "./lib/ipc.js";
@@ -273,22 +273,35 @@ describe("App · keyboard shell", () => {
     );
   });
 
-  it("F2 switches to inventory, F1 returns", () => {
+  it("F2 switches to inventory, F1 returns", async () => {
     render(<App />);
+    // Wait for the App-mount healthCheck+dbVersion RPCs and BillingScreen's
+    // userGet RPC to settle before driving keyboard nav, otherwise the
+    // trailing setState lands outside act().
+    await waitFor(() =>
+      expect(screen.getByTestId("health").textContent).toMatch(/backend v/),
+    );
     fireEvent.keyDown(window, { key: "2", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("inventory");
     fireEvent.keyDown(window, { key: "1", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("billing");
+    // Inventory mount triggers listStockRpc; flush its trailing setState.
+    await act(async () => {});
   });
 });
 
 describe("BillingScreen · product search → line add", () => {
   beforeEach(() => installMock());
 
-  it("empty state until a product is picked", () => {
+  it("empty state until a product is picked", async () => {
     render(<App />);
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
     expect(screen.getByTestId("grand-total").textContent).toMatch(/0\.00/);
+    // Flush the mount-time healthCheck/dbVersion + BillingScreen userGet
+    // RPCs so their trailing setState updates land inside act().
+    await waitFor(() =>
+      expect(screen.getByTestId("health").textContent).toMatch(/backend v/),
+    );
   });
 
   it("typing shows dropdown; Enter picks top hit; line is added with batch + MRP", async () => {
@@ -329,10 +342,15 @@ describe("BillingScreen · product search → line add", () => {
     expect(screen.getByTestId("grand-total").textContent).toMatch(/336\.00/);
   });
 
-  it("Save & Print button is disabled while bill is empty", () => {
+  it("Save & Print button is disabled while bill is empty", async () => {
     render(<App />);
     const btn = screen.getByTestId("save-bill") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
+    // Flush the mount-time healthCheck/dbVersion + BillingScreen userGet
+    // RPCs so their trailing setState updates land inside act().
+    await waitFor(() =>
+      expect(screen.getByTestId("health").textContent).toMatch(/backend v/),
+    );
   });
 
   it("F10 saves the bill, shows success toast, and clears lines", async () => {
@@ -440,11 +458,19 @@ describe("InventoryScreen", () => {
 describe("GrnScreen · receive stock", () => {
   beforeEach(() => installMock());
 
-  it("F4 switches to GRN mode", () => {
+  it("F4 switches to GRN mode", async () => {
     render(<App />);
+    // Wait for the App-mount healthCheck+dbVersion + BillingScreen userGet
+    // RPCs to settle before driving keyboard nav.
+    await waitFor(() =>
+      expect(screen.getByTestId("health").textContent).toMatch(/backend v/),
+    );
     fireEvent.keyDown(window, { key: "4", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("grn");
     expect(screen.getByTestId("grn-empty")).toBeInTheDocument();
+    // GrnScreen mount triggers listSuppliersRpc + pendingGrnDraft import;
+    // flush their trailing setState updates inside act().
+    await act(async () => {});
   });
 
   it("Save is disabled until invoice no + line + batch + dates are valid", async () => {

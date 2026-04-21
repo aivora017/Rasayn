@@ -16,7 +16,7 @@
  * any new type→submit test in A5+ should import from there.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App.js";
 import { setIpcHandler, type IpcCall, type ProductHit, type BatchPick } from "../lib/ipc.js";
@@ -203,6 +203,9 @@ describe("BillingScreen · A5 keyboard shell", () => {
     // Alt+2 is nav.
     fireEvent.keyDown(window, { key: "2", altKey: true });
     expect(screen.getByTestId("current-mode")).toHaveTextContent("inventory");
+    // InventoryScreen's BatchesTab mounts and fires listStockRpc; flush its
+    // trailing setState inside act() so the test ends warning-free.
+    await act(async () => {});
   });
 
   it("a11y: billing region, customer listbox, Save button accessible name + shortcut", async () => {
