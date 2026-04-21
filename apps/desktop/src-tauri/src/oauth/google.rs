@@ -158,9 +158,15 @@ pub fn revoke(token: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Extract `email` claim from a JWT id_token payload. No signature check —
-/// we trust the token only to label the connected account for the UI.
-pub fn extract_email_from_id_token(id_token: Option<&str>) -> Option<String> {
+/// Extract `email` claim from a JWT id_token payload **without verifying
+/// the signature**. We trust the token only to label the connected
+/// account for the UI.
+///
+/// S10 (docs/reviews/security-2026-04-18.md) — the `_unverified` suffix
+/// is mandatory: this function must never be used to make authorisation
+/// decisions. If you need the email for auth, verify the id_token against
+/// Google's JWKS first.
+pub fn extract_email_from_id_token_unverified(id_token: Option<&str>) -> Option<String> {
     let t = id_token?;
     let parts: Vec<&str> = t.split('.').collect();
     if parts.len() < 2 {
@@ -184,12 +190,29 @@ mod more_tests {
         let payload = URL_SAFE_NO_PAD.encode(br#"{"email":"owner@example.com","iss":"google"}"#);
         let jwt = format!("{header}.{payload}.sig");
         assert_eq!(
-            extract_email_from_id_token(Some(&jwt)).as_deref(),
+            extract_email_from_id_token_unverified(Some(&jwt)).as_deref(),
             Some("owner@example.com")
         );
     }
     #[test]
     fn extract_email_handles_none() {
-        assert_eq!(extract_email_from_id_token(None), None);
+        assert_eq!(extract_email_from_id_token_unverified(None), None);
+    }
+
+    // --- S10 rename regression lock ---------------------------------------
+    //
+    // Force reviewers of any future refactor to keep the `_unverified`
+    // suffix: if the fn is ever renamed back to `extract_email_from_id_token`
+    // (without the disclaimer), this test loses its reference and fails
+    // to compile. The test also exercises the garbage-tolerant path: a
+    // JWT with a payload that is base64-valid but not JSON must not panic.
+    #[test]
+    fn s10_unverified_fn_is_total_on_garbage_payload() {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+        let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256"}"#);
+        // Not JSON.
+        let payload = URL_SAFE_NO_PAD.encode(b"not-json-at-all");
+        let jwt = format!("{header}.{payload}.sig");
+        assert_eq!(extract_email_from_id_token_unverified(Some(&jwt)), None);
     }
 }

@@ -160,31 +160,54 @@ fn row_from<'a>(r: &rusqlite::Row<'a>) -> rusqlite::Result<ProductRow> {
     })
 }
 
-const SELECT_COLS: &str = "id, name, generic_name, manufacturer, hsn, gst_rate, schedule, \
+// S08 (docs/reviews/security-2026-04-18.md) — static SQL as a const so a
+// future reader grepping for `format!(...SELECT...)` in this file finds
+// nothing near user data. All user-provided fields flow through `params![]`
+// below. The `strftime(...)` call is a literal SQLite function, not a
+// string interpolation.
+const UPSERT_PRODUCT_SQL: &str = "\
+    INSERT INTO products (id, name, generic_name, manufacturer, hsn, gst_rate, schedule, \
      pack_form, pack_size, mrp_paise, nppa_max_mrp_paise, image_sha256, is_active, \
-     created_at, updated_at";
+     created_at, updated_at) \
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 1, \
+             strftime('%Y-%m-%dT%H:%M:%fZ','now'), \
+             strftime('%Y-%m-%dT%H:%M:%fZ','now')) \
+     ON CONFLICT(id) DO UPDATE SET \
+        name=excluded.name, generic_name=excluded.generic_name, \
+        manufacturer=excluded.manufacturer, hsn=excluded.hsn, \
+        gst_rate=excluded.gst_rate, schedule=excluded.schedule, \
+        pack_form=excluded.pack_form, pack_size=excluded.pack_size, \
+        mrp_paise=excluded.mrp_paise, nppa_max_mrp_paise=excluded.nppa_max_mrp_paise, \
+        image_sha256=excluded.image_sha256, \
+        updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+
+const SELECT_PRODUCT_BY_ID_SQL: &str = "SELECT id, name, generic_name, manufacturer, hsn, \
+    gst_rate, schedule, pack_form, pack_size, mrp_paise, nppa_max_mrp_paise, image_sha256, \
+    is_active, created_at, updated_at FROM products WHERE id = ?1";
+
+const LIST_PRODUCTS_ACTIVE_SQL: &str = "SELECT id, name, generic_name, manufacturer, hsn, \
+    gst_rate, schedule, pack_form, pack_size, mrp_paise, nppa_max_mrp_paise, image_sha256, \
+    is_active, created_at, updated_at FROM products \
+    WHERE (is_active = 1) \
+      AND (LOWER(name) LIKE ?1 OR LOWER(COALESCE(generic_name,'')) LIKE ?1 \
+           OR LOWER(manufacturer) LIKE ?1) \
+    ORDER BY name ASC LIMIT ?2 OFFSET ?3";
+
+const LIST_PRODUCTS_ALL_SQL: &str = "SELECT id, name, generic_name, manufacturer, hsn, \
+    gst_rate, schedule, pack_form, pack_size, mrp_paise, nppa_max_mrp_paise, image_sha256, \
+    is_active, created_at, updated_at FROM products \
+    WHERE (1=1) \
+      AND (LOWER(name) LIKE ?1 OR LOWER(COALESCE(generic_name,'')) LIKE ?1 \
+           OR LOWER(manufacturer) LIKE ?1) \
+    ORDER BY name ASC LIMIT ?2 OFFSET ?3";
 
 #[tauri::command]
 pub fn upsert_product(input: ProductInput, state: State<DbState>) -> Result<ProductRow, String> {
     validate(&input)?;
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let id = input.id.clone().unwrap_or_else(gen_id);
-    let now = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
-    let sql = format!(
-        "INSERT INTO products (id, name, generic_name, manufacturer, hsn, gst_rate, schedule, \
-         pack_form, pack_size, mrp_paise, nppa_max_mrp_paise, image_sha256, is_active, \
-         created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 1, {now}, {now}) \
-         ON CONFLICT(id) DO UPDATE SET \
-            name=excluded.name, generic_name=excluded.generic_name, \
-            manufacturer=excluded.manufacturer, hsn=excluded.hsn, \
-            gst_rate=excluded.gst_rate, schedule=excluded.schedule, \
-            pack_form=excluded.pack_form, pack_size=excluded.pack_size, \
-            mrp_paise=excluded.mrp_paise, nppa_max_mrp_paise=excluded.nppa_max_mrp_paise, \
-            image_sha256=excluded.image_sha256, updated_at={now}"
-    );
     c.execute(
-        &sql,
+        UPSERT_PRODUCT_SQL,
         params![
             id,
             input.name.trim(),
@@ -203,11 +226,7 @@ pub fn upsert_product(input: ProductInput, state: State<DbState>) -> Result<Prod
     .map_err(|e| e.to_string())?;
 
     let row = c
-        .query_row(
-            &format!("SELECT {SELECT_COLS} FROM products WHERE id = ?1"),
-            params![id],
-            row_from,
-        )
+        .query_row(SELECT_PRODUCT_BY_ID_SQL, params![id], row_from)
         .map_err(|e| e.to_string())?;
     Ok(row)
 }
@@ -215,13 +234,9 @@ pub fn upsert_product(input: ProductInput, state: State<DbState>) -> Result<Prod
 #[tauri::command]
 pub fn get_product(id: String, state: State<DbState>) -> Result<Option<ProductRow>, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
-    c.query_row(
-        &format!("SELECT {SELECT_COLS} FROM products WHERE id = ?1"),
-        params![id],
-        row_from,
-    )
-    .optional()
-    .map_err(|e| e.to_string())
+    c.query_row(SELECT_PRODUCT_BY_ID_SQL, params![id], row_from)
+        .optional()
+        .map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -248,15 +263,16 @@ pub fn list_products(
         a.q.as_deref()
             .map(|q| format!("%{}%", q.trim().to_lowercase()))
             .unwrap_or_else(|| "%".to_string());
-    let sql = format!(
-        "SELECT {SELECT_COLS} FROM products \
-         WHERE ({active_clause}) \
-           AND (LOWER(name) LIKE ?1 OR LOWER(COALESCE(generic_name,'')) LIKE ?1 \
-                OR LOWER(manufacturer) LIKE ?1) \
-         ORDER BY name ASC LIMIT ?2 OFFSET ?3",
-        active_clause = if active_only { "is_active = 1" } else { "1=1" }
-    );
-    let mut stmt = c.prepare(&sql).map_err(|e| e.to_string())?;
+    // S08 — pick one of two compile-time SQL constants based on a
+    // single bool. No user data, no dynamic column list; the `format!` that
+    // used to live here looked like string-built SQL and future reviewers
+    // would grep-flag it.
+    let sql = if active_only {
+        LIST_PRODUCTS_ACTIVE_SQL
+    } else {
+        LIST_PRODUCTS_ALL_SQL
+    };
+    let mut stmt = c.prepare(sql).map_err(|e| e.to_string())?;
     let iter = stmt
         .query_map(params![like, limit, offset], row_from)
         .map_err(|e| e.to_string())?;
@@ -356,5 +372,67 @@ mod tests {
             [],
         );
         assert!(r.is_err(), "trigger should reject MRP above NPPA cap");
+    }
+
+    // --- S08 sql-constants cleanup ----------------------------------------
+    //
+    // Regression lock: these constants must not drift back to `format!`
+    // or to string interpolation of user data. We verify the literal text
+    // so a future edit that tries to inline `{id}` etc. trips a unit test
+    // before hitting review.
+    #[test]
+    fn s08_upsert_sql_is_constant_and_uses_bind_parameters() {
+        // Every user-supplied column is a numbered bind parameter.
+        for p in [
+            "?1", "?2", "?3", "?4", "?5", "?6", "?7", "?8", "?9", "?10", "?11", "?12",
+        ] {
+            assert!(
+                UPSERT_PRODUCT_SQL.contains(p),
+                "missing bind parameter {p} in UPSERT_PRODUCT_SQL"
+            );
+        }
+        // No interpolation sigils leaked in. (Rust format!-style `{` should
+        // never appear in a finalised SQL const.)
+        assert!(
+            !UPSERT_PRODUCT_SQL.contains('{'),
+            "UPSERT_PRODUCT_SQL still contains `{{` — did format! creep back?"
+        );
+        assert!(!SELECT_PRODUCT_BY_ID_SQL.contains('{'));
+        assert!(!LIST_PRODUCTS_ACTIVE_SQL.contains('{'));
+        assert!(!LIST_PRODUCTS_ALL_SQL.contains('{'));
+    }
+
+    #[test]
+    fn s08_upsert_sql_executes_against_real_schema() {
+        // Exercise the *literal* UPSERT_PRODUCT_SQL string against an
+        // in-memory SQLite with the real migrations applied. If a future
+        // edit drops a bind parameter or re-introduces a `{now}` style
+        // placeholder, `prepare` or `execute` will fail here before CI.
+        let c = mem_db();
+        c.execute(
+            UPSERT_PRODUCT_SQL,
+            params![
+                "prd_s08",
+                "Crocin 500",
+                Option::<&str>::Some("Paracetamol"),
+                "GSK",
+                "3004",
+                12i64,
+                "OTC",
+                "tablet",
+                15i64,
+                3500i64,
+                Option::<i64>::Some(4000),
+                Option::<&str>::None,
+            ],
+        )
+        .expect("upsert sql runs against real schema");
+        let row: ProductRow = c
+            .query_row(SELECT_PRODUCT_BY_ID_SQL, params!["prd_s08"], row_from)
+            .expect("select by id");
+        assert_eq!(row.id, "prd_s08");
+        assert_eq!(row.name, "Crocin 500");
+        // The literal strftime(...) in SQL must have populated updated_at.
+        assert!(!row.updated_at.is_empty());
     }
 }

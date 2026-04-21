@@ -286,8 +286,31 @@ pub fn fetch_attachment(
     })
 }
 
+// S11 (docs/reviews/security-2026-04-18.md) — Windows reserved base names
+// that cannot be used as filenames no matter the extension. Writing a file
+// called `CON.txt` on NTFS raises a WinAPI error the caller currently
+// surfaces as a generic "write:" message. Sanitise them out at the source.
+const WINDOWS_RESERVED_BASES: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+/// Sanitise an arbitrary attachment filename into something safe to write
+/// under `std::env::temp_dir().join("pharmacare-gmail")`.
+///
+/// Hardened for S11:
+/// - Non-`[A-Za-z0-9._-]` bytes are replaced with `_` (unchanged from
+///   before — neuters path separators, NUL, quotes).
+/// - Leading and trailing `.` are stripped so `"..."` does not collapse
+///   to itself and `"foo."` does not become a dotless Windows filename
+///   that the shell treats specially.
+/// - If the base (pre-extension) matches a Windows reserved device name
+///   (`CON`, `PRN`, `AUX`, `NUL`, `COM1..9`, `LPT1..9`, case-insensitive),
+///   we prefix with `_` so the final path becomes `_CON.txt`.
+/// - If the result is empty after all of the above (e.g. input was `.`
+///   or `...`), fall back to `attachment.bin`.
 fn sanitize_filename(name: &str) -> String {
-    let mut s: String = name
+    let mapped: String = name
         .chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
@@ -297,10 +320,27 @@ fn sanitize_filename(name: &str) -> String {
             }
         })
         .collect();
-    if s.is_empty() {
-        s = "attachment.bin".into();
+
+    // Strip leading/trailing dots. `"../../etc/passwd"` already has its
+    // `/` replaced with `_` above; this takes care of the `..` that
+    // remains at the front and any NTFS-hostile trailing `.`.
+    let trimmed = mapped.trim_matches('.');
+    if trimmed.is_empty() {
+        return "attachment.bin".into();
     }
-    s
+
+    // Reject Windows reserved device names (case-insensitive match on
+    // the stem before the first `.`).
+    let stem = trimmed.split_once('.').map(|(s, _)| s).unwrap_or(trimmed);
+    let stem_upper = stem.to_ascii_uppercase();
+    if WINDOWS_RESERVED_BASES.iter().any(|r| *r == stem_upper) {
+        let mut s = String::with_capacity(trimmed.len() + 1);
+        s.push('_');
+        s.push_str(trimmed);
+        return s;
+    }
+
+    trimmed.to_string()
 }
 
 fn decode_text_if_possible(bytes: &[u8], mime: &str, filename: &str) -> Option<String> {
@@ -344,8 +384,48 @@ mod tests {
     #[test]
     fn sanitize_filename_works() {
         assert_eq!(sanitize_filename("bill (1).pdf"), "bill__1_.pdf");
-        assert_eq!(sanitize_filename("../../etc/passwd"), ".._.._etc_passwd");
+        // S11: leading dots from `../../` path fragments are now stripped
+        // in addition to the char-level `_`-replacement, giving a stronger
+        // defanged form than the original ".._.._etc_passwd".
+        assert_eq!(sanitize_filename("../../etc/passwd"), "_.._etc_passwd");
         assert_eq!(sanitize_filename(""), "attachment.bin");
+    }
+
+    // --- S11 Windows reserved names + dot handling ------------------------
+
+    #[test]
+    fn s11_rejects_only_dots_as_attachment_bin() {
+        // Previously `"..."` would round-trip as `"..."`. NTFS does not
+        // accept a name that is only dots — the write would fail with a
+        // generic error. Fallback is the same as for empty input.
+        assert_eq!(sanitize_filename("..."), "attachment.bin");
+        assert_eq!(sanitize_filename("."), "attachment.bin");
+    }
+
+    #[test]
+    fn s11_strips_trailing_dot_windows_hostile() {
+        // `foo.` on NTFS is treated as `foo` — Explorer silently drops
+        // the trailing dot. Prevent the ambiguity at write time.
+        assert_eq!(sanitize_filename("foo."), "foo");
+        assert_eq!(sanitize_filename("foo.."), "foo");
+    }
+
+    #[test]
+    fn s11_prefixes_underscore_on_reserved_base_names() {
+        // Windows reserved device names — `CON.txt`, `prn`, `Aux.log`,
+        // `LPT1.doc`, etc. — must not land in the output path verbatim.
+        assert_eq!(sanitize_filename("CON.txt"), "_CON.txt");
+        assert_eq!(sanitize_filename("con.txt"), "_con.txt");
+        assert_eq!(sanitize_filename("PRN"), "_PRN");
+        assert_eq!(sanitize_filename("Aux.log"), "_Aux.log");
+        assert_eq!(sanitize_filename("NUL"), "_NUL");
+        assert_eq!(sanitize_filename("COM1.dat"), "_COM1.dat");
+        assert_eq!(sanitize_filename("lpt9"), "_lpt9");
+        // Non-reserved names that happen to *contain* a reserved stem
+        // are untouched.
+        assert_eq!(sanitize_filename("CONSOLE.txt"), "CONSOLE.txt");
+        assert_eq!(sanitize_filename("COMet.pdf"), "COMet.pdf");
+        assert_eq!(sanitize_filename("LPT10.doc"), "LPT10.doc");
     }
 
     #[test]

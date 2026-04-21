@@ -108,7 +108,8 @@ pub async fn gmail_connect(
     })?;
     keyring_store::save_refresh(&shop_id, &refresh)?;
     // 7. Persist metadata
-    let email = google::extract_email_from_id_token(tr.id_token.as_deref()).unwrap_or_default();
+    let email =
+        google::extract_email_from_id_token_unverified(tr.id_token.as_deref()).unwrap_or_default();
     let scopes = tr.scope.clone();
     {
         let c = state.0.lock().map_err(|e| e.to_string())?;
