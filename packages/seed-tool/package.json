@@ -4,14 +4,16 @@
   "private": true,
   "type": "module",
   "bin": {
-    "pharmacare-seed": "./dist/cli.js"
+    "pharmacare-seed": "./dist/cli.js",
+    "pharmacare-validate-import": "./dist/validateCli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "seed": "node --import tsx/esm src/cli.ts",
-    "clean": "rm -rf dist .turbo"
+    "clean": "rm -rf dist .turbo",
+    "validate-import": "node --import tsx/esm src/validateCli.ts"
   },
   "dependencies": {
     "@pharmacare/shared-db": "*",
