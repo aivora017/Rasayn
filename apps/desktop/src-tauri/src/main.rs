@@ -7,6 +7,7 @@ mod phash;
 mod products;
 #[cfg(test)]
 mod products_perf;
+mod returns;
 mod telemetry;
 
 use crate::db::{apply_migrations, default_db_path, open_local, DbState};
@@ -94,6 +95,11 @@ fn main() {
             commands::cancel_irn,
             commands::list_irn_records,
             commands::get_irn_for_bill,
+            returns::save_partial_return,
+            returns::list_returns_for_bill,
+            returns::get_refundable_qty,
+            returns::record_credit_note_irn,
+            returns::next_return_no,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

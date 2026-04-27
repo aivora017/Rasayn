@@ -145,6 +145,14 @@ export type IpcCall =
   | {
       cmd: "check_similar_images_for_bytes";
       args: { input: CheckSimilarForBytesInputDTO };
+    }
+  | { cmd: "save_partial_return"; args: { input: SavePartialReturnInputDTO } }
+  | { cmd: "list_returns_for_bill"; args: { billId: string } }
+  | { cmd: "get_refundable_qty"; args: { billLineId: string } }
+  | { cmd: "next_return_no"; args: { shopId: string } }
+  | {
+      cmd: "record_credit_note_irn";
+      args: { input: RecordCreditNoteIrnInputDTO };
     };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
@@ -1316,4 +1324,128 @@ export async function checkSimilarImagesForBytesRpc(
     cmd: "check_similar_images_for_bytes",
     args: { input },
   })) as readonly SimilarImageRowDTO[];
+}
+
+
+// ===== A8 Partial Refund (ADR 0021) =====================================
+//
+// Schema: migration 0020 (return_headers / return_lines / credit_notes /
+// return_no_counters / shop_settings).
+// Rust impl: apps/desktop/src-tauri/src/returns.rs (5 commands).
+// UI:        PartialReturnPicker.tsx (F4 picker), TenderReversalModal.tsx (F6).
+
+/** Reason codes accepted by `return_lines.reason_code` CHECK constraint
+ * (migration 0020 §3). Source of truth — UI picker labels map to these. */
+export type ReturnReasonCode =
+  | "customer_change_of_mind"
+  | "damaged"
+  | "wrong_sku"
+  | "doctor_changed_rx"
+  | "expired_at_return"
+  | "other";
+
+export interface PartialReturnLineInputDTO {
+  readonly billLineId: string;
+  readonly qtyReturned: number;
+  readonly reasonCode: ReturnReasonCode;
+}
+
+export interface ReturnTenderDTO {
+  readonly mode: TenderMode;
+  readonly amountPaise: number;
+  readonly refNo?: string | null;
+}
+
+export interface SavePartialReturnInputDTO {
+  readonly returnId: string;
+  readonly shopId: string;
+  readonly returnNo: string;
+  readonly originalBillId: string;
+  readonly reason: string;
+  readonly actorUserId: string;
+  readonly lines: readonly PartialReturnLineInputDTO[];
+  readonly tenderPlan: readonly ReturnTenderDTO[];
+}
+
+export interface SavePartialReturnResultDTO {
+  readonly returnId: string;
+  readonly refundTotalPaise: number;
+  readonly einvoiceStatus: string | null;
+  readonly creditNoteIssuedId: string | null;
+}
+
+export interface ReturnHeaderRowDTO {
+  readonly id: string;
+  readonly originalBillId: string;
+  readonly returnNo: string;
+  readonly returnType: "partial" | "full";
+  readonly reason: string;
+  readonly refundTotalPaise: number;
+  readonly refundCgstPaise: number;
+  readonly refundSgstPaise: number;
+  readonly refundIgstPaise: number;
+  readonly refundCessPaise: number;
+  readonly refundRoundOffPaise: number;
+  readonly creditNoteIrn: string | null;
+  readonly creditNoteAckNo: string | null;
+  readonly creditNoteAckDate: string | null;
+  readonly einvoiceStatus: string | null;
+  readonly createdAt: string;
+  readonly createdBy: string;
+}
+
+export interface RecordCreditNoteIrnInputDTO {
+  readonly returnId: string;
+  readonly irn: string;
+  readonly ackNo: string;
+  readonly ackDate: string;
+  readonly qrCode: string;
+}
+
+/** save_partial_return — atomic insert into return_headers + return_lines.
+ * Migration 0020 triggers enforce qty + NPPA + stock-movement invariants.
+ * Throws on QTY_EXCEEDS_REFUNDABLE / NPPA_REFUND_EXCEEDS_ORIGINAL / IRN gate. */
+export async function savePartialReturnRpc(
+  input: SavePartialReturnInputDTO,
+): Promise<SavePartialReturnResultDTO> {
+  return (await handler({
+    cmd: "save_partial_return",
+    args: { input },
+  })) as SavePartialReturnResultDTO;
+}
+
+/** Return-header history for a single bill — sorted by created_at DESC. */
+export async function listReturnsForBillRpc(
+  billId: string,
+): Promise<readonly ReturnHeaderRowDTO[]> {
+  return (await handler({
+    cmd: "list_returns_for_bill",
+    args: { billId },
+  })) as readonly ReturnHeaderRowDTO[];
+}
+
+/** Remaining refundable qty for a bill_line (orig_qty − sum of prior partial returns). */
+export async function getRefundableQtyRpc(billLineId: string): Promise<number> {
+  return (await handler({
+    cmd: "get_refundable_qty",
+    args: { billLineId },
+  })) as number;
+}
+
+/** Per-shop, per-FY 'CN/YYYY-YY/NNNN' credit-note numerator (ADR 0021 Q3). */
+export async function nextReturnNoRpc(shopId: string): Promise<string> {
+  return (await handler({
+    cmd: "next_return_no",
+    args: { shopId },
+  })) as string;
+}
+
+/** Update a return_header with the IRN/QR returned by the CRN async submitter. */
+export async function recordCreditNoteIrnRpc(
+  input: RecordCreditNoteIrnInputDTO,
+): Promise<void> {
+  await handler({
+    cmd: "record_credit_note_irn",
+    args: { input },
+  });
 }
