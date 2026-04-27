@@ -19,7 +19,9 @@ const BUSY_TIMEOUT_MS: u64 = 5_000;
 // build.rs, source of truth is packages/shared-db/migrations/*.sql.
 include!(concat!(env!("OUT_DIR"), "/migrations_generated.rs"));
 
-pub struct DbState(pub Mutex<Connection>);
+/// DB state shared between Tauri command handlers and the auto-backup loop.
+/// Wrapped in Arc so the backup_scheduler thread can hold its own clone.
+pub struct DbState(pub std::sync::Arc<std::sync::Mutex<Connection>>);
 
 pub fn default_db_path() -> PathBuf {
     // Windows: %APPDATA%\PharmaCarePro\pharmacare.db
