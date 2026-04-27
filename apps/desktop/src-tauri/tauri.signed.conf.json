@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "windows": {
+      "signCommand": "powershell -ExecutionPolicy Bypass -File ..\\..\\..\\scripts\\sign-windows.ps1 -File %1"
+    }
+  }
+}
