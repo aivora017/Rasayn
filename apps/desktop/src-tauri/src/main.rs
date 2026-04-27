@@ -18,7 +18,6 @@ mod returns;
 mod telemetry;
 
 use crate::db::{apply_migrations, default_db_path, open_local, DbState};
-use std::sync::Mutex;
 
 fn main() {
     // F6: LAN-only tracing sinks (stderr + local rolling file).

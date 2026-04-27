@@ -59,7 +59,7 @@ pub struct SavePartialReturnInput {
     pub tender_plan: Vec<ReturnTender>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SavePartialReturnResult {
     pub return_id: String,
@@ -116,6 +116,7 @@ fn round_half_away_from_zero(x: f64) -> i64 {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compute_line_pro_rata(
     qty_returned: f64,
     orig_qty: f64,
@@ -730,6 +731,7 @@ pub fn next_return_no_impl(c: &mut Connection, shop_id: &str) -> Result<String, 
 
 // ---- residual-to-largest tender split (ADR 0021 §2 rule 2, UI helper) ------
 
+#[allow(dead_code)]  // ADR 0021 §2 helper - kept for the picker's UI seed; not yet wired from Rust caller side
 pub fn residual_to_largest(origs: &[ReturnTender], refund_total_paise: i64) -> Vec<ReturnTender> {
     let orig_total: i64 = origs.iter().map(|t| t.amount_paise).sum();
     if orig_total <= 0 {

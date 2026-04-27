@@ -15,6 +15,8 @@
 //! | `CLEARTAX_GSTIN` | The shop's 15-char GSTIN |
 //! | `CLEARTAX_SANDBOX` | `true` to force sandbox mode irrespective of base URL |
 
+#![cfg_attr(not(feature = "cleartax-live"), allow(dead_code))]
+
 use std::env;
 
 pub const CLEARTAX_SANDBOX_BASE_URL: &str = "https://einvapi-sandbox.cleartax.in";

@@ -20,6 +20,8 @@
 //! | `CYGNET_GSTIN` | The shop's 15-char GSTIN |
 //! | `CYGNET_SANDBOX` | `true` to force sandbox mode irrespective of base URL (extra safety) |
 
+#![cfg_attr(not(feature = "cygnet-live"), allow(dead_code))]
+
 use std::env;
 
 /// Cygnet sandbox base URL — NIC-test integration.
