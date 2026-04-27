@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod cleartax;
 mod commands;
 mod cygnet;
 mod db;
