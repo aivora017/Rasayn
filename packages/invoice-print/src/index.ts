@@ -22,6 +22,10 @@ import type {
 import { amountInWords, escapeHtml, formatDate, formatDateTime, formatQty, formatRupees } from "./format.js";
 
 export * from "./types.js";
+export {
+  renderCreditNoteHtml,
+  resolveCreditNoteLayout,
+} from "./creditNote.js";
 
 /** B2B if customer has a GSTIN; used to auto-pick A5-GST layout. */
 export function isB2B(customer: CustomerFull | null): boolean {

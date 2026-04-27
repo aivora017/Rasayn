@@ -122,3 +122,78 @@ export interface RenderInvoiceInput {
   /** set when reprinting — stamps "DUPLICATE — REPRINT" banner. */
   readonly printReceipt?: PrintReceipt;
 }
+
+
+// ─── Credit note (A8 / ADR 0021 step 5) ──────────────────────────────────
+//
+// CreditNoteFull mirrors the BillFull shape so the renderer can re-use the
+// same layout primitives. Schema source-of-truth is migration 0020 +
+// `returns::get_credit_note_full` Rust command.
+
+export interface CreditNoteHeader {
+  /** UUID returned by save_partial_return. */
+  readonly id: string;
+  /** 'CN/YYYY-YY/NNNN' from return_no_counters. */
+  readonly returnNo: string;
+  /** ISO8601 of when the return event was recorded. */
+  readonly createdAt: string;
+  /** Operator-entered reason (>= 4 chars). */
+  readonly reason: string;
+  /** 'partial' | 'full'. */
+  readonly returnType: "partial" | "full";
+  readonly refundCgstPaise: number;
+  readonly refundSgstPaise: number;
+  readonly refundIgstPaise: number;
+  readonly refundCessPaise: number;
+  readonly refundRoundOffPaise: number;
+  readonly refundTotalPaise: number;
+  /** IRN / QR populated by the CRN async submitter (ADR 0017). */
+  readonly creditNoteIrn: string | null;
+  readonly creditNoteAckNo: string | null;
+  readonly creditNoteAckDate: string | null;
+  readonly creditNoteQrCode: string | null;
+}
+
+export interface CreditNoteLine {
+  /** UUID of the return_line row. */
+  readonly id: string;
+  readonly productId: string;
+  readonly productName: string;
+  readonly hsn: string;
+  readonly batchId: string;
+  readonly batchNo: string | null;
+  readonly expiryDate: string | null;
+  readonly qtyReturned: number;
+  readonly mrpPaise: number;
+  readonly refundTaxablePaise: number;
+  readonly refundDiscountPaise: number;
+  readonly gstRate: number;
+  readonly refundCgstPaise: number;
+  readonly refundSgstPaise: number;
+  readonly refundIgstPaise: number;
+  readonly refundCessPaise: number;
+  readonly refundAmountPaise: number;
+  readonly schedule: Schedule;
+  readonly reasonCode: string;
+}
+
+export interface OriginalBillSummary {
+  readonly id: string;
+  readonly billNo: string;
+  readonly billedAt: string;
+}
+
+export interface CreditNoteFull {
+  readonly shop: ShopFull;
+  readonly creditNote: CreditNoteHeader;
+  readonly originalBill: OriginalBillSummary;
+  readonly customer: CustomerFull | null;
+  readonly lines: readonly CreditNoteLine[];
+  readonly hsnRefundSummary: readonly HsnSummary[];
+}
+
+export interface RenderCreditNoteInput {
+  readonly creditNote: CreditNoteFull;
+  readonly layout?: InvoiceLayout;
+  readonly printReceipt?: PrintReceipt;
+}

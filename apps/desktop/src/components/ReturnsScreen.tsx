@@ -32,17 +32,21 @@ import {
   userGetRpc,
   listIrnRecordsRpc,
   cancelIrnRpc,
+  listReturnsForBillRpc,
   type Gstr1InputDTO,
   type GstReturnDTO,
+  type ReturnHeaderRowDTO,
+  type SavePartialReturnResultDTO,
   type UserDTO,
   type IrnRecordDTO,
 } from "../lib/ipc.js";
+import { PartialReturnPicker } from "./PartialReturnPicker.js";
 
 const SHOP_ID = "shop_vaidyanath_kalyan";
 const OWNER_USER_ID = "user_sourav_owner";
 
 type PreviewTab = "summary" | "b2b" | "b2cl" | "b2cs" | "hsn" | "exemp" | "doc";
-type ReturnsMode = "gstr1" | "irn";
+type ReturnsMode = "gstr1" | "irn" | "refunds";
 type IrnStatusFilter = "all" | "pending" | "submitted" | "acked" | "failed" | "cancelled";
 
 function ymNow(): { mm: string; yyyy: string } {
@@ -145,6 +149,12 @@ export function ReturnsScreen() {
   const periodRef = useRef<HTMLInputElement | null>(null);
   // A12 (ADR 0017) · IRN Records mode + filters
   const [mode, setMode] = useState<ReturnsMode>("gstr1");
+  // A8 refunds-mode state (ADR 0021 step 7).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [refundBillId, setRefundBillId] = useState("");
+  const [refundHistory, setRefundHistory] = useState<readonly ReturnHeaderRowDTO[]>([]);
+  const [refundLoadErr, setRefundLoadErr] = useState<string | null>(null);
+  const [refundToast, setRefundToast] = useState<string | null>(null);
   const [irnRecords, setIrnRecords] = useState<readonly IrnRecordDTO[]>([]);
   const [irnFilter, setIrnFilter] = useState<IrnStatusFilter>("all");
   const [irnBusy, setIrnBusy] = useState(false);
@@ -309,6 +319,14 @@ export function ReturnsScreen() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      // F4 — flip to A8 refunds mode (always-on, regardless of current mode).
+      if (e.key === "F4") {
+        e.preventDefault();
+        setMode("refunds");
+        return;
+      }
+      // GSTR-1 keys are gated to the gstr1 panel.
+      if (mode !== "gstr1") return;
       if (e.key === "F9") { e.preventDefault(); void generate(); }
       else if (e.key === "F10") { e.preventDefault(); downloadJson(); }
       else if (e.key === "F2") { e.preventDefault(); downloadCsvBundle(); }
@@ -319,7 +337,7 @@ export function ReturnsScreen() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [generate, downloadJson, downloadCsvBundle, savedReturn]);
+  }, [mode, generate, downloadJson, downloadCsvBundle, savedReturn]);
 
   const summary = result?.summary ?? null;
   const isOwner = currentUser?.role === "owner" && currentUser.isActive;
@@ -329,7 +347,7 @@ export function ReturnsScreen() {
     <div style={{ padding: 16 }} data-testid="returns-screen">
       <h2 style={{ margin: "0 0 12px" }}>GSTR-1 Returns</h2>
       <div data-testid="ret-mode-switch" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {(["gstr1", "irn"] as ReturnsMode[]).map((m) => (
+        {(["gstr1", "irn", "refunds"] as ReturnsMode[]).map((m) => (
           <button
             key={m}
             data-testid={`ret-mode-${m}`}
@@ -340,7 +358,7 @@ export function ReturnsScreen() {
               color: mode === m ? "#fff" : "#0f172a",
               border: "none", cursor: "pointer",
             }}
-          >{m === "gstr1" ? "GSTR-1" : "IRN Records"}</button>
+          >{m === "gstr1" ? "GSTR-1" : m === "irn" ? "IRN Records" : "Refunds (F4)"}</button>
         ))}
       </div>
 
@@ -765,6 +783,111 @@ export function ReturnsScreen() {
         </div>
       )}
 
+      {mode === "refunds" && (
+        <div data-testid="refunds-panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap" }}>
+            <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
+              Bill ID (paste or type)
+              <input
+                data-testid="refund-bill-id"
+                value={refundBillId}
+                onChange={(e) => setRefundBillId(e.target.value.trim())}
+                onKeyDown={async (e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  if (!refundBillId) return;
+                  setRefundLoadErr(null);
+                  try {
+                    const rows = await listReturnsForBillRpc(refundBillId);
+                    setRefundHistory(rows);
+                  } catch (err) {
+                    setRefundLoadErr(err instanceof Error ? err.message : String(err));
+                    setRefundHistory([]);
+                  }
+                }}
+                style={{ padding: "6px 8px", width: 320, fontFamily: "monospace", fontSize: 13 }}
+                placeholder="bill_..."
+              />
+            </label>
+            <button
+              data-testid="refund-open-picker"
+              onClick={() => setPickerOpen(true)}
+              style={{ padding: "8px 14px", background: "#1e3a8a", color: "#fff", fontWeight: 600, border: "none" }}
+            >Open partial-refund picker</button>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b" }}>
+              {refundHistory.length} prior refund{refundHistory.length === 1 ? "" : "s"} on this bill
+            </span>
+          </div>
+
+          {refundLoadErr && (
+            <div data-testid="refund-load-err" role="alert" style={{ color: "#b00020" }}>{refundLoadErr}</div>
+          )}
+          {refundToast && (
+            <div data-testid="refund-toast" role="status" style={{
+              background: "#dcfce7", color: "#15803d", padding: "8px 12px",
+              borderRadius: 4, fontWeight: 600,
+            }}>{refundToast}</div>
+          )}
+
+          {refundHistory.length === 0 && !refundLoadErr && (
+            <div style={{ color: "#64748b", fontSize: 13 }}>
+              Enter a bill ID and press Enter to load this bill&apos;s refund history,
+              or press F4 in BillingScreen to launch the picker directly.
+            </div>
+          )}
+
+          {refundHistory.length > 0 && (
+            <table data-testid="refund-history-table" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                  <th style={{ padding: 6 }}>CN No</th>
+                  <th style={{ padding: 6 }}>Type</th>
+                  <th style={{ padding: 6 }}>Reason</th>
+                  <th style={{ padding: 6, textAlign: "right" }}>Refund</th>
+                  <th style={{ padding: 6 }}>IRN</th>
+                  <th style={{ padding: 6 }}>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refundHistory.map((r) => (
+                  <tr key={r.id} data-testid={`refund-row-${r.id}`} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: 6 }}>{r.returnNo}</td>
+                    <td style={{ padding: 6 }}>{r.returnType}</td>
+                    <td style={{ padding: 6 }}>{r.reason}</td>
+                    <td style={{ padding: 6, textAlign: "right" }}>₹{(r.refundTotalPaise / 100).toFixed(2)}</td>
+                    <td style={{ padding: 6, fontFamily: "monospace", fontSize: 11 }}>
+                      {r.creditNoteIrn ? `${r.creditNoteIrn.slice(0, 8)}…` : "—"}
+                    </td>
+                    <td style={{ padding: 6 }}>{r.createdAt.slice(0, 19).replace("T", " ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      <PartialReturnPicker
+        open={pickerOpen}
+        shopId={SHOP_ID}
+        actorUserId={OWNER_USER_ID}
+        onSaved={async (result: SavePartialReturnResultDTO) => {
+          setPickerOpen(false);
+          setRefundToast(`Refund saved · CN ₹${(result.refundTotalPaise / 100).toFixed(2)}`);
+          // If the picker was driven from this screen, refresh the history.
+          if (refundBillId) {
+            try {
+              const rows = await listReturnsForBillRpc(refundBillId);
+              setRefundHistory(rows);
+            } catch {
+              // non-fatal
+            }
+          }
+          // Auto-clear toast after 3s.
+          setTimeout(() => setRefundToast(null), 3000);
+        }}
+        onCancel={() => setPickerOpen(false)}
+      />
     </div>
   );
 }

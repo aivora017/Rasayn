@@ -17,9 +17,12 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { ReturnsScreen } from "./ReturnsScreen.js";
 import {
   setIpcHandler,
+  type BillFullDTO,
   type IpcCall,
   type Gstr1InputDTO,
   type GstReturnDTO,
+  type ReturnHeaderRowDTO,
+  type SavePartialReturnResultDTO,
   type UserDTO,
   type IrnRecordDTO,
 } from "../lib/ipc.js";
@@ -89,6 +92,10 @@ function installHandler(opts: {
   saveThrows?: string;
   irn?: readonly IrnRecordDTO[];
   cancelThrows?: string;
+  refundHistory?: readonly ReturnHeaderRowDTO[];
+  bill?: BillFullDTO;
+  refundables?: readonly number[];
+  saveReturnResult?: SavePartialReturnResultDTO;
 } = {}): CallLog {
   const calls: CallLog = [];
   const user = opts.user ?? OWNER;
@@ -115,6 +122,25 @@ function installHandler(opts: {
       case "cancel_irn":
         if (opts.cancelThrows) throw new Error(opts.cancelThrows);
         return { ...(opts.irn?.[0] as IrnRecordDTO), status: "cancelled" };
+      case "list_returns_for_bill":
+        return opts.refundHistory ?? [];
+      case "get_bill_full":
+        return opts.bill ?? null;
+      case "get_refundable_qty": {
+        const refundables = (opts.refundables ?? []) as number[];
+        return refundables.length > 0 ? refundables.shift() ?? 0 : 0;
+      }
+      case "next_return_no":
+        return "CN/2025-26/0001";
+      case "save_partial_return":
+        return (
+          opts.saveReturnResult ?? {
+            returnId: "ret_x",
+            refundTotalPaise: 5600,
+            einvoiceStatus: "n/a",
+            creditNoteIssuedId: null,
+          }
+        );
       default: return null;
     }
   });
@@ -357,5 +383,103 @@ describe("ReturnsScreen · A10", () => {
       expect(cancelCall.args.input.cancelReason).toBe("3");
       expect(cancelCall.args.input.cancelRemarks).toBe("order rolled back");
     }
+  });
+});
+
+
+describe("ReturnsScreen · A8 refunds-mode (ADR 0021 step 7)", () => {
+  beforeEach(() => {
+    (URL as any).createObjectURL = vi.fn(() => "blob:mock");
+    (URL as any).revokeObjectURL = vi.fn();
+    HTMLAnchorElement.prototype.click = vi.fn();
+  });
+
+  it("F4 flips to refunds mode showing the picker controls + empty-state hint", async () => {
+    installHandler();
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: "F4" });
+
+    await screen.findByTestId("refunds-panel");
+    expect(screen.getByTestId("refund-bill-id")).toBeInTheDocument();
+    expect(screen.getByTestId("refund-open-picker")).toBeInTheDocument();
+    expect(screen.getByText(/F4 in BillingScreen to launch the picker directly/)).toBeInTheDocument();
+  });
+
+  it("clicking the Refunds tab also flips mode (parity with F4)", async () => {
+    installHandler();
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("ret-mode-refunds"));
+    await screen.findByTestId("refunds-panel");
+  });
+
+  it("Enter on bill ID input triggers list_returns_for_bill and renders history rows", async () => {
+    const history: ReturnHeaderRowDTO[] = [
+      {
+        id: "ret_a",
+        originalBillId: "bill_pilot_001",
+        returnNo: "CN/2025-26/0001",
+        returnType: "partial",
+        reason: "wrong sku",
+        refundTotalPaise: 5600,
+        refundCgstPaise: 300,
+        refundSgstPaise: 300,
+        refundIgstPaise: 0,
+        refundCessPaise: 0,
+        refundRoundOffPaise: 0,
+        creditNoteIrn: null,
+        creditNoteAckNo: null,
+        creditNoteAckDate: null,
+        einvoiceStatus: "n/a",
+        createdAt: "2026-04-17T10:00:00+05:30",
+        createdBy: "user_sourav_owner",
+      },
+    ];
+    const calls = installHandler({ refundHistory: history });
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: "F4" });
+    await screen.findByTestId("refunds-panel");
+
+    const input = screen.getByTestId("refund-bill-id") as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "bill_pilot_001" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      // Flush the async listReturnsForBillRpc microtask.
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByTestId("refund-history-table")).toBeInTheDocument());
+    expect(screen.getByTestId("refund-row-ret_a").textContent ?? "").toMatch(/CN\/2025-26\/0001/);
+    expect(screen.getByTestId("refund-row-ret_a").textContent ?? "").toMatch(/56\.00/);
+
+    const listCall = calls.find((c) => c.cmd === "list_returns_for_bill");
+    expect(listCall).toBeTruthy();
+    if (listCall && listCall.cmd === "list_returns_for_bill") {
+      expect(listCall.args.billId).toBe("bill_pilot_001");
+    }
+  });
+
+  it("F9/F10/F2/F12 keybindings are gated to gstr1 mode (no-op in refunds mode)", async () => {
+    const calls = installHandler();
+    render(<ReturnsScreen />);
+    await waitFor(() => expect(screen.getByTestId("returns-screen")).toBeInTheDocument());
+
+    // Switch to refunds.
+    fireEvent.keyDown(window, { key: "F4" });
+    await screen.findByTestId("refunds-panel");
+
+    fireEvent.keyDown(window, { key: "F9" });
+    fireEvent.keyDown(window, { key: "F10" });
+    fireEvent.keyDown(window, { key: "F2" });
+    fireEvent.keyDown(window, { key: "F12" });
+
+    // None of the GSTR-1 RPCs should have fired.
+    expect(calls.some((c) => c.cmd === "generate_gstr1_payload")).toBe(false);
+    expect(calls.some((c) => c.cmd === "save_gstr1_return")).toBe(false);
   });
 });

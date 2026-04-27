@@ -3,6 +3,8 @@ import type {
   BillForGstr1,
   BillLineForGstr1,
   CustomerForGstr1,
+  ReturnForGstr1,
+  ReturnLineForGstr1,
   ShopForGstr1,
 } from "./types.js";
 
@@ -147,4 +149,55 @@ export function makeSampleMarch2026(): BillForGstr1[] {
       ],
     }),
   ];
+}
+
+
+// ─── Credit-note fixtures (A8 / ADR 0021 step 4) ────────────────────────
+
+export function makeReturnLine(
+  overrides: Partial<ReturnLineForGstr1> = {},
+): ReturnLineForGstr1 {
+  return {
+    id: "rl-1",
+    billLineId: "b-1-l1",
+    hsn: "30049099",
+    gstRate: 12,
+    qtyReturned: 1,
+    refundTaxablePaise: 5000,
+    refundCgstPaise: 300,
+    refundSgstPaise: 300,
+    refundIgstPaise: 0,
+    refundCessPaise: 0,
+    refundAmountPaise: 5600,
+    ...overrides,
+  };
+}
+
+export function makeReturn(
+  overrides: Partial<ReturnForGstr1> = {},
+): ReturnForGstr1 {
+  const lines = overrides.lines ?? [makeReturnLine()];
+  const refundCgst = overrides.refundCgstPaise ?? lines.reduce((s, l) => s + l.refundCgstPaise, 0);
+  const refundSgst = overrides.refundSgstPaise ?? lines.reduce((s, l) => s + l.refundSgstPaise, 0);
+  const refundIgst = overrides.refundIgstPaise ?? lines.reduce((s, l) => s + l.refundIgstPaise, 0);
+  const refundCess = overrides.refundCessPaise ?? lines.reduce((s, l) => s + l.refundCessPaise, 0);
+  const refundTotal =
+    overrides.refundTotalPaise ?? lines.reduce((s, l) => s + l.refundAmountPaise, 0);
+  return {
+    id: "ret-1",
+    returnNo: "CN/2025-26/0001",
+    createdAt: "2026-03-15T10:00:00.000Z",
+    originalBillId: "b-1",
+    originalBillNo: "INV-0001",
+    originalBilledAt: "2026-03-05T10:00:00.000Z",
+    gstTreatment: "intra_state",
+    customer: makeCustomer(),
+    refundCgstPaise: refundCgst,
+    refundSgstPaise: refundSgst,
+    refundIgstPaise: refundIgst,
+    refundCessPaise: refundCess,
+    refundTotalPaise: refundTotal,
+    lines,
+    ...overrides,
+  };
 }

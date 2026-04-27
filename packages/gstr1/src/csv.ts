@@ -6,6 +6,8 @@ import type {
   B2BBuyerBlock,
   B2CLStateBlock,
   B2CSRow,
+  CdnrBuyerBlock,
+  CdnurNote,
   HsnRow,
   ExempRow,
   DocBlock,
@@ -191,6 +193,95 @@ export function csvDoc(block: DocBlock): string {
       d.cancel.toString(),
       d.net_issue.toString(),
     ]));
+  }
+  return lines.join("\n") + "\n";
+}
+
+
+/** CSV for cdnr — credit/debit notes to registered buyers. */
+export function csvCdnr(blocks: readonly CdnrBuyerBlock[]): string {
+  const header = [
+    "GSTIN/UIN of Recipient",
+    "Note Number",
+    "Note Date",
+    "Note Type",
+    "Note Value",
+    "Original Invoice Number",
+    "Original Invoice date",
+    "Rate",
+    "Taxable Value",
+    "Integrated Tax",
+    "Central Tax",
+    "State/UT Tax",
+    "Cess",
+  ];
+  const lines: string[] = [row(header)];
+  for (const blk of blocks) {
+    for (const n of blk.nt) {
+      for (const it of n.itms) {
+        lines.push(
+          row([
+            blk.ctin,
+            n.nt_num,
+            n.nt_dt,
+            n.ntty === "C" ? "Credit Note" : "Debit Note",
+            n.val,
+            n.inum,
+            n.idt,
+            it.itm_det.rt,
+            it.itm_det.txval,
+            it.itm_det.iamt,
+            it.itm_det.camt,
+            it.itm_det.samt,
+            it.itm_det.csamt,
+          ]),
+        );
+      }
+    }
+  }
+  return lines.join("\n") + "\n";
+}
+
+/** CSV for cdnur — credit/debit notes to unregistered (interstate B2CL). */
+export function csvCdnur(notes: readonly CdnurNote[]): string {
+  const header = [
+    "Note Number",
+    "Note Date",
+    "Note Type",
+    "Original Type",
+    "Note Value",
+    "Place Of Supply",
+    "Original Invoice Number",
+    "Original Invoice date",
+    "Rate",
+    "Taxable Value",
+    "Integrated Tax",
+    "Central Tax",
+    "State/UT Tax",
+    "Cess",
+  ];
+  const lines: string[] = [row(header)];
+  for (const n of notes) {
+    for (const it of n.itms) {
+      lines.push(
+        row([
+          n.nt_num,
+          n.nt_dt,
+          n.ntty === "C" ? "Credit Note" : "Debit Note",
+          n.typ,
+          n.val,
+          n.pos,
+          n.inum,
+          n.idt,
+          it.itm_det.rt,
+          it.itm_det.txval,
+          it.itm_det.iamt,
+          it.itm_det.camt,
+          it.itm_det.samt,
+          it.itm_det.csamt,
+        ]),
+      );
+    }
   }
   return lines.join("\n") + "\n";
 }

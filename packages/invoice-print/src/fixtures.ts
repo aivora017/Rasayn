@@ -1,6 +1,12 @@
 // Test-only fixtures (not exported from package — used by tests and the
 // manual renderer-sanity script under scripts/).
-import type { BillFull, BillLineFull } from "./types.js";
+import type {
+  BillFull,
+  BillLineFull,
+  CreditNoteFull,
+  CreditNoteLine,
+  CustomerFull,
+} from "./types.js";
 
 export function makeBill(overrides: Partial<BillFull> = {}): BillFull {
   const lines: BillLineFull[] = [
@@ -48,6 +54,106 @@ export function makeBill(overrides: Partial<BillFull> = {}): BillFull {
     ],
     hsnTaxSummary: [
       { hsn: "3004", gstRate: 12, taxableValuePaise: 35737, cgstPaise: 2144, sgstPaise: 2144, igstPaise: 0, cessPaise: 0 },
+    ],
+    ...overrides,
+  };
+}
+
+
+export function makeCustomerFull(
+  overrides: Partial<CustomerFull> = {},
+): CustomerFull {
+  return {
+    id: "c_1",
+    name: "Walk-in",
+    phone: null,
+    gstin: null,
+    address: null,
+    ...overrides,
+  };
+}
+
+export function makeCreditNoteLine(
+  overrides: Partial<CreditNoteLine> = {},
+): CreditNoteLine {
+  return {
+    id: "rl_1",
+    productId: "p_paracip",
+    productName: "Paracip 500 Tab",
+    hsn: "3004",
+    batchId: "b_1",
+    batchNo: "PCP241",
+    expiryDate: "2027-03-31",
+    qtyReturned: 1,
+    mrpPaise: 220,
+    refundTaxablePaise: 196,
+    refundDiscountPaise: 0,
+    gstRate: 12,
+    refundCgstPaise: 12,
+    refundSgstPaise: 12,
+    refundIgstPaise: 0,
+    refundCessPaise: 0,
+    refundAmountPaise: 220,
+    schedule: "OTC",
+    reasonCode: "wrong_sku",
+    ...overrides,
+  };
+}
+
+export function makeCreditNote(overrides: Partial<CreditNoteFull> = {}): CreditNoteFull {
+  const lines = overrides.lines ?? [makeCreditNoteLine()];
+  const refundCgst = lines.reduce((s, l) => s + l.refundCgstPaise, 0);
+  const refundSgst = lines.reduce((s, l) => s + l.refundSgstPaise, 0);
+  const refundIgst = lines.reduce((s, l) => s + l.refundIgstPaise, 0);
+  const refundCess = lines.reduce((s, l) => s + l.refundCessPaise, 0);
+  const refundTotal = lines.reduce((s, l) => s + l.refundAmountPaise, 0);
+  return {
+    shop: {
+      id: "s_1",
+      name: "Vaidyanath Pharmacy",
+      gstin: "27ABCDE1234F1Z5",
+      stateCode: "27",
+      retailLicense: "20B-123456",
+      address: "1st Floor, Main Rd, Kalyan 421301, MH",
+      pharmacistName: "Sourav Shaw",
+      pharmacistRegNo: "MH-87654",
+      fssaiNo: "11521000001234",
+      defaultInvoiceLayout: "thermal_80mm",
+    },
+    creditNote: {
+      id: "ret_1",
+      returnNo: "CN/2025-26/0001",
+      createdAt: "2026-04-17T14:30:00.000Z",
+      reason: "Customer changed mind on extra strip",
+      returnType: "partial",
+      refundCgstPaise: refundCgst,
+      refundSgstPaise: refundSgst,
+      refundIgstPaise: refundIgst,
+      refundCessPaise: refundCess,
+      refundRoundOffPaise: 0,
+      refundTotalPaise: refundTotal,
+      creditNoteIrn: null,
+      creditNoteAckNo: null,
+      creditNoteAckDate: null,
+      creditNoteQrCode: null,
+    },
+    originalBill: {
+      id: "bill_1",
+      billNo: "B-00021",
+      billedAt: "2026-04-17T14:03:00.000Z",
+    },
+    customer: null,
+    lines,
+    hsnRefundSummary: [
+      {
+        hsn: "3004",
+        gstRate: 12,
+        taxableValuePaise: lines.reduce((s, l) => s + l.refundTaxablePaise, 0),
+        cgstPaise: refundCgst,
+        sgstPaise: refundSgst,
+        igstPaise: refundIgst,
+        cessPaise: refundCess,
+      },
     ],
     ...overrides,
   };

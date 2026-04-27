@@ -65,10 +65,23 @@ export interface IrnValDtls {
   RndOffAmt: number;
 }
 
+export interface IrnPrecDocDtls {
+  InvNo: string;     // original invoice number
+  InvDt: string;     // original invoice date DD/MM/YYYY IST
+  OthRefNo?: string; // optional carrier ref
+}
+
+export interface IrnRefDtls {
+  PrecDocDtls?: IrnPrecDocDtls[];
+}
+
 export interface IrnPayload {
   Version: "1.1";
   TranDtls: IrnTranDtls;
   DocDtls: IrnDocDtls;
+  /** Required when DocDtls.Typ === 'CRN' or 'DBN'. Lists the
+   *  preceding invoice this credit/debit note adjusts. */
+  RefDtls?: IrnRefDtls;
   SellerDtls: IrnPartyDtls;
   BuyerDtls: IrnPartyDtls;
   ItemList: IrnItem[];
@@ -169,3 +182,70 @@ export interface IrnErrorResponse {
 
 // 5Cr turnover threshold in paise.
 export const TURNOVER_THRESHOLD_PAISE = 5_00_00_000_00; // ₹5,00,00,000 * 100
+
+
+// ─── A8 / ADR 0021 step 6 — credit-note (CRN) inputs ────────────────────
+
+/** A line on a credit note, projected for IRN payload emission.
+ * Mirrors BillLineForIrn but every monetary field carries the *refund*
+ * pro-rata amount (already computed by bill-repo/partialRefund.ts on the
+ * client and validated in Rust by triggers in migration 0020). */
+export interface CreditNoteLineForIrn {
+  slNo: number;
+  productName: string;
+  hsn: string;
+  qtyReturned: number;
+  unit?: string;        // defaults to "NOS"
+  mrpPaise: number;
+  refundDiscountPaise: number;
+  refundTaxablePaise: number;
+  gstRate: 0 | 5 | 12 | 18 | 28;
+  refundCgstPaise: number;
+  refundSgstPaise: number;
+  refundIgstPaise: number;
+  /** refundTaxable - refundDiscount + refund{Cgst,Sgst,Igst} */
+  refundLineTotalPaise: number;
+}
+
+export interface CreditNoteForIrn {
+  /** UUID of the return_header row. */
+  returnId: string;
+  /** 'CN/YYYY-YY/NNNN'. Used as DocDtls.No on the CRN payload. */
+  returnNo: string;
+  /** ISO-8601 UTC of when the credit note was recorded. */
+  createdAtIso: string;
+  /** Forward / reverse path classification — must match the original bill. */
+  gstTreatment: GstTreatment;
+  /** Original invoice number (mandatory for PrecDocDtls). */
+  originalBillNo: string;
+  /** Original invoice ISO-8601 UTC datetime. */
+  originalBilledAtIso: string;
+  /** Refund subtotals — these aggregate ItemList. */
+  refundSubtotalPaise: number;
+  refundCgstPaise: number;
+  refundSgstPaise: number;
+  refundIgstPaise: number;
+  refundRoundOffPaise: number;
+  refundTotalPaise: number;
+  lines: CreditNoteLineForIrn[];
+  seller: PartyForIrn;
+  buyer: PartyForIrn;
+}
+
+export type CrnValidationErrorCode =
+  | IrnValidationErrorCode
+  | "ORIG_INVOICE_NO_EMPTY"
+  | "ORIG_INVOICE_DATE_EMPTY"
+  | "REFUND_AMOUNT_NON_POSITIVE";
+
+export interface CrnValidationError {
+  code: CrnValidationErrorCode;
+  message: string;
+  field?: string;
+  lineSlNo?: number;
+}
+
+export interface CrnValidationResult {
+  ok: boolean;
+  errors: CrnValidationError[];
+}
