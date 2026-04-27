@@ -41,8 +41,7 @@
     ],
     "windows": {
       "digestAlgorithm": "sha256",
-      "timestampUrl": "http://timestamp.digicert.com",
-      "signCommand": "powershell -ExecutionPolicy Bypass -File ../../scripts/sign-windows.ps1 -File %1"
+      "timestampUrl": "http://timestamp.digicert.com"
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
