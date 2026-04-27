@@ -1,23 +1,23 @@
-# PharmaCare Pro — own-shop ship-readiness verifier.
+# PharmaCare Pro - own-shop ship-readiness verifier.
 # -----------------------------------------------------------------------------
-# Run this on your dev laptop AFTER `git pull origin main`. It walks the
-# SHIP_READINESS_CHECKLIST sections A + B + (optionally) the Rust gate,
-# stopping on the first red.
+# Run on your dev laptop AFTER `git pull origin main`. Walks the
+# SHIP_READINESS_CHECKLIST sections A + B, stopping on the first red.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File scripts/own-shop-verify.ps1
 #
-# Exits 0 on green, non-zero with a clear message on first failure.
+# Exits 0 on green, non-zero on first failure.
+# ASCII only - PowerShell + Windows console don't decode UTF-8 em-dash / section sign cleanly.
 
 [CmdletBinding()]
 param(
-  [switch]$SkipRust,    # skip cargo (use if you don't have rust toolchain locally)
-  [switch]$SkipBuild,   # skip tauri build (use if you only want the JS gate)
+  [switch]$SkipRust,
+  [switch]$SkipBuild,
   [string]$LogFile = "$env:TEMP\pharmacare-verify-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 )
 
 $ErrorActionPreference = "Stop"
-function Section($n, $title) { Write-Host "`n=== Section $n — $title ===" -ForegroundColor Cyan }
+function Section($n, $title) { Write-Host "`n=== Section $n - $title ===" -ForegroundColor Cyan }
 function Step($msg)         { Write-Host "  - $msg" -ForegroundColor Yellow }
 function Pass($msg)         { Write-Host "    OK  $msg" -ForegroundColor Green }
 function Fail($msg) {
@@ -26,7 +26,6 @@ function Fail($msg) {
   exit 1
 }
 
-# Resolve repo root (script lives in scripts/ folder)
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 Write-Host "Repo: $repoRoot"
@@ -51,13 +50,13 @@ if (-not $SkipRust) {
 }
 
 Section "A.1" "npm install"
-Step "Running npm install (offline-preferred for speed)"
+Step "Running npm install (offline-preferred)"
 & npm install --prefer-offline --no-audit --no-fund 2>&1 | Tee-Object -Append -FilePath $LogFile | Out-Host
 if ($LASTEXITCODE -ne 0) { Fail "npm install failed; see $LogFile" }
 Pass "deps installed"
 
 Section "A.2" "turbo build all packages"
-Step "Running npx turbo run build --filter='@pharmacare/*'"
+Step "Running npx turbo run build --filter=@pharmacare/*"
 & npx turbo run build --filter='@pharmacare/*' 2>&1 | Tee-Object -Append -FilePath $LogFile | Out-Host
 if ($LASTEXITCODE -ne 0) { Fail "turbo build failed; see $LogFile" }
 Pass "21 workspace packages built"
@@ -86,7 +85,7 @@ if (-not $SkipRust) {
   if ($LASTEXITCODE -ne 0) { Fail "cargo tests failed; see $LogFile" }
   Pass "cargo tests pass"
 
-  Step "cargo check --features cygnet-live (compile gate, not test)"
+  Step "cargo check --features cygnet-live (compile gate)"
   & cargo check --features cygnet-live 2>&1 | Tee-Object -Append -FilePath $LogFile | Out-Host
   if ($LASTEXITCODE -ne 0) { Fail "cygnet-live feature does not compile; see $LogFile" }
   Pass "cygnet-live compiles"
@@ -110,7 +109,7 @@ Pass "$summaryPath written"
 if (-not $SkipBuild) {
   Section "B.1" "tauri build (MSI)"
   Set-Location "$repoRoot\apps\desktop"
-  Step "Running npm run tauri:build (this is slow — 5-15 min)"
+  Step "Running npm run tauri:build (slow - 5-15 min)"
   & npm run tauri:build 2>&1 | Tee-Object -Append -FilePath $LogFile | Out-Host
   if ($LASTEXITCODE -ne 0) { Fail "tauri build failed; see $LogFile" }
   $msi = Get-ChildItem -Recurse "src-tauri\target\release\bundle\msi" -Filter "*.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -120,7 +119,7 @@ if (-not $SkipBuild) {
 }
 
 Write-Host "`n========================================" -ForegroundColor Green
-Write-Host "ALL GATES GREEN — own-shop ship-ready." -ForegroundColor Green
+Write-Host "ALL GATES GREEN - own-shop ship-ready." -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "Next: copy the MSI to your shop laptop + walk through SHIP_READINESS_CHECKLIST.docx §C onwards.`n"
+Write-Host "Next: copy the MSI to your shop laptop + walk through SHIP_READINESS_CHECKLIST.docx section C onwards.`n"
 exit 0
