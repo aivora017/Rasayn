@@ -951,8 +951,16 @@ mod tests {
     fn rx_missing_for_schedule_h_line() {
         let mut c = open_and_migrate();
         let (_bill_id, bl_id) = seed_bill(&c);
-        c.execute("UPDATE products SET schedule='H' WHERE id='prod_a'", [])
-            .unwrap();
+        // X2 moat (migration 0001): Schedule H/H1/X products require image_sha256.
+        // Set both columns in one UPDATE so the trigger sees the image.
+        c.execute(
+            "UPDATE products
+                SET image_sha256 = 'deadbeef00000000000000000000000000000000000000000000000000beef00',
+                    schedule = 'H'
+              WHERE id = 'prod_a'",
+            [],
+        )
+        .unwrap();
         c.execute("UPDATE bills SET rx_id=NULL WHERE id='bill_1'", [])
             .unwrap();
         let mut input = make_return_input("ret_rx", &bl_id, 1.0);
