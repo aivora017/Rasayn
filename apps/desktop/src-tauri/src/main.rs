@@ -1,8 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod backup_scheduler;
 mod cleartax;
+#[cfg(feature = "cleartax-live")]
+mod cleartax_wire;
 mod commands;
 mod cygnet;
+#[cfg(feature = "cygnet-live")]
+mod cygnet_wire;
 mod db;
 mod images;
 mod oauth;

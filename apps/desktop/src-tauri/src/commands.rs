@@ -3816,22 +3816,45 @@ impl EinvoiceAdapter for CygnetAdapter {
                     code: "CYGNET_CONFIG_INVALID".to_string(),
                     msg: format!("Cygnet config validation failed: {e}"),
                 }),
-                Ok(()) => Err(IrnErrorInner {
-                    code: "CYGNET_OFFLINE_BUILD".to_string(),
-                    msg: format!(
-                        "Cygnet config loaded ({}, sandbox={}) but HTTP wire not compiled in.                          Build with --features cygnet-live to enable.",
-                        cfg.base_url, cfg.is_sandbox
-                    ),
-                }),
+                Ok(()) => {
+                    #[cfg(feature = "cygnet-live")]
+                    {
+                        return crate::cygnet_wire::submit_irn_live(&cfg, _payload);
+                    }
+                    #[cfg(not(feature = "cygnet-live"))]
+                    {
+                        Err(IrnErrorInner {
+                            code: "CYGNET_OFFLINE_BUILD".to_string(),
+                            msg: format!(
+                                "Cygnet config loaded ({}, sandbox={}) but HTTP wire not compiled in. Build with --features cygnet-live to enable.",
+                                cfg.base_url, cfg.is_sandbox
+                            ),
+                        })
+                    }
+                },
             },
         }
     }
     fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
-        Err(IrnErrorInner {
-            code: "CYGNET_OFFLINE_BUILD".to_string(),
-            msg: "Cygnet cancel HTTP wire not compiled in (build with --features cygnet-live)"
-                .to_string(),
-        })
+        #[cfg(feature = "cygnet-live")]
+        {
+            let cfg = match crate::cygnet::CygnetConfig::from_env() {
+                Some(c) => c,
+                None => return Err(IrnErrorInner {
+                    code: "CYGNET_CONFIG_MISSING".into(),
+                    msg: "Cygnet env vars not set; cannot cancel.".into(),
+                }),
+            };
+            return crate::cygnet_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks);
+        }
+        #[cfg(not(feature = "cygnet-live"))]
+        {
+            Err(IrnErrorInner {
+                code: "CYGNET_OFFLINE_BUILD".to_string(),
+                msg: "Cygnet cancel HTTP wire not compiled in (build with --features cygnet-live)"
+                    .to_string(),
+            })
+        }
     }
 }
 
@@ -3852,22 +3875,45 @@ impl EinvoiceAdapter for ClearTaxAdapter {
                     code: "CLEARTAX_CONFIG_INVALID".to_string(),
                     msg: format!("ClearTax config validation failed: {e}"),
                 }),
-                Ok(()) => Err(IrnErrorInner {
-                    code: "CLEARTAX_OFFLINE_BUILD".to_string(),
-                    msg: format!(
-                        "ClearTax config loaded ({}, sandbox={}) but HTTP wire not compiled in.                          Build with --features cleartax-live to enable.",
-                        cfg.base_url, cfg.is_sandbox
-                    ),
-                }),
+                Ok(()) => {
+                    #[cfg(feature = "cleartax-live")]
+                    {
+                        return crate::cleartax_wire::submit_irn_live(&cfg, _payload);
+                    }
+                    #[cfg(not(feature = "cleartax-live"))]
+                    {
+                        Err(IrnErrorInner {
+                            code: "CLEARTAX_OFFLINE_BUILD".to_string(),
+                            msg: format!(
+                                "ClearTax config loaded ({}, sandbox={}) but HTTP wire not compiled in. Build with --features cleartax-live to enable.",
+                                cfg.base_url, cfg.is_sandbox
+                            ),
+                        })
+                    }
+                },
             },
         }
     }
     fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
-        Err(IrnErrorInner {
-            code: "CLEARTAX_OFFLINE_BUILD".to_string(),
-            msg: "ClearTax cancel HTTP wire not compiled in (build with --features cleartax-live)"
-                .to_string(),
-        })
+        #[cfg(feature = "cleartax-live")]
+        {
+            let cfg = match crate::cleartax::ClearTaxConfig::from_env() {
+                Some(c) => c,
+                None => return Err(IrnErrorInner {
+                    code: "CLEARTAX_CONFIG_MISSING".into(),
+                    msg: "ClearTax env vars not set; cannot cancel.".into(),
+                }),
+            };
+            return crate::cleartax_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks);
+        }
+        #[cfg(not(feature = "cleartax-live"))]
+        {
+            Err(IrnErrorInner {
+                code: "CLEARTAX_OFFLINE_BUILD".to_string(),
+                msg: "ClearTax cancel HTTP wire not compiled in (build with --features cleartax-live)"
+                    .to_string(),
+            })
+        }
     }
 }
 
