@@ -7,7 +7,6 @@
 use anyhow::Result;
 use rusqlite::{params, Connection};
 use std::path::PathBuf;
-use std::sync::Mutex;
 use std::time::Duration;
 
 /// 5 s wait on a locked writer before SQLITE_BUSY. Tuned for the pilot
