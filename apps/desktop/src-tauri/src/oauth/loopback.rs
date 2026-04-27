@@ -120,9 +120,8 @@ pub(crate) fn parse_callback_request(
         if let Some((k, v)) = kv.split_once('=') {
             // S12: malformed %-encoding -> HTTP 400 rather than silently
             // dropping the percent sign.
-            let decoded = url_decode(v).ok_or_else(|| {
-                format!("malformed percent-encoding in query parameter `{k}`")
-            })?;
+            let decoded = url_decode(v)
+                .ok_or_else(|| format!("malformed percent-encoding in query parameter `{k}`"))?;
             match k {
                 "code" => code = Some(decoded),
                 "state" => state = Some(decoded),

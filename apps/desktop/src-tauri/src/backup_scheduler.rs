@@ -36,11 +36,13 @@ pub fn default_backup_dir() -> PathBuf {
         PathBuf::from(appdata).join(app).join("backups")
     } else if cfg!(target_os = "macos") {
         let home = std::env::var("HOME").unwrap_or_default();
-        PathBuf::from(home).join("Library/Application Support").join(app).join("backups")
+        PathBuf::from(home)
+            .join("Library/Application Support")
+            .join(app)
+            .join("backups")
     } else {
         let home = std::env::var("HOME").unwrap_or_default();
-        let xdg = std::env::var("XDG_DATA_HOME")
-            .unwrap_or_else(|_| format!("{home}/.local/share"));
+        let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| format!("{home}/.local/share"));
         PathBuf::from(xdg).join(app).join("backups")
     }
 }
@@ -50,7 +52,7 @@ fn interval() -> Duration {
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(DEFAULT_INTERVAL_SECONDS);
-    Duration::from_secs(secs.max(60))   // floor 60s for safety
+    Duration::from_secs(secs.max(60)) // floor 60s for safety
 }
 
 fn retain_count() -> usize {
@@ -90,7 +92,7 @@ pub fn prune_old_snapshots(dir: &Path, retain: usize) -> Result<usize, String> {
                 .unwrap_or(false)
         })
         .collect();
-    entries.sort_by_key(|e| e.file_name());     // alphabetical = chronological
+    entries.sort_by_key(|e| e.file_name()); // alphabetical = chronological
     if entries.len() <= retain {
         return Ok(0);
     }
@@ -158,8 +160,16 @@ mod tests {
         let bdir = dir.path().join("backups");
         let p = take_snapshot(&c, &bdir).unwrap();
         assert!(p.exists());
-        assert!(p.file_name().unwrap().to_string_lossy().starts_with("snap-"));
-        assert!(p.file_name().unwrap().to_string_lossy().ends_with(".sqlite"));
+        assert!(p
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("snap-"));
+        assert!(p
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with(".sqlite"));
     }
 
     #[test]
@@ -167,7 +177,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let bdir = dir.path().join("backups");
         std::fs::create_dir_all(&bdir).unwrap();
-        for stamp in ["snap-20260101T000000Z.sqlite", "snap-20260102T000000Z.sqlite", "snap-20260103T000000Z.sqlite"] {
+        for stamp in [
+            "snap-20260101T000000Z.sqlite",
+            "snap-20260102T000000Z.sqlite",
+            "snap-20260103T000000Z.sqlite",
+        ] {
             std::fs::write(bdir.join(stamp), b"x").unwrap();
         }
         let pruned = prune_old_snapshots(&bdir, 2).unwrap();
