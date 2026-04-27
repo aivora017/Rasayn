@@ -1,0 +1,104 @@
+# PharmaCare Pro — Windows release pipeline.
+# -----------------------------------------------------------------------------
+# Triggers on tag push matching v*.  Builds an MSI + NSIS installer signed
+# with the DigiCert EV Authenticode cert via DigiCert KeyLocker (HSM-in-cloud).
+# Uploads both as artefacts, attaches them to the GitHub Release.
+#
+# Required GitHub secrets (configure once after cert procurement):
+#   SM_HOST                            DigiCert KeyLocker host (e.g. https://clientauth.one.digicert.com)
+#   SM_API_KEY                         KeyLocker API key
+#   SM_CLIENT_CERT_FILE_BASE64         Base64 of client_cert.p12 (KeyLocker-issued auth cert)
+#   SM_CLIENT_CERT_PASSWORD            Password for the .p12
+#   SM_CODE_SIGNING_CERT_SHA1_HASH     SHA-1 thumbprint of the code-signing cert
+#
+# Manual signing fallback (no GH Action) — see docs/install/code-signing-setup.md.
+
+name: release-windows
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag (used in artefact filenames)"
+        required: true
+        default: "v0.0.0-dev"
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build + sign + release (windows)
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx turbo run build --filter='@pharmacare/*'
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: install DigiCert KeyLocker tools
+        if: ${{ env.SM_API_KEY != '' }}
+        env:
+          SM_API_KEY: ${{ secrets.SM_API_KEY }}
+        run: |
+          # KeyLocker provides an installer that registers the SignTool plugin.
+          # https://docs.digicert.com/en/digicert-keylocker/ci-cd-integrations
+          curl.exe -sSLO "https://one.digicert.com/signingmanager/api-ui/v1/releases/Keylockertools-windows-x64.msi/download"
+          msiexec.exe /i Keylockertools-windows-x64.msi /qn
+
+      - name: prepare KeyLocker auth
+        if: ${{ env.SM_API_KEY != '' }}
+        shell: pwsh
+        env:
+          SM_API_KEY: ${{ secrets.SM_API_KEY }}
+        run: |
+          $bytes = [Convert]::FromBase64String("${{ secrets.SM_CLIENT_CERT_FILE_BASE64 }}")
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\client_cert.p12", $bytes)
+          # Sync KeyLocker certs into the local Windows cert store
+          smctl windows certsync
+
+      - name: build + sign installer
+        shell: pwsh
+        env:
+          # Prefer keylocker when secrets are present; falls back to skip otherwise.
+          SIGNING_MODE: ${{ secrets.SM_API_KEY != '' && 'keylocker' || 'skip' }}
+          SM_HOST: ${{ secrets.SM_HOST }}
+          SM_API_KEY: ${{ secrets.SM_API_KEY }}
+          SM_CLIENT_CERT_FILE: ${{ runner.temp }}\client_cert.p12
+          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
+          SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+        run: |
+          npm run tauri:build --workspace=@pharmacare/desktop
+
+      - name: collect artefacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+          Get-ChildItem -Recurse -Path apps/desktop/src-tauri/target/release/bundle/msi  -Filter "*.msi" | Copy-Item -Destination dist-release
+          Get-ChildItem -Recurse -Path apps/desktop/src-tauri/target/release/bundle/nsis -Filter "*.exe" | Copy-Item -Destination dist-release
+          Get-ChildItem dist-release | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$h  $($_.Name)" | Out-File -Append -Encoding ASCII dist-release/SHA256SUMS
+          }
+          Get-Content dist-release/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pharmacare-pro-windows-${{ github.ref_name }}
+          path: dist-release/*
+          if-no-files-found: error
+
+      - name: attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-release/*
+          generate_release_notes: true
+          draft: true
