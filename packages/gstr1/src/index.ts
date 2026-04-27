@@ -20,14 +20,27 @@ import { GSTR1_SCHEMA_VERSION } from "./types.js";
 import { buildPeriod, fiscalYearFromPeriod, isoInPeriod } from "./format.js";
 import {
   classifyBills,
+  classifyReturns,
   buildB2BBlocks,
   buildB2CLBlocks,
   buildB2CSRows,
+  buildCdnrBlocks,
+  buildCdnurNotes,
   buildHsnBlocks,
   buildExempRows,
   buildDocBlock,
+  netB2csForReturns,
 } from "./aggregate.js";
-import { csvB2B, csvB2CL, csvB2CS, csvHsn, csvExemp, csvDoc } from "./csv.js";
+import {
+  csvB2B,
+  csvB2CL,
+  csvB2CS,
+  csvCdnr,
+  csvCdnur,
+  csvHsn,
+  csvExemp,
+  csvDoc,
+} from "./csv.js";
 
 export function generateGstr1(input: GenerateGstr1Input): Gstr1Result {
   const period = buildPeriod(input.period.mm, input.period.yyyy);
@@ -37,14 +50,24 @@ export function generateGstr1(input: GenerateGstr1Input): Gstr1Result {
   const inPeriod = input.bills.filter(
     (b) => isoInPeriod(b.billedAt, input.period.mm, input.period.yyyy),
   );
+  // 1b. Period filter for credit notes — return.created_at must be in period.
+  const returnsInPeriod = (input.returns ?? []).filter(
+    (r) => isoInPeriod(r.createdAt, input.period.mm, input.period.yyyy),
+  );
 
   // 2. Classify valid bills into sections
   const c = classifyBills(inPeriod, shopState);
+  const cr = classifyReturns(returnsInPeriod, shopState);
 
   // 3. Build JSON blocks
   const b2b = buildB2BBlocks(c.b2b);
   const b2cl = buildB2CLBlocks(c.b2cl, shopState);
-  const b2cs = buildB2CSRows(c.b2cs, shopState);
+  const b2csRaw = buildB2CSRows(c.b2cs, shopState);
+  // Net B2CS rows by small-B2C credit notes (intra-state or interstate <2.5L
+  // returns reduce the corresponding bucket directly per GSTN spec).
+  const b2cs = netB2csForReturns(b2csRaw, cr.b2csNet, shopState);
+  const cdnr = buildCdnrBlocks(cr.cdnr);
+  const cdnur = buildCdnurNotes(cr.cdnur, shopState);
   const hsn = buildHsnBlocks(c.b2b, [...c.b2cl, ...c.b2cs]);
   const exemp = buildExempRows(c.exempt, shopState);
   // Doc section: pass ALL in-period bills (including voided) so cancelled count works.
@@ -66,8 +89,8 @@ export function generateGstr1(input: GenerateGstr1Input): Gstr1Result {
     hsn,
     nil: { inv: exemp },
     doc_issue: { doc_det: [doc.block] },
-    cdnr: [],
-    cdnur: [],
+    cdnr,
+    cdnur,
     b2ba: [],
     b2cla: [],
     b2csa: [],
@@ -81,6 +104,8 @@ export function generateGstr1(input: GenerateGstr1Input): Gstr1Result {
     b2b: csvB2B(b2b),
     b2cl: csvB2CL(b2cl),
     b2cs: csvB2CS(b2cs),
+    cdnr: csvCdnr(cdnr),
+    cdnur: csvCdnur(cdnur),
     hsn: csvHsn([...hsn.hsn_b2b.data, ...hsn.hsn_b2c.data]),
     exemp: csvExemp(exemp),
     doc: csvDoc(doc.block),
@@ -88,6 +113,12 @@ export function generateGstr1(input: GenerateGstr1Input): Gstr1Result {
 
   // 6. Summary
   const grandTotalPaise = c.valid.reduce((s, b) => s + b.grandTotalPaise, 0);
+  const cdnrNoteCount = cdnr.reduce((s, blk) => s + blk.nt.length, 0);
+  const cdnurNoteCount = cdnur.length;
+  const creditNoteRefundTotalPaise =
+    cr.cdnr.reduce((s, r) => s + r.refundTotalPaise, 0) +
+    cr.cdnur.reduce((s, r) => s + r.refundTotalPaise, 0) +
+    cr.b2csNet.reduce((s, r) => s + r.refundTotalPaise, 0);
   const summary: Gstr1Summary = {
     billCount: c.valid.length,
     b2bCount: c.b2b.length,
@@ -97,9 +128,12 @@ export function generateGstr1(input: GenerateGstr1Input): Gstr1Result {
     hsnB2cRowCount: hsn.hsn_b2c.data.length,
     exempRowCount: exemp.length,
     docRowCount: doc.block.docs.length,
+    cdnrNoteCount,
+    cdnurNoteCount,
+    creditNoteRefundTotalPaise,
     grandTotalPaise,
     gaps: doc.gaps,
-    invalid: c.invalid,
+    invalid: [...c.invalid, ...cr.invalid.map((i) => ({ billId: i.returnId, reason: `return: ${i.reason}` }))],
   };
 
   return { json, csv, summary };

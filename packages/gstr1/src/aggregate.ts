@@ -7,10 +7,16 @@ import type {
   B2CLStateBlock,
   B2CLInvoice,
   B2CSRow,
+  CdnrBuyerBlock,
+  CdnrItem,
+  CdnrNote,
+  CdnurNote,
   HsnRow,
   ExempRow,
   DocBlock,
   DocRow,
+  ReturnForGstr1,
+  ReturnLineForGstr1,
 } from "./types.js";
 import {
   DEFAULT_DOC_NATURE_CODE,
@@ -380,4 +386,207 @@ export function buildDocBlock(
     },
     gaps: gapsOut,
   };
+}
+
+
+// ─── Credit-note classification + aggregation (A8 / ADR 0021 step 4) ────
+
+export interface ClassifiedReturns {
+  /** Returns to a B2B (registered) customer. CDNR. */
+  readonly cdnr: readonly ReturnForGstr1[];
+  /** Returns to an unregistered B2CL-eligible customer (interstate, val > 2.5L).
+   *  CDNUR. */
+  readonly cdnur: readonly ReturnForGstr1[];
+  /** Returns netted into the period's B2CS aggregate (small B2C). */
+  readonly b2csNet: readonly ReturnForGstr1[];
+  /** Returns rejected with a reason (mirrors classifyBills.invalid). */
+  readonly invalid: readonly { readonly returnId: string; readonly reason: string }[];
+}
+
+const B2CL_THRESHOLD_PAISE = 250_000_00; // 2.5L rupees
+
+/** Classify a list of returns into the GSTR-1 sections. Mirrors
+ * classifyBill / classifyBills for the forward path. */
+export function classifyReturns(
+  returns: readonly ReturnForGstr1[],
+  shopStateCode: string,
+): ClassifiedReturns {
+  const cdnr: ReturnForGstr1[] = [];
+  const cdnur: ReturnForGstr1[] = [];
+  const b2csNet: ReturnForGstr1[] = [];
+  const invalid: { returnId: string; reason: string }[] = [];
+
+  for (const r of returns) {
+    if (r.lines.length === 0) {
+      invalid.push({ returnId: r.id, reason: "no return lines" });
+      continue;
+    }
+    if (r.refundTotalPaise <= 0) {
+      invalid.push({ returnId: r.id, reason: "non-positive refund_total_paise" });
+      continue;
+    }
+    const cust = r.customer;
+    if (cust && cust.gstin) {
+      cdnr.push(r);
+      continue;
+    }
+    const isInterstate =
+      cust !== null &&
+      cust.stateCode !== null &&
+      cust.stateCode !== shopStateCode;
+    // Original bill total approximation: refundTotalPaise drives B2CL if interstate
+    // and the original supply was > 2.5L. For pharmacy POS that threshold is
+    // almost never hit on a single line, so b2csNet is the dominant path.
+    if (isInterstate && r.refundTotalPaise >= B2CL_THRESHOLD_PAISE) {
+      cdnur.push(r);
+      continue;
+    }
+    b2csNet.push(r);
+  }
+
+  return { cdnr, cdnur, b2csNet, invalid };
+}
+
+/** Aggregate a return's lines into per-rate CDNR items (mirrors
+ * aggregateLinesByRate but for ReturnLineForGstr1). */
+function aggregateReturnLinesByRate(
+  lines: readonly ReturnLineForGstr1[],
+): CdnrItem[] {
+  const buckets = new Map<
+    number,
+    { txval: number; iamt: number; camt: number; samt: number; csamt: number }
+  >();
+  for (const ln of lines) {
+    const b = buckets.get(ln.gstRate) ?? {
+      txval: 0,
+      iamt: 0,
+      camt: 0,
+      samt: 0,
+      csamt: 0,
+    };
+    b.txval += ln.refundTaxablePaise;
+    b.iamt += ln.refundIgstPaise;
+    b.camt += ln.refundCgstPaise;
+    b.samt += ln.refundSgstPaise;
+    b.csamt += ln.refundCessPaise;
+    buckets.set(ln.gstRate, b);
+  }
+  const sortedRates = Array.from(buckets.keys()).sort((a, b) => a - b);
+  return sortedRates.map((rate, i) => {
+    const b = buckets.get(rate)!;
+    return {
+      num: i + 1,
+      itm_det: {
+        txval: paiseToRupees(b.txval),
+        rt: rate,
+        iamt: paiseToRupees(b.iamt),
+        camt: paiseToRupees(b.camt),
+        samt: paiseToRupees(b.samt),
+        csamt: paiseToRupees(b.csamt),
+      },
+    };
+  });
+}
+
+/** Build the cdnr blocks (grouped by buyer GSTIN). */
+export function buildCdnrBlocks(
+  returns: readonly ReturnForGstr1[],
+): CdnrBuyerBlock[] {
+  const byBuyer = new Map<string, ReturnForGstr1[]>();
+  for (const r of returns) {
+    const ctin = r.customer?.gstin;
+    if (!ctin) continue;
+    const arr = byBuyer.get(ctin) ?? [];
+    arr.push(r);
+    byBuyer.set(ctin, arr);
+  }
+  const sortedCtin = Array.from(byBuyer.keys()).sort();
+  return sortedCtin.map((ctin) => {
+    const arr = byBuyer.get(ctin)!;
+    arr.sort((a, b) => a.returnNo.localeCompare(b.returnNo));
+    const nt: CdnrNote[] = arr.map((r) => ({
+      nt_num: r.returnNo,
+      nt_dt: formatDateDDMMYYYY(r.createdAt),
+      val: paiseToRupees(r.refundTotalPaise),
+      ntty: "C",
+      inum: r.originalBillNo,
+      idt: formatDateDDMMYYYY(r.originalBilledAt),
+      itms: aggregateReturnLinesByRate(r.lines),
+    }));
+    return { ctin, nt };
+  });
+}
+
+/** Build the cdnur notes (no buyer grouping — interstate B2CL credit notes). */
+export function buildCdnurNotes(
+  returns: readonly ReturnForGstr1[],
+  shopStateCode: string,
+): CdnurNote[] {
+  const sorted = [...returns].sort((a, b) =>
+    a.returnNo.localeCompare(b.returnNo),
+  );
+  return sorted.map((r) => ({
+    nt_num: r.returnNo,
+    nt_dt: formatDateDDMMYYYY(r.createdAt),
+    val: paiseToRupees(r.refundTotalPaise),
+    ntty: "C",
+    typ: "B2CL",
+    inum: r.originalBillNo,
+    idt: formatDateDDMMYYYY(r.originalBilledAt),
+    pos: r.customer?.stateCode ?? shopStateCode,
+    itms: aggregateReturnLinesByRate(r.lines),
+  }));
+}
+
+/** Net B2CS-small refunds back into the B2CS rows. For each (pos, rate, sply_ty)
+ * bucket we subtract the refund taxable/tax. The result is clamped at 0 — a
+ * period that net-refunded more than it sold in a small B2C bucket emits 0
+ * (the next period's CDNR/CDNUR catches up via amendments). */
+export function netB2csForReturns(
+  rows: readonly B2CSRow[],
+  returns: readonly ReturnForGstr1[],
+  shopStateCode: string,
+): B2CSRow[] {
+  if (returns.length === 0) return [...rows];
+  // Key by pos|sply_ty|rate
+  const map = new Map<string, B2CSRow>();
+  for (const r of rows) {
+    const k = `${r.pos}|${r.sply_ty}|${r.rt}`;
+    map.set(k, { ...r });
+  }
+  for (const ret of returns) {
+    const cust = ret.customer;
+    const pos = cust?.stateCode ?? shopStateCode;
+    const sply_ty = pos === shopStateCode ? "INTRA" : "INTER";
+    for (const ln of ret.lines) {
+      const k = `${pos}|${sply_ty}|${ln.gstRate}`;
+      const cur = map.get(k);
+      if (!cur) continue; // no matching bucket — skip silently
+      const txval = Math.max(
+        0,
+        Math.round(cur.txval * 100 - ln.refundTaxablePaise) / 100,
+      );
+      const iamt = Math.max(
+        0,
+        Math.round(cur.iamt * 100 - ln.refundIgstPaise) / 100,
+      );
+      const camt = Math.max(
+        0,
+        Math.round(cur.camt * 100 - ln.refundCgstPaise) / 100,
+      );
+      const samt = Math.max(
+        0,
+        Math.round(cur.samt * 100 - ln.refundSgstPaise) / 100,
+      );
+      const csamt = Math.max(
+        0,
+        Math.round(cur.csamt * 100 - ln.refundCessPaise) / 100,
+      );
+      map.set(k, { ...cur, txval, iamt, camt, samt, csamt });
+    }
+  }
+  // Drop rows whose taxable + tax all zero out (return wiped the bucket).
+  return Array.from(map.values()).filter(
+    (r) => r.txval > 0 || r.iamt > 0 || r.camt > 0 || r.samt > 0 || r.csamt > 0,
+  );
 }

@@ -56,10 +56,50 @@ export interface BillForGstr1 {
   readonly lines: readonly BillLineForGstr1[];
 }
 
+// ─── Credit-note inputs (A8 / ADR 0021 step 4) ──────────────────────────
+
+export interface ReturnLineForGstr1 {
+  readonly id: string;
+  /** FK back to the original bill_line — used to look up HSN + rate. */
+  readonly billLineId: string;
+  readonly hsn: string;
+  readonly gstRate: 0 | 5 | 12 | 18 | 28;
+  readonly qtyReturned: number;
+  readonly refundTaxablePaise: number;
+  readonly refundCgstPaise: number;
+  readonly refundSgstPaise: number;
+  readonly refundIgstPaise: number;
+  readonly refundCessPaise: number;
+  readonly refundAmountPaise: number;
+}
+
+export interface ReturnForGstr1 {
+  readonly id: string;
+  /** Credit-note number 'CN/YYYY-YY/NNNN' (ADR 0021 Q3). */
+  readonly returnNo: string;
+  /** ISO8601 of when the return event was recorded — period filter target. */
+  readonly createdAt: string;
+  readonly originalBillId: string;
+  readonly originalBillNo: string;
+  /** ISO8601 of original bill so cdnr.idt can be filled deterministically. */
+  readonly originalBilledAt: string;
+  readonly gstTreatment: "intra_state" | "inter_state" | "exempt" | "nil_rated";
+  readonly customer: CustomerForGstr1 | null;
+  readonly refundCgstPaise: number;
+  readonly refundSgstPaise: number;
+  readonly refundIgstPaise: number;
+  readonly refundCessPaise: number;
+  readonly refundTotalPaise: number;
+  readonly lines: readonly ReturnLineForGstr1[];
+}
+
 export interface GenerateGstr1Input {
   readonly period: { readonly mm: string; readonly yyyy: string }; // mm 01-12
   readonly shop: ShopForGstr1;
   readonly bills: readonly BillForGstr1[];
+  /** A8 / ADR 0021 step 4 — credit notes issued in this period. Optional
+   * (back-compat with callers that don't yet pass returns). */
+  readonly returns?: readonly ReturnForGstr1[];
 }
 
 // ─── Output — JSON schema (rupees, 2dp) ─────────────────────────────────
@@ -117,6 +157,52 @@ export interface B2CSRow {
   readonly camt: number;
   readonly samt: number;
   readonly csamt: number;
+}
+
+// ─── CDNR / CDNUR / B2CSA — credit-note rows (A8 / ADR 0021 step 4) ─────
+
+/** A line-level row inside a CDNR / CDNUR note, grouped per GST rate. */
+export interface CdnrItem {
+  readonly num: number;
+  readonly itm_det: {
+    readonly txval: number;
+    readonly rt: number;
+    readonly iamt: number;
+    readonly camt: number;
+    readonly samt: number;
+    readonly csamt: number;
+  };
+}
+
+/** A single CDNR (Credit/Debit Note for Registered) note. */
+export interface CdnrNote {
+  readonly nt_num: string;          // credit-note number
+  readonly nt_dt: string;           // credit-note date DD-MM-YYYY
+  readonly val: number;             // credit-note value (rupees, 2dp)
+  readonly ntty: "C" | "D";         // 'C' = credit, 'D' = debit (always 'C' here)
+  readonly inum: string;            // original invoice number
+  readonly idt: string;             // original invoice date DD-MM-YYYY
+  readonly itms: readonly CdnrItem[];
+}
+
+/** CDNR block — grouped per registered buyer GSTIN. */
+export interface CdnrBuyerBlock {
+  readonly ctin: string;
+  readonly nt: readonly CdnrNote[];
+}
+
+/** A single CDNUR (Credit/Debit Note for Unregistered) note. */
+export interface CdnurNote {
+  readonly nt_num: string;
+  readonly nt_dt: string;
+  readonly val: number;
+  readonly ntty: "C" | "D";
+  /** Original supply type. For our pharmacy POS only 'B2CL' applies today. */
+  readonly typ: "B2CL" | "EXPWP" | "EXPWOP";
+  readonly inum: string;
+  readonly idt: string;
+  readonly pos: string;             // place-of-supply state code
+  readonly itms: readonly CdnrItem[];
 }
 
 /** HSN rows — separate B2B and B2C blocks (2025 split). */
@@ -177,9 +263,10 @@ export interface Gstr1Payload {
   };
   readonly nil: { readonly inv: readonly ExempRow[] };
   readonly doc_issue: { readonly doc_det: readonly DocBlock[] };
+  // A8 (ADR 0021 step 4) — credit notes
+  readonly cdnr: readonly CdnrBuyerBlock[];
+  readonly cdnur: readonly CdnurNote[];
   // Stubs (empty for v1)
-  readonly cdnr: readonly unknown[];
-  readonly cdnur: readonly unknown[];
   readonly b2ba: readonly unknown[];
   readonly b2cla: readonly unknown[];
   readonly b2csa: readonly unknown[];
@@ -194,6 +281,8 @@ export interface Gstr1CsvBundle {
   readonly b2b: string;
   readonly b2cl: string;
   readonly b2cs: string;
+  readonly cdnr: string;
+  readonly cdnur: string;
   readonly hsn: string;
   readonly exemp: string;
   readonly doc: string;
@@ -208,6 +297,12 @@ export interface Gstr1Summary {
   readonly hsnB2cRowCount: number;
   readonly exempRowCount: number;
   readonly docRowCount: number;
+  /** Count of CDNR notes (credit notes to registered buyers). */
+  readonly cdnrNoteCount: number;
+  /** Count of CDNUR notes (credit notes to unregistered, interstate large). */
+  readonly cdnurNoteCount: number;
+  /** Aggregate credit-note refund value across cdnr + cdnur + b2cs net. */
+  readonly creditNoteRefundTotalPaise: number;
   readonly grandTotalPaise: number;
   readonly gaps: readonly { readonly series: string; readonly gapNums: readonly string[] }[];
   readonly invalid: readonly { readonly billId: string; readonly reason: string }[];
