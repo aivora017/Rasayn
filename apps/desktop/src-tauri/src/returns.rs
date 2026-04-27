@@ -782,20 +782,10 @@ mod tests {
     }
 
     fn seed_bill(c: &Connection) -> (String, String) {
-        // Shop + user seed for FK-correctness on bills.shop_id / bills.cashier_id.
-        // Same sentinel ids the Tauri bootstrap uses (db::ensure_default_shop).
-        c.execute(
-            "INSERT INTO shops (id, name, gstin, state_code, retail_license, address)
-             VALUES ('shop_local','My Pharmacy','00AAAAA0000A0Z0','00','PENDING','TBD')",
-            [],
-        )
-        .unwrap();
-        c.execute(
-            "INSERT INTO users (id, shop_id, name, role, pin_hash, is_active)
-             VALUES ('user_sourav_owner','shop_local','Sourav','owner','x',1)",
-            [],
-        )
-        .unwrap();
+        // shop_local + user_sourav_owner are auto-seeded by db::apply_migrations
+        // (ensure_default_shop / ensure_default_user). Re-inserting them here
+        // hits UNIQUE(shops.id) / UNIQUE(users.id). Suppliers is NOT auto-seeded
+        // and is required by batches.supplier_id (NOT NULL FK).
         c.execute(
             "INSERT INTO suppliers (id, shop_id, name)
              VALUES ('sup_a','shop_local','Acme Distributors')",
