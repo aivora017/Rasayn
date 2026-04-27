@@ -782,17 +782,39 @@ mod tests {
     }
 
     fn seed_bill(c: &Connection) -> (String, String) {
+        // Shop + user seed for FK-correctness on bills.shop_id / bills.cashier_id.
+        // Same sentinel ids the Tauri bootstrap uses (db::ensure_default_shop).
         c.execute(
-            "INSERT INTO products (id, sku_code, name, hsn, schedule, gst_rate, mrp_paise,
-                                   is_active, unit, manufacturer, generic_name)
-             VALUES ('prod_a','SKU-A','Paracetamol 500','30042011','OTC',12,1000,
-                     1,'strip','Acme','Paracetamol')",
+            "INSERT INTO shops (id, name, gstin, state_code, retail_license, address)
+             VALUES ('shop_local','My Pharmacy','00AAAAA0000A0Z0','00','PENDING','TBD')",
             [],
         )
         .unwrap();
         c.execute(
-            "INSERT INTO batches (id, product_id, batch_no, expiry_date, mrp_paise, qty_on_hand)
-             VALUES ('bat_a','prod_a','B001','2030-12-31',1000,100)",
+            "INSERT INTO users (id, shop_id, name, role, pin_hash, is_active)
+             VALUES ('user_sourav_owner','shop_local','Sourav','owner','x',1)",
+            [],
+        )
+        .unwrap();
+        c.execute(
+            "INSERT INTO suppliers (id, shop_id, name)
+             VALUES ('sup_a','shop_local','Acme Distributors')",
+            [],
+        )
+        .unwrap();
+        c.execute(
+            "INSERT INTO products (id, name, hsn, schedule, gst_rate, mrp_paise,
+                                   is_active, pack_form, pack_size, manufacturer, generic_name)
+             VALUES ('prod_a','Paracetamol 500','30042011','OTC',12,1000,
+                     1,'strip',10,'Acme','Paracetamol')",
+            [],
+        )
+        .unwrap();
+        c.execute(
+            "INSERT INTO batches (id, product_id, batch_no, mfg_date, expiry_date,
+                                  qty_on_hand, purchase_price_paise, mrp_paise, supplier_id)
+             VALUES ('bat_a','prod_a','B001','2024-01-01','2030-12-31',
+                     100, 800, 1000, 'sup_a')",
             [],
         )
         .unwrap();
