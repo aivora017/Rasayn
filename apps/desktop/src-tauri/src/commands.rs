@@ -3795,25 +3795,42 @@ impl EinvoiceAdapter for MockAdapter {
     }
 }
 
-/// Placeholder impl — the real wire call lands once the Cygnet contract closes.
-/// Kept behind a feature flag at shop level (`einvoice_enabled`) so it's
-/// impossible to accidentally submit real invoices with this stub.
+/// Cygnet GSP adapter. Loads config from env at submit-time (per-request
+/// rather than per-process so a config change doesn't require a restart).
+/// HTTP wire is gated behind the `cygnet-live` cargo feature; default builds
+/// return CYGNET_OFFLINE_BUILD so upstream failover (mock or ClearTax) kicks in.
 pub struct CygnetAdapter;
 impl EinvoiceAdapter for CygnetAdapter {
     fn vendor_name(&self) -> &'static str {
         "cygnet"
     }
     fn submit(&self, _payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner> {
-        Err(IrnErrorInner {
-            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
-            msg: "Cygnet adapter stub — real HTTP wire not yet wired up; contract pending"
-                .to_string(),
-        })
+        match crate::cygnet::CygnetConfig::from_env() {
+            None => Err(IrnErrorInner {
+                code: "CYGNET_CONFIG_MISSING".to_string(),
+                msg: "Cygnet env vars not set (CYGNET_BASE_URL/API_KEY/USERNAME/PASSWORD/GSTIN).                       See docs/install/Cygnet_GSP_Onboarding.docx for setup."
+                    .to_string(),
+            }),
+            Some(cfg) => match cfg.validate() {
+                Err(e) => Err(IrnErrorInner {
+                    code: "CYGNET_CONFIG_INVALID".to_string(),
+                    msg: format!("Cygnet config validation failed: {e}"),
+                }),
+                Ok(()) => Err(IrnErrorInner {
+                    code: "CYGNET_OFFLINE_BUILD".to_string(),
+                    msg: format!(
+                        "Cygnet config loaded ({}, sandbox={}) but HTTP wire not compiled in.                          Build with --features cygnet-live to enable.",
+                        cfg.base_url, cfg.is_sandbox
+                    ),
+                }),
+            },
+        }
     }
     fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
         Err(IrnErrorInner {
-            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
-            msg: "Cygnet cancel stub".to_string(),
+            code: "CYGNET_OFFLINE_BUILD".to_string(),
+            msg: "Cygnet cancel HTTP wire not compiled in (build with --features cygnet-live)"
+                .to_string(),
         })
     }
 }
