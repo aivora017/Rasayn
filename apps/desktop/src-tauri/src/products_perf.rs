@@ -54,7 +54,7 @@ mod tests {
         apply_migrations(&c).unwrap();
 
         // Simulate DbState by wrapping in Mutex and building a fake State.
-        let state = crate::db::DbState(Mutex::new(c));
+        let state = crate::db::DbState(std::sync::Arc::new(Mutex::new(c)));
 
         let t_seed = Instant::now();
         for i in 0..200 {

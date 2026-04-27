@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod backup_scheduler;
 mod cleartax;
 mod commands;
 mod cygnet;
@@ -30,8 +31,13 @@ fn main() {
     let conn = open_local(&path).expect("open db");
     apply_migrations(&conn).expect("apply migrations");
 
+    // Wrap the connection in Arc<Mutex<>> so the auto-backup loop can borrow
+    // it alongside Tauri's command-handler State.
+    let shared = std::sync::Arc::new(std::sync::Mutex::new(conn));
+    let _backup_handle = backup_scheduler::start_auto_backup_loop(shared.clone());
+
     tauri::Builder::default()
-        .manage(DbState(Mutex::new(conn)))
+        .manage(DbState(shared))
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
             commands::db_version,
