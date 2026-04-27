@@ -41,3 +41,4 @@ custom-protocol = ["tauri/custom-protocol"]
 # off — keeps reqwest/native-tls out of the main binary surface until the
 # vendor contract closes. Build via: cargo build --features cygnet-live
 cygnet-live = []
+cleartax-live = []

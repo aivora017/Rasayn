@@ -3841,15 +3841,32 @@ impl EinvoiceAdapter for ClearTaxAdapter {
         "cleartax"
     }
     fn submit(&self, _payload: &IrnPayloadOut) -> Result<IrnAckInner, IrnErrorInner> {
-        Err(IrnErrorInner {
-            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
-            msg: "ClearTax adapter stub — secondary vendor plan, contract pending".to_string(),
-        })
+        match crate::cleartax::ClearTaxConfig::from_env() {
+            None => Err(IrnErrorInner {
+                code: "CLEARTAX_CONFIG_MISSING".to_string(),
+                msg: "ClearTax env vars not set (CLEARTAX_BASE_URL/AUTH_TOKEN/OWNER_ID/GSTIN).                       See docs/install/ClearTax_GSP_Onboarding.docx for setup."
+                    .to_string(),
+            }),
+            Some(cfg) => match cfg.validate() {
+                Err(e) => Err(IrnErrorInner {
+                    code: "CLEARTAX_CONFIG_INVALID".to_string(),
+                    msg: format!("ClearTax config validation failed: {e}"),
+                }),
+                Ok(()) => Err(IrnErrorInner {
+                    code: "CLEARTAX_OFFLINE_BUILD".to_string(),
+                    msg: format!(
+                        "ClearTax config loaded ({}, sandbox={}) but HTTP wire not compiled in.                          Build with --features cleartax-live to enable.",
+                        cfg.base_url, cfg.is_sandbox
+                    ),
+                }),
+            },
+        }
     }
     fn cancel(&self, _irn: &str, _reason: &str, _remarks: &str) -> Result<(), IrnErrorInner> {
         Err(IrnErrorInner {
-            code: "ADAPTER_NOT_IMPLEMENTED".to_string(),
-            msg: "ClearTax cancel stub".to_string(),
+            code: "CLEARTAX_OFFLINE_BUILD".to_string(),
+            msg: "ClearTax cancel HTTP wire not compiled in (build with --features cleartax-live)"
+                .to_string(),
         })
     }
 }
