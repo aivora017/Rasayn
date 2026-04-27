@@ -208,3 +208,343 @@ describe("ProductMasterScreen — X2b.2 pre-save similarity (ADR 0022)", () => {
     expect(screen.getByTestId("pm-image-preview")).toBeInTheDocument();
   });
 });
+
+// -----------------------------------------------------------------------------
+// G02 — CRUD / Schedule / HSN / deactivate coverage (coverage-gaps 2026-04-18).
+//
+// The block above covers X2b.2 similarity only (4 tests). The coverage-gap
+// audit calls out ProductMasterScreen as a CRITICAL gap because the product
+// row it writes drives every future bill's GST rate, HSN, and Schedule dispense
+// path. These tests cover the keyboard-first CRUD flow, Schedule-H image gate,
+// validation surfacing, deactivate, and Esc-cancels-no-destructive-call.
+// -----------------------------------------------------------------------------
+
+import { beforeEach, afterEach } from "vitest";
+import { fireEvent, act } from "@testing-library/react";
+import type { ProductRow, ProductWriteDTO } from "../lib/ipc.js";
+
+function makeRow(overrides: Partial<ProductRow> = {}): ProductRow {
+  return {
+    id: "p_crocin",
+    name: "Crocin 500",
+    genericName: "Paracetamol",
+    manufacturer: "GSK",
+    hsn: "3004",
+    gstRate: 12,
+    schedule: "OTC",
+    packForm: "tablet",
+    packSize: 10,
+    mrpPaise: 4200,
+    nppaMaxMrpPaise: 5000,
+    imageSha256: null,
+    isActive: true,
+    createdAt: "2026-04-22T10:00:00Z",
+    updatedAt: "2026-04-22T10:00:00Z",
+    ...overrides,
+  };
+}
+
+interface CrudHandlerOptions {
+  initialRows?: readonly ProductRow[];
+  upsertResult?: ProductRow;
+  upsertThrows?: string;
+  deactivateThrows?: string;
+  calls?: IpcCall[];
+}
+
+function installCrudHandler(opts: CrudHandlerOptions = {}): void {
+  const calls = opts.calls ?? [];
+  let rows: ProductRow[] = [...(opts.initialRows ?? [])];
+  setIpcHandler(async (call: IpcCall) => {
+    calls.push(call);
+    switch (call.cmd) {
+      case "list_products":
+        return rows;
+      case "upsert_product": {
+        if (opts.upsertThrows) throw new Error(opts.upsertThrows);
+        const dto = call.args.input as ProductWriteDTO;
+        const result: ProductRow =
+          opts.upsertResult ??
+          makeRow({
+            id: dto.id ?? `p_${dto.name.replace(/\s+/g, "_").toLowerCase()}`,
+            name: dto.name,
+            genericName: dto.genericName,
+            manufacturer: dto.manufacturer,
+            hsn: dto.hsn,
+            gstRate: dto.gstRate,
+            schedule: dto.schedule,
+            packForm: dto.packForm,
+            packSize: dto.packSize,
+            mrpPaise: dto.mrpPaise,
+            nppaMaxMrpPaise: dto.nppaMaxMrpPaise,
+            imageSha256: dto.imageSha256,
+            isActive: true,
+          });
+        const existingIdx = dto.id ? rows.findIndex((r) => r.id === dto.id) : -1;
+        if (existingIdx >= 0) rows[existingIdx] = result;
+        else rows = [...rows, result];
+        return result;
+      }
+      case "deactivate_product": {
+        if (opts.deactivateThrows) throw new Error(opts.deactivateThrows);
+        const id = (call.args as { id: string }).id;
+        rows = rows.map((r) => (r.id === id ? { ...r, isActive: false } : r));
+        return null;
+      }
+      case "get_product_image":
+        return null;
+      case "check_similar_images_for_bytes":
+        return [];
+      default:
+        return null;
+    }
+  });
+}
+
+describe("ProductMasterScreen — G02 CRUD / Schedule / HSN / deactivate", () => {
+  beforeEach(() => {
+    // Each test starts with a fresh handler; no leak across cases.
+  });
+  afterEach(() => {
+    // vitest auto-unmounts; nothing else to clean.
+  });
+
+  it("Alt+N opens the form, Alt+S saves a new OTC product with validated fields", async () => {
+    const calls: IpcCall[] = [];
+    installCrudHandler({ calls });
+
+    const user = userEvent.setup();
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    // Empty table shown with "Alt+N to add" hint.
+    expect(screen.getByTestId("pm-table").textContent ?? "").toMatch(/No products/);
+
+    await user.keyboard("{Alt>}n{/Alt}");
+    await screen.findByTestId("pm-form");
+
+    // Fill in required fields.
+    const nameInput = screen.getByLabelText(/^Name$/i);
+    await user.type(nameInput, "Crocin 500");
+    const mfrInput = screen.getByLabelText(/Manufacturer/i);
+    await user.type(mfrInput, "GSK");
+    const mrpInput = screen.getByLabelText(/MRP \(₹\)/i);
+    await user.type(mrpInput, "42.00");
+
+    // Save via Alt+S.
+    await user.keyboard("{Alt>}s{/Alt}");
+
+    await waitFor(() => {
+      const upsert = calls.find((c) => c.cmd === "upsert_product");
+      expect(upsert).toBeTruthy();
+    });
+    const upsert = calls.find((c) => c.cmd === "upsert_product");
+    if (upsert && upsert.cmd === "upsert_product") {
+      expect(upsert.args.input.name).toBe("Crocin 500");
+      expect(upsert.args.input.manufacturer).toBe("GSK");
+      expect(upsert.args.input.mrpPaise).toBe(4200);
+      expect(upsert.args.input.hsn).toBe("3004");
+      expect(upsert.args.input.gstRate).toBe(12);
+      expect(upsert.args.input.schedule).toBe("OTC");
+      expect(upsert.args.input.imageSha256).toBeNull();
+    }
+
+    // Form closes, toast appears, row is listed.
+    await waitFor(() =>
+      expect(screen.queryByTestId("pm-form")).toBeNull(),
+    );
+    expect(screen.getByRole("status").textContent ?? "").toMatch(/saved: Crocin 500/);
+    expect(screen.getByTestId("pm-table").textContent ?? "").toMatch(/Crocin 500/);
+  });
+
+  it("Schedule H without image is blocked by validateProductWrite surfacing pm-errors", async () => {
+    const calls: IpcCall[] = [];
+    installCrudHandler({ calls });
+
+    const user = userEvent.setup();
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    await user.keyboard("{Alt>}n{/Alt}");
+    await screen.findByTestId("pm-form");
+
+    await user.type(screen.getByLabelText(/^Name$/i), "Tramadol 50mg");
+    await user.type(screen.getByLabelText(/Manufacturer/i), "Sun Pharma");
+    await user.type(screen.getByLabelText(/MRP \(₹\)/i), "68.50");
+    // Switch schedule → H1 via the select.
+    const scheduleSelect = screen.getByLabelText(/Schedule/i) as HTMLSelectElement;
+    await user.selectOptions(scheduleSelect, "H1");
+
+    await user.keyboard("{Alt>}s{/Alt}");
+
+    // Errors surface, no upsert fires.
+    const errs = await screen.findByTestId("pm-errors");
+    expect(errs.textContent ?? "").toMatch(/Schedule H1 product requires an image/);
+    expect(calls.some((c) => c.cmd === "upsert_product")).toBe(false);
+  });
+
+  it("Empty MRP produces a typed error and blocks save", async () => {
+    const calls: IpcCall[] = [];
+    installCrudHandler({ calls });
+
+    const user = userEvent.setup();
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    await user.keyboard("{Alt>}n{/Alt}");
+    await screen.findByTestId("pm-form");
+
+    await user.type(screen.getByLabelText(/^Name$/i), "Dolo 650");
+    await user.type(screen.getByLabelText(/Manufacturer/i), "Micro Labs");
+    // Deliberately leave MRP blank.
+
+    await user.keyboard("{Alt>}s{/Alt}");
+
+    const errs = await screen.findByTestId("pm-errors");
+    expect(errs.textContent ?? "").toMatch(/enter a valid MRP/);
+    expect(calls.some((c) => c.cmd === "upsert_product")).toBe(false);
+  });
+
+  it("GIF upload is rejected by client-side mime sniff — save still blocked", async () => {
+    const calls: IpcCall[] = [];
+    installCrudHandler({ calls });
+
+    const user = userEvent.setup();
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    await user.keyboard("{Alt>}n{/Alt}");
+    await screen.findByTestId("pm-form");
+
+    // GIF87a magic bytes — sniffMime returns null, validate.ts raises
+    // MAGIC_UNRECOGNISED. This is the X2a defense-in-depth path.
+    const gifBytes = new Uint8Array([
+      0x47, 0x49, 0x46, 0x38, 0x37, 0x61, 0x01, 0x00,
+      0x01, 0x00, 0x80, 0x00, 0x00, 0xff, 0xff, 0xff,
+      0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
+      0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44,
+      0x01, 0x00, 0x3b,
+    ]);
+    const gif = new File([gifBytes], "probe.gif", { type: "image/gif" });
+
+    const fileInput = screen.getByTestId("pm-image-file") as HTMLInputElement;
+    // Bypass user-event's accept filter by driving the change event directly.
+    await act(async () => {
+      Object.defineProperty(fileInput, "files", { value: [gif], configurable: true });
+      fireEvent.change(fileInput);
+    });
+
+    const errs = await screen.findByTestId("pm-errors");
+    expect(errs.textContent ?? "").toMatch(/format not recognised|MIME|whitelist/i);
+    // Preview not shown, SHA cleared.
+    expect(screen.queryByTestId("pm-image-preview")).toBeNull();
+    expect(screen.getByTestId("pm-image-sha").textContent ?? "").toMatch(/none/);
+  });
+
+  it("Esc on open form cancels without calling upsert_product", async () => {
+    const calls: IpcCall[] = [];
+    installCrudHandler({ calls });
+
+    const user = userEvent.setup();
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    await user.keyboard("{Alt>}n{/Alt}");
+    await screen.findByTestId("pm-form");
+
+    await user.type(screen.getByLabelText(/^Name$/i), "Half-typed name");
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Escape" });
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("pm-form")).toBeNull(),
+    );
+    expect(calls.some((c) => c.cmd === "upsert_product")).toBe(false);
+  });
+
+  it("Alt+D on active row calls deactivate_product and refreshes", async () => {
+    const calls: IpcCall[] = [];
+    const existing = makeRow({ id: "p_azithro", name: "Azithromycin 500", schedule: "H", imageSha256: "a".repeat(64) });
+    installCrudHandler({ calls, initialRows: [existing] });
+
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    // Wait for the row to render.
+    await waitFor(() =>
+      expect(screen.getByTestId("pm-table").textContent ?? "").toMatch(/Azithromycin 500/),
+    );
+
+    // Cursor defaults to row 0. Trigger Alt+D.
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "d", altKey: true });
+    });
+
+    await waitFor(() => {
+      const deact = calls.find((c) => c.cmd === "deactivate_product");
+      expect(deact).toBeTruthy();
+    });
+    const deact = calls.find((c) => c.cmd === "deactivate_product");
+    if (deact && deact.cmd === "deactivate_product") {
+      expect(deact.args.id).toBe("p_azithro");
+    }
+
+    // Banner confirms + row now inactive in the refreshed list.
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent ?? "").toMatch(/deactivated: Azithromycin 500/),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("pm-table").textContent ?? "").toMatch(/inactive/),
+    );
+  });
+
+  it("Enter on cursored row opens the edit form prefilled", async () => {
+    const existing = makeRow({
+      id: "p_dolo",
+      name: "Dolo 650",
+      manufacturer: "Micro Labs",
+      mrpPaise: 3150,
+    });
+    installCrudHandler({ initialRows: [existing] });
+
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+    await waitFor(() =>
+      expect(screen.getByTestId("pm-table").textContent ?? "").toMatch(/Dolo 650/),
+    );
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Enter" });
+    });
+
+    await screen.findByTestId("pm-form");
+    expect((screen.getByLabelText(/^Name$/i) as HTMLInputElement).value).toBe("Dolo 650");
+    expect((screen.getByLabelText(/Manufacturer/i) as HTMLInputElement).value).toBe("Micro Labs");
+    expect((screen.getByLabelText(/MRP \(₹\)/i) as HTMLInputElement).value).toBe("31.50");
+  });
+
+  it("Server-side upsert failure surfaces message and keeps form open", async () => {
+    const calls: IpcCall[] = [];
+    installCrudHandler({ calls, upsertThrows: "DUPLICATE_NAME: Crocin 500 already exists" });
+
+    const user = userEvent.setup();
+    render(<ProductMasterScreen />);
+    await screen.findByTestId("product-master");
+
+    await user.keyboard("{Alt>}n{/Alt}");
+    await screen.findByTestId("pm-form");
+
+    await user.type(screen.getByLabelText(/^Name$/i), "Crocin 500");
+    await user.type(screen.getByLabelText(/Manufacturer/i), "GSK");
+    await user.type(screen.getByLabelText(/MRP \(₹\)/i), "42.00");
+
+    await user.keyboard("{Alt>}s{/Alt}");
+
+    const errs = await screen.findByTestId("pm-errors");
+    expect(errs.textContent ?? "").toMatch(/DUPLICATE_NAME/);
+    // Form still open so owner can fix.
+    expect(screen.getByTestId("pm-form")).toBeInTheDocument();
+  });
+});
