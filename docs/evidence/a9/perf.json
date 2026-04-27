@@ -1,0 +1,25 @@
+{
+  "adr": "0014",
+  "gate": "Invoice/credit-note HTML render p95 <50ms",
+  "source": "playbook v2.0 §0 (sub-2s keyboard path budget)",
+  "timestamp": "2026-04-27T08:50:58.100Z",
+  "runner": {
+    "node": "v22.22.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": "12th Gen Intel(R) Core(TM) i3-12100"
+  },
+  "params": {
+    "iterations": 200,
+    "rendersPerIter": 4
+  },
+  "gateMs": 200,
+  "statsMs": {
+    "count": 200,
+    "mean": 0.08191826000000077,
+    "p50": 0.05388900000001229,
+    "p95": 0.12707664999999785,
+    "p99": 0.9001641899999943,
+    "max": 2.2186169999999947
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "adr": "0021",
+  "gate": "5-line partial refund: compute + save p95 <300ms",
+  "source": "ADR 0021 §3 (extrapolated from A6 budget; partial < full)",
+  "timestamp": "2026-04-27T08:50:57.567Z",
+  "runner": {
+    "node": "v22.22.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": "12th Gen Intel(R) Core(TM) i3-12100",
+    "cpuCount": 2
+  },
+  "params": {
+    "iterations": 200,
+    "linesPerReturn": 5
+  },
+  "gateMs": 300,
+  "statsMs": {
+    "count": 200,
+    "mean": 0.011708875000001626,
+    "p50": 0.005375999999998271,
+    "p95": 0.013727350000000603,
+    "p99": 0.09237918999999618,
+    "max": 0.7991379999999992
+  }
+}

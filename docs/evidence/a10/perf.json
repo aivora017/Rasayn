@@ -1,0 +1,26 @@
+{
+  "adr": "0015",
+  "gate": "100-bill GSTR-1 generate p95 <2000ms",
+  "source": "playbook v2.0 §10",
+  "timestamp": "2026-04-27T08:50:57.851Z",
+  "runner": {
+    "node": "v22.22.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": "12th Gen Intel(R) Core(TM) i3-12100"
+  },
+  "params": {
+    "iterations": 30,
+    "billsPerPeriod": 100,
+    "returnsPerPeriod": 10
+  },
+  "gateMs": 2000,
+  "statsMs": {
+    "count": 30,
+    "mean": 0.9200814666666682,
+    "p50": 0.5123375000000152,
+    "p95": 2.1336756000000188,
+    "p99": 6.267480810000014,
+    "max": 7.829250000000002
+  }
+}
