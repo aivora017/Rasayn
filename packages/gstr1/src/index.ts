@@ -152,3 +152,5 @@ export function gstr1Filename(periodMm: string, periodYyyy: string, gstin: strin
 
 export * from "./types.js";
 export { fiscalYearFromPeriod, parsePeriod, buildPeriod, isoInPeriod } from "./format.js";
+
+export * from "./tallyCsv.js";
