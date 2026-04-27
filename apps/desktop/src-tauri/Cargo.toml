@@ -37,3 +37,7 @@ tempfile = "3"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+# When enabled, the Cygnet GSP adapter performs real HTTP calls. Default
+# off — keeps reqwest/native-tls out of the main binary surface until the
+# vendor contract closes. Build via: cargo build --features cygnet-live
+cygnet-live = []
