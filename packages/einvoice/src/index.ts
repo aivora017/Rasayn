@@ -3,3 +3,14 @@ export { paiseToRupees, isoToIstDdMmYyyy, isValidGstinShape, isValidHsn, isValid
 export { validateBillForIrn } from "./validate.js";
 export type { BuildIrnInput, BuildIrnResult, BuildIrnOk, BuildIrnErr } from "./build.js";
 export { buildIrnPayload, serialiseIrnPayload } from "./build.js";
+export type {
+  BuildCrnInput,
+  BuildCrnResult,
+  BuildCrnOk,
+  BuildCrnErr,
+} from "./buildCrn.js";
+export {
+  buildCrnPayload,
+  serialiseCrnPayload,
+  validateCreditNoteForIrn,
+} from "./buildCrn.js";
