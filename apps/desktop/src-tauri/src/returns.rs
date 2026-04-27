@@ -731,7 +731,7 @@ pub fn next_return_no_impl(c: &mut Connection, shop_id: &str) -> Result<String, 
 
 // ---- residual-to-largest tender split (ADR 0021 §2 rule 2, UI helper) ------
 
-#[allow(dead_code)]  // ADR 0021 §2 helper - kept for the picker's UI seed; not yet wired from Rust caller side
+#[allow(dead_code)] // ADR 0021 §2 helper - kept for the picker's UI seed; not yet wired from Rust caller side
 pub fn residual_to_largest(origs: &[ReturnTender], refund_total_paise: i64) -> Vec<ReturnTender> {
     let orig_total: i64 = origs.iter().map(|t| t.amount_paise).sum();
     if orig_total <= 0 {
