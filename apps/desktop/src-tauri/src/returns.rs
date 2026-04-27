@@ -281,9 +281,9 @@ pub fn save_partial_return_impl(
         };
 
         if matches!(schedule.as_str(), "H" | "H1" | "X" | "NDPS") {
-            let rx_id = bill_rx_id.clone().ok_or_else(|| {
-                format!("RX_MISSING_ON_ORIGINAL_BILL:product_id={}", product_id)
-            })?;
+            let rx_id = bill_rx_id
+                .clone()
+                .ok_or_else(|| format!("RX_MISSING_ON_ORIGINAL_BILL:product_id={}", product_id))?;
             let retention: Option<String> = c
                 .query_row(
                     "SELECT retention_until FROM prescriptions WHERE id = ?1",
@@ -291,9 +291,9 @@ pub fn save_partial_return_impl(
                     |r| r.get::<_, Option<String>>(0),
                 )
                 .map_err(|e| format!("DB_ERROR:rx_lookup:{}", e))?;
-            let ok_rx = retention.as_deref().is_some_and(|d| {
-                d >= chrono::Utc::now().format("%Y-%m-%d").to_string().as_str()
-            });
+            let ok_rx = retention
+                .as_deref()
+                .is_some_and(|d| d >= chrono::Utc::now().format("%Y-%m-%d").to_string().as_str());
             if !ok_rx {
                 return Err(format!("RX_RETENTION_EXPIRED:rx_id={}", rx_id));
             }
@@ -328,10 +328,7 @@ pub fn save_partial_return_impl(
                 )
                 .unwrap_or(0);
             if has_override == 0 {
-                return Err(format!(
-                    "EXPIRED_AT_RETURN_NO_OVERRIDE:batch={}",
-                    batch_id
-                ));
+                return Err(format!("EXPIRED_AT_RETURN_NO_OVERRIDE:batch={}", batch_id));
             }
         }
 
@@ -733,10 +730,7 @@ pub fn next_return_no_impl(c: &mut Connection, shop_id: &str) -> Result<String, 
 
 // ---- residual-to-largest tender split (ADR 0021 §2 rule 2, UI helper) ------
 
-pub fn residual_to_largest(
-    origs: &[ReturnTender],
-    refund_total_paise: i64,
-) -> Vec<ReturnTender> {
+pub fn residual_to_largest(origs: &[ReturnTender], refund_total_paise: i64) -> Vec<ReturnTender> {
     let orig_total: i64 = origs.iter().map(|t| t.amount_paise).sum();
     if orig_total <= 0 {
         return vec![];
@@ -827,11 +821,7 @@ mod tests {
         ("bill_1".to_string(), "bl_1".to_string())
     }
 
-    fn make_return_input(
-        return_id: &str,
-        bill_line_id: &str,
-        qty: f64,
-    ) -> SavePartialReturnInput {
+    fn make_return_input(return_id: &str, bill_line_id: &str, qty: f64) -> SavePartialReturnInput {
         SavePartialReturnInput {
             return_id: return_id.to_string(),
             shop_id: "shop_local".to_string(),

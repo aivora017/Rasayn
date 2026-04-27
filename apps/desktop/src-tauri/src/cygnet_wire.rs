@@ -13,9 +13,7 @@
 //! NOT retried — they're user/config issues.
 
 use crate::commands::{IrnAckInner, IrnErrorInner, IrnPayloadOut};
-use crate::cygnet::{
-    CygnetConfig, PATH_CANCEL_IRN, PATH_GENERATE_IRN,
-};
+use crate::cygnet::{CygnetConfig, PATH_CANCEL_IRN, PATH_GENERATE_IRN};
 use serde::{Deserialize, Serialize};
 use std::thread::sleep;
 use std::time::Duration;
@@ -57,7 +55,7 @@ enum GenerateIrnResponse {
 #[serde(rename_all = "PascalCase")]
 struct CancelIrnRequest<'a> {
     irn: &'a str,
-    cn_lcl_rsn: u8,        // 1-4 NIC-spec reason codes
+    cn_lcl_rsn: u8, // 1-4 NIC-spec reason codes
     cn_lcl_rsn_rmk: &'a str,
 }
 
@@ -196,10 +194,14 @@ pub fn cancel_irn_live(
         cn_lcl_rsn: reason_code,
         cn_lcl_rsn_rmk: remarks,
     };
-    let resp = client.post(&url).json(&body).send().map_err(|e| IrnErrorInner {
-        code: "CYGNET_NETWORK".into(),
-        msg: format!("cancel: {e}"),
-    })?;
+    let resp = client
+        .post(&url)
+        .json(&body)
+        .send()
+        .map_err(|e| IrnErrorInner {
+            code: "CYGNET_NETWORK".into(),
+            msg: format!("cancel: {e}"),
+        })?;
     if resp.status().is_success() {
         Ok(())
     } else {

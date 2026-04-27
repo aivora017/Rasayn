@@ -3840,10 +3840,12 @@ impl EinvoiceAdapter for CygnetAdapter {
         {
             let cfg = match crate::cygnet::CygnetConfig::from_env() {
                 Some(c) => c,
-                None => return Err(IrnErrorInner {
-                    code: "CYGNET_CONFIG_MISSING".into(),
-                    msg: "Cygnet env vars not set; cannot cancel.".into(),
-                }),
+                None => {
+                    return Err(IrnErrorInner {
+                        code: "CYGNET_CONFIG_MISSING".into(),
+                        msg: "Cygnet env vars not set; cannot cancel.".into(),
+                    })
+                }
             };
             return crate::cygnet_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks);
         }
@@ -3899,10 +3901,12 @@ impl EinvoiceAdapter for ClearTaxAdapter {
         {
             let cfg = match crate::cleartax::ClearTaxConfig::from_env() {
                 Some(c) => c,
-                None => return Err(IrnErrorInner {
-                    code: "CLEARTAX_CONFIG_MISSING".into(),
-                    msg: "ClearTax env vars not set; cannot cancel.".into(),
-                }),
+                None => {
+                    return Err(IrnErrorInner {
+                        code: "CLEARTAX_CONFIG_MISSING".into(),
+                        msg: "ClearTax env vars not set; cannot cancel.".into(),
+                    })
+                }
             };
             return crate::cleartax_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks);
         }

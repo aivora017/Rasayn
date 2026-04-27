@@ -3,9 +3,7 @@
 //! Auth: OAuth2 bearer token (vs Cygnet's API key + RSA password).
 //! Endpoint paths from cleartax::PATH_*. Same retry shape as cygnet_wire.
 
-use crate::cleartax::{
-    ClearTaxConfig, PATH_CANCEL_IRN, PATH_GENERATE_IRN,
-};
+use crate::cleartax::{ClearTaxConfig, PATH_CANCEL_IRN, PATH_GENERATE_IRN};
 use crate::commands::{IrnAckInner, IrnErrorInner, IrnPayloadOut};
 use serde::{Deserialize, Serialize};
 use std::thread::sleep;
@@ -59,10 +57,12 @@ fn build_client(cfg: &ClearTaxConfig) -> Result<reqwest::blocking::Client, IrnEr
     let mut h = reqwest::header::HeaderMap::new();
     h.insert(
         reqwest::header::AUTHORIZATION,
-        format!("Bearer {}", cfg.auth_token).parse().map_err(|e| IrnErrorInner {
-            code: "CLEARTAX_BAD_AUTH_TOKEN".into(),
-            msg: format!("token not a valid header value: {e}"),
-        })?,
+        format!("Bearer {}", cfg.auth_token)
+            .parse()
+            .map_err(|e| IrnErrorInner {
+                code: "CLEARTAX_BAD_AUTH_TOKEN".into(),
+                msg: format!("token not a valid header value: {e}"),
+            })?,
     );
     reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
@@ -176,10 +176,14 @@ pub fn cancel_irn_live(
         reason_code,
         remarks,
     };
-    let resp = client.post(&url).json(&body).send().map_err(|e| IrnErrorInner {
-        code: "CLEARTAX_NETWORK".into(),
-        msg: format!("cancel: {e}"),
-    })?;
+    let resp = client
+        .post(&url)
+        .json(&body)
+        .send()
+        .map_err(|e| IrnErrorInner {
+            code: "CLEARTAX_NETWORK".into(),
+            msg: format!("cancel: {e}"),
+        })?;
     if resp.status().is_success() {
         Ok(())
     } else {
