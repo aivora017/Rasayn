@@ -15,6 +15,7 @@ export default [
   "packages/gst-engine",
   "packages/gstr1",
   "packages/invoice-print",
+  "packages/photo-grn",
   "packages/reports-repo",
   "packages/schedule-h",
   "packages/search-repo",
