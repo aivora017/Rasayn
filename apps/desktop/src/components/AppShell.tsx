@@ -1,15 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import {
-  IconButton,
-  Badge,
-  Button,
-  ThemeToggle,
-  CommandPalette,
-  CommandGroup,
-  CommandItem,
-  useReducedMotion,
-} from "@pharmacare/design-system";
+import { useTranslation } from "react-i18next";
 import {
   Search,
   Receipt,
@@ -21,20 +12,20 @@ import {
   FileText,
   Mail,
   Settings2,
-  ShieldCheck,
-  Sparkles,
   Pill,
   LayoutDashboard,
-  Command as CommandIcon,
 } from "lucide-react";
+import {
+  IconButton,
+  ThemeToggle,
+  LocaleSwitcher,
+  CommandPalette,
+  CommandGroup,
+  CommandItem,
+  useReducedMotion,
+} from "@pharmacare/design-system";
 import type { Mode } from "../mode.js";
 import type { Shop } from "../lib/ipc.js";
-
-/**
- * North Star §11.1 — grouped navigation.
- *   Sell · Receive · Stock · Insights, plus Dashboard + Settings.
- *   All Alt+digit aliases preserved (§13.2 keyboard contract is sacred).
- */
 
 interface AppShellProps {
   mode: Mode;
@@ -45,78 +36,54 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-interface NavItem {
-  mode: Mode;
-  label: string;
-  icon: JSX.Element;
-  shortcut: string;
-}
-
-const NAV_GROUPS: ReadonlyArray<{ title: string; items: ReadonlyArray<NavItem> }> = [
-  {
-    title: "Sell",
-    items: [
-      { mode: "billing", label: "Billing", icon: <Receipt size={16} />, shortcut: "Alt+1" },
-      { mode: "returns", label: "Returns", icon: <Undo2 size={16} />, shortcut: "Alt+0" },
-      { mode: "directory", label: "Directory", icon: <UsersRound size={16} />, shortcut: "Alt+5" },
-    ],
-  },
-  {
-    title: "Receive",
-    items: [
-      { mode: "grn", label: "GRN", icon: <PackagePlus size={16} />, shortcut: "Alt+4" },
-      { mode: "gmail", label: "Gmail inbox", icon: <Mail size={16} />, shortcut: "Alt+7" },
-      { mode: "templates", label: "Supplier templates", icon: <FileText size={16} />, shortcut: "Alt+6" },
-    ],
-  },
-  {
-    title: "Stock",
-    items: [
-      { mode: "inventory", label: "Inventory", icon: <Package size={16} />, shortcut: "Alt+2" },
-      { mode: "masters", label: "Product master", icon: <Pill size={16} />, shortcut: "Alt+9" },
-    ],
-  },
-  {
-    title: "Insights",
-    items: [
-      { mode: "reports", label: "Reports", icon: <ChartLine size={16} />, shortcut: "Alt+3" },
-    ],
-  },
-];
+interface NavItem { mode: Mode; label: string; icon: JSX.Element; shortcut: string }
 
 export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: AppShellProps): JSX.Element {
+  const { t } = useTranslation();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const reduce = useReducedMotion();
 
+  const NAV_GROUPS: ReadonlyArray<{ title: string; items: ReadonlyArray<NavItem> }> = [
+    { title: t("nav.sell"), items: [
+      { mode: "billing",   label: t("nav.billing"),   icon: <Receipt size={16} />,     shortcut: "Alt+1" },
+      { mode: "returns",   label: t("nav.returns"),   icon: <Undo2 size={16} />,       shortcut: "Alt+0" },
+      { mode: "directory", label: t("nav.directory"), icon: <UsersRound size={16} />,  shortcut: "Alt+5" },
+    ]},
+    { title: t("nav.receive"), items: [
+      { mode: "grn",       label: t("nav.grn"),       icon: <PackagePlus size={16} />, shortcut: "Alt+4" },
+      { mode: "gmail",     label: t("nav.gmail"),     icon: <Mail size={16} />,        shortcut: "Alt+7" },
+      { mode: "templates", label: t("nav.templates"), icon: <FileText size={16} />,    shortcut: "Alt+6" },
+    ]},
+    { title: t("nav.stock"), items: [
+      { mode: "inventory", label: t("nav.inventory"), icon: <Package size={16} />,     shortcut: "Alt+2" },
+      { mode: "masters",   label: t("nav.masters"),   icon: <Pill size={16} />,        shortcut: "Alt+9" },
+    ]},
+    { title: t("nav.insights"), items: [
+      { mode: "reports",   label: t("nav.reports"),   icon: <ChartLine size={16} />,   shortcut: "Alt+3" },
+    ]},
+  ];
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
+    const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((v) => !v);
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
   }, []);
 
   return (
-    <div className="pc-app grid h-full" style={{ gridTemplateRows: "52px 1fr 36px" }}>
-      {/* ── Top bar ─────────────────────────────────────────── */}
-      <header
-        role="banner"
-        className="flex items-center gap-3 border-b border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] px-4"
-      >
+    <div className="pc-app grid h-full pc-signature-gradient" style={{ gridTemplateRows: "56px 1fr 32px" }}>
+      {/* ── Glass top bar ────────────────────────────────────── */}
+      <header role="banner" className="pc-glass-2 z-30 flex items-center gap-3 px-4">
         <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="grid h-7 w-7 place-items-center rounded-[var(--pc-radius-md)] bg-[var(--pc-brand-primary)] text-white font-medium"
-          >
-            ℞
-          </span>
+          <span aria-hidden className="grid h-8 w-8 place-items-center rounded-[var(--pc-radius-md)] bg-[var(--pc-brand-primary)] text-white font-medium shadow-[var(--pc-elevation-1)]">℞</span>
           <div>
-            <div className="text-[13px] font-medium leading-tight">PharmaCare Pro</div>
+            <div className="text-[13px] font-medium leading-tight">{t("app.name")}</div>
             <div className="text-[11px] text-[var(--pc-text-secondary)] leading-tight">
-              {shop && !isFirstRun ? `${shop.name} · ${shop.gstin}` : "First-run · configure shop"}
+              {shop && !isFirstRun ? `${shop.name} · ${shop.gstin}` : t("app.shopUnconfigured")}
             </div>
           </div>
         </div>
@@ -124,101 +91,60 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="ml-auto flex h-9 w-[320px] max-w-[40vw] items-center gap-2 rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface-2)] px-3 text-[12px] text-[var(--pc-text-tertiary)] transition-colors hover:border-[var(--pc-border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-brand-primary)]"
+          className="ml-auto flex h-9 w-[360px] max-w-[42vw] items-center gap-2 rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[color-mix(in_oklab,var(--pc-bg-surface)_60%,transparent)] backdrop-blur px-3 text-[12px] text-[var(--pc-text-tertiary)] transition-all hover:border-[var(--pc-border-default)] hover:text-[var(--pc-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-brand-primary)]"
           data-testid="cmdk-trigger"
           aria-label="Open command palette"
         >
           <Search size={14} aria-hidden />
-          <span className="flex-1 text-left">Search products, customers, bills…</span>
-          <kbd className="rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface)] px-1.5 py-0.5 text-[10px] text-[var(--pc-text-secondary)]">
-            Ctrl K
-          </kbd>
+          <span className="flex-1 text-left truncate">{t("cmdk.placeholder")}</span>
+          <kbd className="rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface)] px-1.5 py-0.5 text-[10px] text-[var(--pc-text-secondary)] font-mono">Ctrl K</kbd>
         </button>
 
-        <span
-          data-testid="current-mode"
-          aria-live="polite"
-          className="text-[11px] text-[var(--pc-text-tertiary)] mr-1"
-        >
-          {mode}
-        </span>
+        <LocaleSwitcher />
+        <span data-testid="current-mode" aria-live="polite" className="text-[11px] text-[var(--pc-text-tertiary)]">{mode}</span>
         <ThemeToggle />
 
-        <div
-          aria-label="Owner"
-          className="grid h-7 w-7 place-items-center rounded-full bg-[var(--pc-brand-primary-soft)] text-[11px] font-medium text-[var(--pc-brand-primary-hover)]"
-        >
-          SS
-        </div>
+        <div aria-label="Owner" className="grid h-8 w-8 place-items-center rounded-full bg-[var(--pc-brand-primary)] text-[11px] font-medium text-white shadow-[var(--pc-elevation-1)]">SS</div>
       </header>
 
-      {/* ── Body: nav rail + content ───────────────────────── */}
-      <div className="grid min-h-0" style={{ gridTemplateColumns: "224px 1fr" }}>
-        <nav
-          aria-label="Primary"
-          className="flex min-h-0 flex-col gap-3 overflow-y-auto border-r border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] p-3"
-        >
+      {/* ── Body: nav rail + content ──────────────────────────── */}
+      <div className="grid min-h-0 relative" style={{ gridTemplateColumns: "240px 1fr" }}>
+        <nav aria-label="Primary" className="pc-glass-1 z-20 flex min-h-0 flex-col gap-4 overflow-y-auto p-3">
           <NavTile
             active={mode === "dashboard"}
-            label="Dashboard"
+            label={t("nav.dashboard")}
             icon={<LayoutDashboard size={16} />}
             shortcut=""
             onClick={() => setMode("dashboard")}
+            mode="dashboard"
+            currentMode={mode}
           />
           {NAV_GROUPS.map((group) => (
             <div key={group.title}>
-              <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-[0.6px] text-[var(--pc-text-tertiary)]">
-                {group.title}
-              </div>
-              <div className="flex flex-col gap-1">
+              <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-[0.6px] text-[var(--pc-text-tertiary)]">{group.title}</div>
+              <div className="flex flex-col gap-0.5">
                 {group.items.map((it) => (
-                  <NavTile
-                    key={it.mode}
-                    active={mode === it.mode}
-                    label={it.label}
-                    icon={it.icon}
-                    shortcut={it.shortcut}
-                    onClick={() => setMode(it.mode)}
-                  />
+                  <NavTile key={it.mode} active={mode === it.mode} label={it.label} icon={it.icon} shortcut={it.shortcut} onClick={() => setMode(it.mode)} mode={it.mode} currentMode={mode} />
                 ))}
               </div>
             </div>
           ))}
           <div className="mt-auto">
-            <NavTile
-              active={mode === "settings"}
-              label="Settings"
-              icon={<Settings2 size={16} />}
-              shortcut="Alt+8"
-              onClick={() => setMode("settings")}
-            />
+            <NavTile active={mode === "settings"} label={t("nav.settings")} icon={<Settings2 size={16} />} shortcut="Alt+8" onClick={() => setMode("settings")} mode="settings" currentMode={mode} />
           </div>
         </nav>
 
-        <main
-          className="min-h-0 overflow-hidden bg-[var(--pc-bg-canvas)]"
-          data-testid="screen-host"
-        >
+        <main className="min-h-0 overflow-hidden" data-testid="screen-host">
           {isFirstRun && mode !== "settings" ? (
-            <div
-              data-testid="first-run-banner"
-              role="alert"
-              className="border-b border-[var(--pc-state-warning)] bg-[var(--pc-state-warning-bg)] px-4 py-2.5 text-[13px] font-medium text-[var(--pc-state-warning)]"
-            >
-              First-run setup required — press
-              {" "}<kbd className="rounded-[var(--pc-radius-sm)] bg-[var(--pc-state-warning)] text-white px-1.5 py-0.5 text-[10px]">Alt+8</kbd>{" "}
-              to open Settings (GSTIN, drug licence, address). GST invoices blocked until then.
+            <div data-testid="first-run-banner" role="alert" className="border-b border-[var(--pc-state-warning)] bg-[var(--pc-state-warning-bg)] px-4 py-2.5 text-[13px] font-medium text-[var(--pc-state-warning)]">
+              {t("app.firstRun")}
             </div>
           ) : null}
           <motion.div
             key={mode}
             initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={
-              reduce
-                ? { duration: 0 }
-                : { type: "spring", stiffness: 300, damping: 30, mass: 0.8 }
-            }
+            transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
             className="h-full overflow-auto"
           >
             {children}
@@ -227,49 +153,38 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
-      <footer
-        role="contentinfo"
-        className="flex items-center gap-4 border-t border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] px-4 text-[11px] text-[var(--pc-text-secondary)]"
-      >
+      <footer role="contentinfo" className="pc-glass-1 z-20 flex items-center gap-4 px-4 text-[11px] text-[var(--pc-text-secondary)]">
         <span className="inline-flex items-center gap-1.5" data-testid="lan-mode">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--pc-state-success)]" aria-hidden />
-          LAN online
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--pc-state-success)] animate-pulse" aria-hidden />
+          {t("app.lanOnline")}
         </span>
         <span data-testid="shop-summary">
-          {shop && !isFirstRun ? `${shop.name} · GSTIN ${shop.gstin}` : "First-run · shop not configured"}
+          {shop && !isFirstRun ? `${shop.name} · GSTIN ${shop.gstin}` : t("app.shopUnconfigured")}
         </span>
         <span className="ml-auto" data-testid="health">
-          {health ? `backend v${health.version} · db@${health.db}` : "offline stub"}
+          {health ? t("app.backendVersion", { v: health.version, db: health.db }) : t("app.offline")}
         </span>
       </footer>
 
       {/* ── Command palette ──────────────────────────────────── */}
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)}>
-        <CommandGroup heading="Screens">
-          <CommandItem onSelect={() => { setMode("dashboard"); setPaletteOpen(false); }}>
-            <LayoutDashboard size={14} aria-hidden /> <span className="ml-2">Dashboard</span>
-          </CommandItem>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} placeholder={t("cmdk.placeholder")}>
+        <CommandGroup heading={t("cmdk.sectionScreens")}>
+          <CommandItem onSelect={() => { setMode("dashboard"); setPaletteOpen(false); }}><LayoutDashboard size={14} aria-hidden /> <span className="ml-2">{t("nav.dashboard")}</span></CommandItem>
           {NAV_GROUPS.flatMap((g) => g.items).map((it) => (
             <CommandItem key={it.mode} onSelect={() => { setMode(it.mode); setPaletteOpen(false); }}>
               {it.icon} <span className="ml-2">{it.label}</span>
-              <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)]">{it.shortcut}</span>
+              <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)] font-mono">{it.shortcut}</span>
             </CommandItem>
           ))}
           <CommandItem onSelect={() => { setMode("settings"); setPaletteOpen(false); }}>
-            <Settings2 size={14} aria-hidden /> <span className="ml-2">Settings</span>
-            <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)]">Alt+8</span>
+            <Settings2 size={14} aria-hidden /> <span className="ml-2">{t("nav.settings")}</span>
+            <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)] font-mono">Alt+8</span>
           </CommandItem>
         </CommandGroup>
-        <CommandGroup heading="Actions">
-          <CommandItem onSelect={() => { setMode("billing"); setPaletteOpen(false); }}>
-            <Receipt size={14} aria-hidden /> <span className="ml-2">New bill</span>
-          </CommandItem>
-          <CommandItem onSelect={() => { setMode("grn"); setPaletteOpen(false); }}>
-            <PackagePlus size={14} aria-hidden /> <span className="ml-2">Receive (GRN)</span>
-          </CommandItem>
-          <CommandItem onSelect={() => { setMode("masters"); setPaletteOpen(false); }}>
-            <Pill size={14} aria-hidden /> <span className="ml-2">Add product</span>
-          </CommandItem>
+        <CommandGroup heading={t("cmdk.sectionActions")}>
+          <CommandItem onSelect={() => { setMode("billing"); setPaletteOpen(false); }}><Receipt size={14} aria-hidden /> <span className="ml-2">{t("dashboard.quickNew")}</span></CommandItem>
+          <CommandItem onSelect={() => { setMode("grn"); setPaletteOpen(false); }}><PackagePlus size={14} aria-hidden /> <span className="ml-2">{t("dashboard.quickReceive")}</span></CommandItem>
+          <CommandItem onSelect={() => { setMode("masters"); setPaletteOpen(false); }}><Pill size={14} aria-hidden /> <span className="ml-2">{t("cmdk.addProduct")}</span></CommandItem>
         </CommandGroup>
       </CommandPalette>
     </div>
@@ -282,6 +197,8 @@ interface NavTileProps {
   icon: JSX.Element;
   shortcut: string;
   onClick: () => void;
+  mode: string;
+  currentMode: string;
 }
 
 function NavTile({ active, label, icon, shortcut, onClick }: NavTileProps): JSX.Element {
@@ -291,18 +208,23 @@ function NavTile({ active, label, icon, shortcut, onClick }: NavTileProps): JSX.
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={
-        "flex h-8 items-center gap-2 rounded-[var(--pc-radius-md)] px-2 text-[13px] transition-colors " +
+        "relative flex h-9 items-center gap-2 rounded-[var(--pc-radius-md)] px-2.5 text-[13px] transition-colors " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-brand-primary)] " +
         (active
-          ? "bg-[var(--pc-brand-primary-soft)] text-[var(--pc-brand-primary-hover)] font-medium"
-          : "text-[var(--pc-text-secondary)] hover:bg-[var(--pc-bg-surface-3)] hover:text-[var(--pc-text-primary)]")
+          ? "text-[var(--pc-brand-primary-hover)] font-medium"
+          : "text-[var(--pc-text-secondary)] hover:bg-[color-mix(in_oklab,var(--pc-bg-surface-3)_70%,transparent)] hover:text-[var(--pc-text-primary)]")
       }
     >
-      <span aria-hidden className="inline-flex shrink-0">{icon}</span>
-      <span className="flex-1 text-left truncate">{label}</span>
-      {shortcut ? (
-        <span className="text-[10px] text-[var(--pc-text-tertiary)]">{shortcut}</span>
+      {active ? (
+        <motion.span
+          layoutId="nav-indicator"
+          className="absolute inset-0 -z-10 rounded-[var(--pc-radius-md)] bg-[var(--pc-brand-primary-soft)] border border-[color-mix(in_oklab,var(--pc-brand-primary)_25%,transparent)]"
+          transition={{ type: "spring", stiffness: 360, damping: 32, mass: 0.7 }}
+        />
       ) : null}
+      <span aria-hidden className="relative inline-flex shrink-0">{icon}</span>
+      <span className="relative flex-1 text-left truncate">{label}</span>
+      {shortcut ? <span className="relative text-[10px] text-[var(--pc-text-tertiary)] font-mono">{shortcut}</span> : null}
     </button>
   );
 }

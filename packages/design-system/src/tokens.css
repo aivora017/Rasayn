@@ -176,3 +176,107 @@
 
 /* Tabular numerals utility for KPI/currency cells */
 .pc-tabular { font-variant-numeric: tabular-nums; }
+
+/* ─── Liquid Glass surfaces (NS §3) ─────────────────────── */
+.pc-glass-1 {
+  background: color-mix(in oklab, var(--pc-bg-surface) 75%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid color-mix(in oklab, var(--pc-border-subtle) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+    var(--pc-elevation-1);
+}
+.pc-glass-2 {
+  background: color-mix(in oklab, var(--pc-bg-surface) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid color-mix(in oklab, var(--pc-border-subtle) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    var(--pc-elevation-2);
+}
+.pc-glass-3 {
+  background: color-mix(in oklab, var(--pc-bg-surface) 80%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid color-mix(in oklab, var(--pc-border-subtle) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    var(--pc-elevation-3);
+}
+
+.dark .pc-glass-1, .dark .pc-glass-2, .dark .pc-glass-3 {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    var(--pc-elevation-2);
+}
+
+.pc-glass-brand    { background: color-mix(in oklab, var(--pc-brand-primary-soft) 75%, transparent); }
+.pc-glass-saffron  { background: color-mix(in oklab, var(--pc-accent-saffron-soft) 75%, transparent); }
+.pc-glass-danger   { background: color-mix(in oklab, var(--pc-state-danger-bg) 80%, transparent); }
+.pc-glass-info     { background: color-mix(in oklab, var(--pc-state-info-bg) 80%, transparent); }
+
+.pc-glass-specular {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.0) 35%);
+  z-index: 1;
+}
+.dark .pc-glass-specular {
+  background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.0) 40%);
+}
+
+/* Signature gradient — used on splash, hero, branded loading. */
+.pc-signature-gradient {
+  background: radial-gradient(ellipse at 20% 0%, rgba(15,110,86,0.30) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 100%, rgba(239,159,39,0.25) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 50%, rgba(83,74,183,0.15) 0%, transparent 60%),
+              var(--pc-bg-canvas);
+}
+
+/* Number-flip digit container — clips to one line */
+.pc-numflip {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  vertical-align: baseline;
+  line-height: 1;
+}
+.pc-numflip-digit {
+  display: inline-block;
+  position: relative;
+  height: 1em;
+  width: 0.6em;
+  text-align: center;
+  overflow: hidden;
+}
+.pc-numflip-digit > span {
+  display: block;
+  position: absolute;
+  inset: 0;
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Mouse-aware parallax cards — uses CSS vars set by JS */
+.pc-parallax {
+  transform: perspective(800px)
+             rotateX(calc(var(--pc-tilt-y, 0) * 1deg))
+             rotateY(calc(var(--pc-tilt-x, 0) * 1deg))
+             translateZ(0);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pc-ill-breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.025) translateY(-2px); }
+}
+.pc-ill-breathe { animation: pc-ill-breathe 4500ms ease-in-out infinite; }
+
+/* Devanagari line-height booster (NS §5.3) */
+.pc-devanagari, .pc-devanagari * {
+  font-family: var(--pc-font-devanagari);
+  line-height: 1.75;
+}

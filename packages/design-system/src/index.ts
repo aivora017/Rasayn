@@ -28,6 +28,10 @@ export { cn } from "./utils/cn.js";
 export { useReducedMotion } from "./utils/useReducedMotion.js";
 export { formatINR, formatINRCompact, formatNumber, formatPct } from "./utils/format.js";
 
+// i18n
+export { initI18n, SUPPORTED_LOCALES, LOCALE_LABELS } from "./i18n/index.js";
+export type { Locale } from "./i18n/index.js";
+
 // Components
 export { Button } from "./components/Button.js";
 export type { ButtonProps } from "./components/Button.js";
@@ -57,3 +61,16 @@ export {
   CommandSeparator,
 } from "./components/CommandPalette.js";
 export type { CommandPaletteProps } from "./components/CommandPalette.js";
+// State-of-the-art primitives
+export { Glass } from "./components/Glass.js";
+export type { GlassProps } from "./components/Glass.js";
+export { AmbientMesh } from "./components/AmbientMesh.js";
+export type { AmbientMeshProps } from "./components/AmbientMesh.js";
+export { NumberFlip } from "./components/NumberFlip.js";
+export type { NumberFlipProps } from "./components/NumberFlip.js";
+export { SparkArea, SparkLine, TrendChart } from "./components/SparkChart.js";
+export type { SparkTone } from "./components/SparkChart.js";
+export { Illustration } from "./components/Illustration.js";
+export type { IllustrationProps, IllustrationName } from "./components/Illustration.js";
+export { LocaleSwitcher } from "./components/LocaleSwitcher.js";
+export type { LocaleSwitcherProps } from "./components/LocaleSwitcher.js";

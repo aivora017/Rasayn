@@ -21,6 +21,14 @@ declare module "lucide-react" {
   export const Mail: LucideIcon;
   export const Settings2: LucideIcon;
   export const ShieldCheck: LucideIcon;
+  export const Percent: LucideIcon;
+  export const Languages: LucideIcon;
+  export const ArrowRight: LucideIcon;
+  export const AlertCircle: LucideIcon;
+  export const Wallet: LucideIcon;
+  export const IndianRupee: LucideIcon;
+  export const TrendingDown: LucideIcon;
+  export const TrendingUp: LucideIcon;
   export const ShieldX: LucideIcon;
   export const Copy: LucideIcon;
   export const ZoomIn: LucideIcon;
