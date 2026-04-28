@@ -144,11 +144,11 @@ export function ReportsScreen() {
           {daybook ? (
             <>
               <div data-testid="rpt-daybook-summary" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-                <Card variant="recessed" className="p-3 px-4"><CardKpi label="Bills" value={formatNumber(daybook.summary.billCount)} /></Card>
-                <Card variant="recessed" className="p-3 px-4"><CardKpi label="Gross" value={formatINRCompact(daybook.summary.grossPaise)} /></Card>
-                <Card variant="recessed" className="p-3 px-4"><CardKpi label="CGST" value={formatINR(daybook.summary.cgstPaise as Paise)} /></Card>
-                <Card variant="recessed" className="p-3 px-4"><CardKpi label="SGST" value={formatINR(daybook.summary.sgstPaise as Paise)} /></Card>
-                <Card variant="recessed" className="p-3 px-4"><CardKpi label="IGST" value={formatINR(daybook.summary.igstPaise as Paise)} /></Card>
+                <Card variant="recessed" className="p-3 px-4"><CardKpi label="Bills:" value={formatNumber(daybook.summary.billCount)} /></Card>
+                <Card variant="recessed" className="p-3 px-4"><CardKpi label="Gross:" value={formatINRCompact(daybook.summary.grossPaise)} /></Card>
+                <Card variant="recessed" className="p-3 px-4"><CardKpi label="CGST:" value={formatINR(daybook.summary.cgstPaise as Paise)} /></Card>
+                <Card variant="recessed" className="p-3 px-4"><CardKpi label="SGST:" value={formatINR(daybook.summary.sgstPaise as Paise)} /></Card>
+                <Card variant="recessed" className="p-3 px-4"><CardKpi label="IGST:" value={formatINR(daybook.summary.igstPaise as Paise)} /></Card>
               </div>
               {daybook.rows.length === 0 ? (
                 <Glass depth={1} className="p-8 text-center text-[12px] text-[var(--pc-text-tertiary)]">

@@ -264,7 +264,7 @@ function Flags({ row }: { row: StockRow }) {
   else if (row.totalQty <= LOW_STOCK_UNDER) out.push(<Badge key="low" variant="warning">LOW</Badge>);
   if (row.daysToExpiry !== null && row.daysToExpiry <= 30) out.push(<Badge key="d30" variant="danger">≤30d</Badge>);
   else if (row.daysToExpiry !== null && row.daysToExpiry <= NEAR_EXPIRY_DAYS) out.push(<Badge key="d90" variant="warning">≤{NEAR_EXPIRY_DAYS}d</Badge>);
-  if (row.hasExpiredStock > 0) out.push(<Badge key="exp" variant="warning">EXP×{row.hasExpiredStock}</Badge>);
+  if (row.hasExpiredStock > 0) out.push(<Badge key="exp" variant="warning">EXPIRED×{row.hasExpiredStock}</Badge>);
   if (out.length === 0) return <span className="text-[var(--pc-text-tertiary)]">—</span>;
   return <span className="inline-flex flex-wrap gap-1">{out}</span>;
 }

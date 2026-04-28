@@ -148,6 +148,14 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
                 <Button variant="ghost" size="sm" data-testid="gmail-disconnect" onClick={doDisconnect} disabled={loading}>
                   Disconnect
                 </Button>
+                {status.scopes.length > 0 ? (
+                  <span className="basis-full mt-0.5 inline-flex flex-wrap items-center gap-1 text-[10px] text-[var(--pc-text-tertiary)]">
+                    <span className="uppercase tracking-[0.5px]">scopes</span>
+                    {status.scopes.map((sc) => (
+                      <span key={sc} className="font-mono rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface-2)] px-1.5 py-0.5">{sc}</span>
+                    ))}
+                  </span>
+                ) : null}
               </div>
             ) : (
               <div className="mt-2 flex items-center gap-2">
