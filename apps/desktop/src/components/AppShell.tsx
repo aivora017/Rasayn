@@ -38,6 +38,21 @@ interface AppShellProps {
 
 interface NavItem { mode: Mode; label: string; icon: JSX.Element; shortcut: string }
 
+
+// View Transitions wrapper — gracefully falls back where unsupported.
+// Wraps a state-change in document.startViewTransition for native cross-fade
+// + scale morph between screens. Browser support: Chromium 111+ (Tauri OK).
+function withViewTransition(fn: () => void): void {
+  const d = document as Document & {
+    startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+  };
+  if (typeof d.startViewTransition === "function") {
+    d.startViewTransition(() => fn());
+  } else {
+    fn();
+  }
+}
+
 export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: AppShellProps): JSX.Element {
   const { t } = useTranslation();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -115,7 +130,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
             label={t("nav.dashboard")}
             icon={<LayoutDashboard size={16} />}
             shortcut=""
-            onClick={() => setMode("dashboard")}
+            onClick={() => withViewTransition(() => setMode("dashboard"))}
             mode="dashboard"
             currentMode={mode}
           />
@@ -130,7 +145,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
             </div>
           ))}
           <div className="mt-auto">
-            <NavTile active={mode === "settings"} label={t("nav.settings")} icon={<Settings2 size={16} />} shortcut="Alt+8" onClick={() => setMode("settings")} mode="settings" currentMode={mode} />
+            <NavTile active={mode === "settings"} label={t("nav.settings")} icon={<Settings2 size={16} />} shortcut="Alt+8" onClick={() => withViewTransition(() => setMode("settings"))} mode="settings" currentMode={mode} />
           </div>
         </nav>
 
@@ -169,22 +184,22 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
       {/* ── Command palette ──────────────────────────────────── */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} placeholder={t("cmdk.placeholder")}>
         <CommandGroup heading={t("cmdk.sectionScreens")}>
-          <CommandItem onSelect={() => { setMode("dashboard"); setPaletteOpen(false); }}><LayoutDashboard size={14} aria-hidden /> <span className="ml-2">{t("nav.dashboard")}</span></CommandItem>
+          <CommandItem onSelect={() => { withViewTransition(() => { setMode("dashboard"); setPaletteOpen(false); }); }}><LayoutDashboard size={14} aria-hidden /> <span className="ml-2">{t("nav.dashboard")}</span></CommandItem>
           {NAV_GROUPS.flatMap((g) => g.items).map((it) => (
             <CommandItem key={it.mode} onSelect={() => { setMode(it.mode); setPaletteOpen(false); }}>
               {it.icon} <span className="ml-2">{it.label}</span>
               <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)] font-mono">{it.shortcut}</span>
             </CommandItem>
           ))}
-          <CommandItem onSelect={() => { setMode("settings"); setPaletteOpen(false); }}>
+          <CommandItem onSelect={() => { withViewTransition(() => { setMode("settings"); setPaletteOpen(false); }); }}>
             <Settings2 size={14} aria-hidden /> <span className="ml-2">{t("nav.settings")}</span>
             <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)] font-mono">Alt+8</span>
           </CommandItem>
         </CommandGroup>
         <CommandGroup heading={t("cmdk.sectionActions")}>
-          <CommandItem onSelect={() => { setMode("billing"); setPaletteOpen(false); }}><Receipt size={14} aria-hidden /> <span className="ml-2">{t("dashboard.quickNew")}</span></CommandItem>
-          <CommandItem onSelect={() => { setMode("grn"); setPaletteOpen(false); }}><PackagePlus size={14} aria-hidden /> <span className="ml-2">{t("dashboard.quickReceive")}</span></CommandItem>
-          <CommandItem onSelect={() => { setMode("masters"); setPaletteOpen(false); }}><Pill size={14} aria-hidden /> <span className="ml-2">{t("cmdk.addProduct")}</span></CommandItem>
+          <CommandItem onSelect={() => { withViewTransition(() => { setMode("billing"); setPaletteOpen(false); }); }}><Receipt size={14} aria-hidden /> <span className="ml-2">{t("dashboard.quickNew")}</span></CommandItem>
+          <CommandItem onSelect={() => { withViewTransition(() => { setMode("grn"); setPaletteOpen(false); }); }}><PackagePlus size={14} aria-hidden /> <span className="ml-2">{t("dashboard.quickReceive")}</span></CommandItem>
+          <CommandItem onSelect={() => { withViewTransition(() => { setMode("masters"); setPaletteOpen(false); }); }}><Pill size={14} aria-hidden /> <span className="ml-2">{t("cmdk.addProduct")}</span></CommandItem>
         </CommandGroup>
       </CommandPalette>
     </div>

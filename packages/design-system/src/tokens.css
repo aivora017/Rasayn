@@ -11,12 +11,20 @@
 
 :root {
   /* ─── Brand ─────────────────────────────────────────── */
-  --pc-brand-primary:        #0E5142;   /* Pharmacy Green 600 */
-  --pc-brand-primary-hover:  #07382E;
-  --pc-brand-primary-soft:   #DCEDE6;
-  --pc-accent-saffron:       #FF8B5C;
-  --pc-accent-saffron-hover: #E66B3F;
-  --pc-accent-saffron-soft:  #FFE5D6;
+  --pc-brand-primary:        #0A4338;   /* Pharmacy Green 600 */
+  --pc-brand-primary-hover:  #052D24;
+  --pc-brand-primary-soft:   #D4E8DF;
+  /* ─── AI/thinking accent (copilot moments) ──────────────── */
+  --pc-accent-ai:        #6B5BD1;   /* soft indigo */
+  --pc-accent-ai-hover:  #4F40B7;
+  --pc-accent-ai-soft:   #ECE9FB;
+
+  /* ─── Tactile noise (1 % opacity SVG fractal noise) ──────── */
+  --pc-noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+
+  --pc-accent-saffron:       #FF7A4A;
+  --pc-accent-saffron-hover: #D9582E;
+  --pc-accent-saffron-soft:  #FFDFCC;
 
   /* ─── Neutrals (warm) ───────────────────────────────── */
   --pc-bg-canvas:    #FCFBF6;
@@ -111,12 +119,16 @@
 
 /* ─── Dark mode (apply .dark to <html> or <body>) ───────── */
 .dark {
-  --pc-brand-primary:        #4FBB95;
-  --pc-brand-primary-hover:  #7DD0B0;
-  --pc-brand-primary-soft:   #062A22;
-  --pc-accent-saffron:       #FFB089;
-  --pc-accent-saffron-hover: #FF8B5C;
-  --pc-accent-saffron-soft:  #3A1C0E;
+  --pc-brand-primary:        #3FAA85;
+  --pc-brand-primary-hover:  #5FC09C;
+  --pc-brand-primary-soft:   #051F19;
+  --pc-accent-ai:        #8E7DEF;
+  --pc-accent-ai-hover:  #B0A4F2;
+  --pc-accent-ai-soft:   #1A1730;
+
+  --pc-accent-saffron:       #FF9B70;
+  --pc-accent-saffron-hover: #FF7A4A;
+  --pc-accent-saffron-soft:  #321608;
 
   --pc-bg-canvas:    #0A0F0E;
   --pc-bg-surface:   #131918;
@@ -375,4 +387,95 @@
 .pc-scroll-fade {
   mask-image: linear-gradient(to bottom, transparent 0, black 8%, black 92%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8%, black 92%, transparent 100%);
+}
+
+/* ─── Glass v3 — tactile noise + sharper hover + edge gloss ────── */
+.pc-glass-1, .pc-glass-2, .pc-glass-3 {
+  position: relative;
+}
+.pc-glass-1::after, .pc-glass-2::after, .pc-glass-3::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--pc-noise);
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+  z-index: 1;
+}
+.dark .pc-glass-1::after, .dark .pc-glass-2::after, .dark .pc-glass-3::after {
+  mix-blend-mode: soft-light;
+  opacity: 0.8;
+}
+
+/* Sharper hover — translateY(-3px) + 1.005 scale + brighter ring */
+.pc-glass-interactive:hover {
+  transform: translateY(-3px) scale(1.006);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.32),
+    0 12px 32px -8px color-mix(in oklab, var(--pc-brand-primary) 22%, transparent),
+    var(--pc-elevation-3);
+  border-color: color-mix(in oklab, var(--pc-brand-primary) 55%, transparent);
+}
+.pc-glass-interactive:active {
+  transform: translateY(-1px) scale(0.998);
+}
+
+/* Edge gloss — leading edge brightens on hover (top + left for now). */
+.pc-glass-interactive::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, white 22%, transparent) 0%,
+    transparent 18%,
+    transparent 82%,
+    color-mix(in oklab, var(--pc-brand-primary) 12%, transparent) 100%
+  );
+  opacity: 0;
+  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 2;
+  border-radius: inherit;
+  mix-blend-mode: lighten;
+}
+.pc-glass-interactive:hover::before {
+  opacity: 1;
+}
+
+/* Cursor glow z-index bump so it sits above noise */
+.pc-glass-cursor-glow { z-index: 3; }
+
+/* ─── AI/thinking glow — copilot moments ─────────────────────── */
+@keyframes pc-ai-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--pc-accent-ai) 40%, transparent); }
+  50%      { box-shadow: 0 0 0 8px color-mix(in oklab, var(--pc-accent-ai) 0%, transparent); }
+}
+.pc-ai-pulse {
+  animation: pc-ai-pulse 2200ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ─── View Transitions API — screen morph ──────────────────── */
+@view-transition { navigation: auto; }
+
+::view-transition-old(root) {
+  animation: pc-vt-out 200ms cubic-bezier(0.45, 0, 0.55, 1) both;
+}
+::view-transition-new(root) {
+  animation: pc-vt-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes pc-vt-out {
+  to { opacity: 0; transform: scale(0.985); filter: blur(2px); }
+}
+@keyframes pc-vt-in {
+  from { opacity: 0; transform: scale(1.015); filter: blur(2px); }
+  to   { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
 }
