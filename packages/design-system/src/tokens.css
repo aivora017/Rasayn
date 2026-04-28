@@ -1,0 +1,282 @@
+/*
+ * PharmaCare Pro — Design Tokens v1.0
+ * Source of truth: docs/design/NORTH_STAR.md §4–§7 (ratified ADR-0029).
+ *
+ * RULES:
+ *  - No off-palette hex anywhere in the codebase. Use these CSS variables.
+ *  - No off-grid spacing. Use --space-* scale.
+ *  - Light is default. Dark applied via .dark class on <html> or <body>.
+ *  - All colors meet WCAG 2.2 AA on their intended pair (verified by axe-core CI).
+ */
+
+:root {
+  /* ─── Brand ─────────────────────────────────────────── */
+  --pc-brand-primary:        #0F6E56;   /* Pharmacy Green 600 */
+  --pc-brand-primary-hover:  #085041;
+  --pc-brand-primary-soft:   #E1F5EE;
+  --pc-accent-saffron:       #EF9F27;
+  --pc-accent-saffron-hover: #BA7517;
+  --pc-accent-saffron-soft:  #FAEEDA;
+
+  /* ─── Neutrals (warm) ───────────────────────────────── */
+  --pc-bg-canvas:    #FAF9F6;
+  --pc-bg-surface:   #FFFFFF;
+  --pc-bg-surface-2: #F5F3EE;
+  --pc-bg-surface-3: #EDEAE2;
+
+  --pc-text-primary:   #0F1715;
+  --pc-text-secondary: #4F5754;
+  --pc-text-tertiary:  #7A8079;
+  --pc-text-on-brand:  #FFFFFF;
+
+  --pc-border-subtle:  #E5E1D6;
+  --pc-border-default: #D3D1C7;
+  --pc-border-strong:  #888780;
+
+  /* ─── Semantic state ────────────────────────────────── */
+  --pc-state-success:    #1D9E75;
+  --pc-state-success-bg: #E1F5EE;
+  --pc-state-warning:    #BA7517;
+  --pc-state-warning-bg: #FAEEDA;
+  --pc-state-danger:     #A32D2D;
+  --pc-state-danger-bg:  #FCEBEB;
+  --pc-state-info:       #185FA5;
+  --pc-state-info-bg:    #E6F1FB;
+
+  /* ─── Data viz (categorical, NEVER cycled like a rainbow) ──── */
+  --pc-viz-a: #0F6E56;  /* Sales — primary */
+  --pc-viz-b: #534AB7;  /* Margin / secondary */
+  --pc-viz-c: #EF9F27;  /* GST / regulatory */
+  --pc-viz-d: #185FA5;  /* Suppliers / third-party */
+  --pc-viz-n: #888780;  /* Neutral / "other" / baseline */
+
+  /* ─── Spacing (8 px base + 4 px sub) ────────────────── */
+  --pc-space-0:  0;
+  --pc-space-2:  2px;
+  --pc-space-4:  4px;
+  --pc-space-6:  6px;
+  --pc-space-8:  8px;
+  --pc-space-12: 12px;
+  --pc-space-16: 16px;
+  --pc-space-20: 20px;
+  --pc-space-24: 24px;
+  --pc-space-32: 32px;
+  --pc-space-40: 40px;
+  --pc-space-48: 48px;
+  --pc-space-64: 64px;
+  --pc-space-80: 80px;
+  --pc-space-96: 96px;
+
+  /* ─── Border radius ─────────────────────────────────── */
+  --pc-radius-sm:   4px;
+  --pc-radius-md:   8px;
+  --pc-radius-lg:   12px;
+  --pc-radius-xl:   16px;
+  --pc-radius-pill: 9999px;
+
+  /* ─── Elevation (shadows) ───────────────────────────── */
+  --pc-elevation-1: 0 1px 2px rgba(15, 23, 21, 0.04), 0 0 0 0.5px rgba(15, 23, 21, 0.06);
+  --pc-elevation-2: 0 4px 12px rgba(15, 23, 21, 0.06), 0 0 0 0.5px rgba(15, 23, 21, 0.06);
+  --pc-elevation-3: 0 12px 32px rgba(15, 23, 21, 0.10), 0 0 0 0.5px rgba(15, 23, 21, 0.08);
+  --pc-focus-ring:  0 0 0 2px var(--pc-bg-canvas), 0 0 0 4px var(--pc-brand-primary);
+
+  /* ─── Type stack ────────────────────────────────────── */
+  --pc-font-sans:        "Inter", "Inter var", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pc-font-devanagari:  "Mukta", "Noto Sans Devanagari", "Inter", system-ui, sans-serif;
+  --pc-font-gujarati:    "Mukta Vaani", "Noto Sans Gujarati", "Inter", system-ui, sans-serif;
+  --pc-font-tamil:       "Mukta Malar", "Noto Sans Tamil", "Inter", system-ui, sans-serif;
+  --pc-font-mono:        "Geist Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --pc-font-display:     "Inter", "Inter var", system-ui, sans-serif;
+
+  /* ─── Type scale (px) ───────────────────────────────── */
+  --pc-text-2xs: 11px;
+  --pc-text-xs:  12px;
+  --pc-text-sm:  13px;
+  --pc-text-base:14px;
+  --pc-text-md:  16px;
+  --pc-text-lg:  18px;
+  --pc-text-xl:  22px;
+  --pc-text-2xl: 28px;
+  --pc-text-3xl: 36px;
+  --pc-text-4xl: 48px;
+
+  /* ─── Motion durations ──────────────────────────────── */
+  --pc-duration-instant: 80ms;
+  --pc-duration-fast:    160ms;
+  --pc-duration-base:    220ms;
+  --pc-duration-slow:    320ms;
+  --pc-easing-ease-out:  cubic-bezier(0.22, 1, 0.36, 1);
+  --pc-easing-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+/* ─── Dark mode (apply .dark to <html> or <body>) ───────── */
+.dark {
+  --pc-brand-primary:        #5DCAA5;
+  --pc-brand-primary-hover:  #9FE1CB;
+  --pc-brand-primary-soft:   #04342C;
+  --pc-accent-saffron:       #FAC775;
+  --pc-accent-saffron-hover: #EF9F27;
+  --pc-accent-saffron-soft:  #412402;
+
+  --pc-bg-canvas:    #0B0F0E;
+  --pc-bg-surface:   #141918;
+  --pc-bg-surface-2: #1A201F;
+  --pc-bg-surface-3: #222827;
+
+  --pc-text-primary:   #F1EFE8;
+  --pc-text-secondary: #B4B2A9;
+  --pc-text-tertiary:  #7B7E78;
+  --pc-text-on-brand:  #04342C;
+
+  --pc-border-subtle:  #2A2F2D;
+  --pc-border-default: #3A413E;
+  --pc-border-strong:  #5F5E5A;
+
+  --pc-state-success:    #5DCAA5;
+  --pc-state-success-bg: #04342C;
+  --pc-state-warning:    #EF9F27;
+  --pc-state-warning-bg: #412402;
+  --pc-state-danger:     #E24B4A;
+  --pc-state-danger-bg:  #501313;
+  --pc-state-info:       #85B7EB;
+  --pc-state-info-bg:    #042C53;
+
+  --pc-viz-a: #5DCAA5;
+  --pc-viz-b: #AFA9EC;
+  --pc-viz-c: #FAC775;
+  --pc-viz-d: #85B7EB;
+  --pc-viz-n: #B4B2A9;
+
+  --pc-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.5),  0 0 0 0.5px rgba(255, 255, 255, 0.04);
+  --pc-elevation-2: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --pc-elevation-3: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Reduced motion: kill every transition + animation ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Body baseline (opt-in via .pc-app on root) ────────── */
+.pc-app {
+  background: var(--pc-bg-canvas);
+  color: var(--pc-text-primary);
+  font-family: var(--pc-font-sans);
+  font-size: var(--pc-text-base);
+  line-height: 1.6;
+  font-feature-settings: "ss01", "cv11"; /* Inter alt-numerals on if available */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular numerals utility for KPI/currency cells */
+.pc-tabular { font-variant-numeric: tabular-nums; }
+
+/* ─── Liquid Glass surfaces (NS §3) ─────────────────────── */
+.pc-glass-1 {
+  background: color-mix(in oklab, var(--pc-bg-surface) 75%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid color-mix(in oklab, var(--pc-border-subtle) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+    var(--pc-elevation-1);
+}
+.pc-glass-2 {
+  background: color-mix(in oklab, var(--pc-bg-surface) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid color-mix(in oklab, var(--pc-border-subtle) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    var(--pc-elevation-2);
+}
+.pc-glass-3 {
+  background: color-mix(in oklab, var(--pc-bg-surface) 80%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid color-mix(in oklab, var(--pc-border-subtle) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    var(--pc-elevation-3);
+}
+
+.dark .pc-glass-1, .dark .pc-glass-2, .dark .pc-glass-3 {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    var(--pc-elevation-2);
+}
+
+.pc-glass-brand    { background: color-mix(in oklab, var(--pc-brand-primary-soft) 75%, transparent); }
+.pc-glass-saffron  { background: color-mix(in oklab, var(--pc-accent-saffron-soft) 75%, transparent); }
+.pc-glass-danger   { background: color-mix(in oklab, var(--pc-state-danger-bg) 80%, transparent); }
+.pc-glass-info     { background: color-mix(in oklab, var(--pc-state-info-bg) 80%, transparent); }
+
+.pc-glass-specular {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.0) 35%);
+  z-index: 1;
+}
+.dark .pc-glass-specular {
+  background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.0) 40%);
+}
+
+/* Signature gradient — used on splash, hero, branded loading. */
+.pc-signature-gradient {
+  background: radial-gradient(ellipse at 20% 0%, rgba(15,110,86,0.30) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 100%, rgba(239,159,39,0.25) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 50%, rgba(83,74,183,0.15) 0%, transparent 60%),
+              var(--pc-bg-canvas);
+}
+
+/* Number-flip digit container — clips to one line */
+.pc-numflip {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  vertical-align: baseline;
+  line-height: 1;
+}
+.pc-numflip-digit {
+  display: inline-block;
+  position: relative;
+  height: 1em;
+  width: 0.6em;
+  text-align: center;
+  overflow: hidden;
+}
+.pc-numflip-digit > span {
+  display: block;
+  position: absolute;
+  inset: 0;
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Mouse-aware parallax cards — uses CSS vars set by JS */
+.pc-parallax {
+  transform: perspective(800px)
+             rotateX(calc(var(--pc-tilt-y, 0) * 1deg))
+             rotateY(calc(var(--pc-tilt-x, 0) * 1deg))
+             translateZ(0);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pc-ill-breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.025) translateY(-2px); }
+}
+.pc-ill-breathe { animation: pc-ill-breathe 4500ms ease-in-out infinite; }
+
+/* Devanagari line-height booster (NS §5.3) */
+.pc-devanagari, .pc-devanagari * {
+  font-family: var(--pc-font-devanagari);
+  line-height: 1.75;
+}

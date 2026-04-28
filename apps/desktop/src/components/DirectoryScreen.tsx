@@ -120,28 +120,34 @@ export function DirectoryScreen() {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        {(["customers", "doctors"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            data-testid={`dir-tab-${t}`}
-            onClick={() => setTab(t)}
-            style={{
-              padding: "6px 14px", fontWeight: 500,
-              background: tab === t ? "#1e3a8a" : "#eee",
-              color: tab === t ? "#fff" : "#222",
-              border: "none", borderRadius: 4, cursor: "pointer",
-            }}
-          >{t === "customers" ? "Customers" : "Doctors"}</button>
-        ))}
-      </div>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Directory</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">customers · doctors · consent</p>
+        <div className="ml-auto inline-flex items-center gap-0.5 rounded-[var(--pc-radius-md)] bg-[var(--pc-bg-surface-2)] p-0.5">
+          {(["customers", "doctors"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              data-testid={`dir-tab-${t}`}
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={
+                "rounded-[var(--pc-radius-sm)] px-3 py-1.5 text-[12px] font-medium transition-colors " +
+                (tab === t
+                  ? "bg-[var(--pc-bg-surface)] text-[var(--pc-text-primary)] shadow-[var(--pc-elevation-1)]"
+                  : "text-[var(--pc-text-secondary)] hover:text-[var(--pc-text-primary)]")
+              }
+            >{t === "customers" ? "Customers" : "Doctors"}</button>
+          ))}
+        </div>
+      </header>
 
       <input
         data-testid="dir-search"
         placeholder={tab === "customers" ? "Search name / phone / GSTIN" : "Search name / reg no / phone"}
         value={q} onChange={(e) => setQ(e.target.value)}
-        style={{ width: "100%", padding: "8px 12px", fontSize: 14, marginBottom: 12 }}
+        className="w-full mb-3 h-9 rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--pc-brand-primary)]"
       />
 
       {tab === "customers" ? (
@@ -158,11 +164,11 @@ export function DirectoryScreen() {
                      onClick={() => void openCustomer(c)}
                      style={{
                        padding: "8px 10px", borderBottom: "1px solid #eee", cursor: "pointer",
-                       background: selectedCust?.id === c.id ? "#eff6ff" : "transparent",
+                       background: selectedCust?.id === c.id ? "var(--pc-state-info-bg)" : "transparent",
                      }}>
                   <div style={{ fontWeight: 500 }}>{c.name}</div>
-                  <div style={{ fontSize: 12, color: "#666" }}>
-                    {c.phone ?? "—"} {c.consentAbdm === 1 && <span style={{ color: "#1e7d32" }}>· ABDM</span>}
+                  <div style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>
+                    {c.phone ?? "—"} {c.consentAbdm === 1 && <span style={{ color: "var(--pc-state-success)" }}>· ABDM</span>}
                   </div>
                 </div>
               ))}
@@ -252,7 +258,7 @@ export function DirectoryScreen() {
               {doctors.map((d) => (
                 <div key={d.id} data-testid={`dir-doc-${d.id}`} style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>
                   <div style={{ fontWeight: 500 }}>{d.name}</div>
-                  <div style={{ fontSize: 12, color: "#666" }}>{d.regNo} {d.phone && <>&middot; {d.phone}</>}</div>
+                  <div style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>{d.regNo} {d.phone && <>&middot; {d.phone}</>}</div>
                 </div>
               ))}
             </div>
@@ -283,7 +289,7 @@ export function DirectoryScreen() {
       {toast && (
         <div data-testid="dir-toast" data-toast-kind={toast.kind} style={{
           position: "fixed", bottom: 40, right: 24, padding: "10px 16px", borderRadius: 6,
-          background: toast.kind === "ok" ? "#1e7d32" : "#b00020", color: "#fff", fontWeight: 500,
+          background: toast.kind === "ok" ? "var(--pc-state-success)" : "var(--pc-state-danger)", color: "var(--pc-bg-surface)", fontWeight: 500,
         }}>{toast.msg}</div>
       )}
     </div>

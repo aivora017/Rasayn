@@ -199,8 +199,13 @@ export default function SupplierTemplateScreen() {
   )), [suppliers]);
 
   return (
-    <div style={{ padding: 12, display: "grid", gridTemplateColumns: "260px 1fr 1fr", gap: 12, height: "calc(100vh - 80px)" }}>
-      <div data-testid="tpl-sidebar" style={{ borderRight: "1px solid #ccc", paddingRight: 8, overflow: "auto" }}>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Supplier templates</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">parse rules for distributor invoices</p>
+      </header>
+      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 1fr", gap: 12, height: "calc(100vh - 200px)" }}>
+      <div data-testid="tpl-sidebar" className="overflow-auto rounded-[var(--pc-radius-lg)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] p-3">
         <div style={{ marginBottom: 8 }}>
           <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Supplier</label>
           <select
@@ -216,7 +221,7 @@ export default function SupplierTemplateScreen() {
         <button data-testid="tpl-new" onClick={newTemplate} style={{ width: "100%", marginBottom: 8 }}>
           + New template (Ctrl+N)
         </button>
-        <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>Templates ({templates.length})</div>
+        <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", marginBottom: 4 }}>Templates ({templates.length})</div>
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {templates.map((t) => (
             <li key={t.id}>
@@ -225,12 +230,12 @@ export default function SupplierTemplateScreen() {
                 onClick={() => pickTemplate(t.id)}
                 style={{
                   width: "100%", textAlign: "left", padding: "6px 8px",
-                  background: t.id === selectedId ? "#def" : "transparent",
+                  background: t.id === selectedId ? "var(--pc-state-info-bg)" : "transparent",
                   border: "1px solid #eee", marginBottom: 2, cursor: "pointer",
                 }}
               >
                 <div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div>
-                <div style={{ fontSize: 11, color: "#888" }}>{t.supplierId}</div>
+                <div style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>{t.supplierId}</div>
               </button>
             </li>
           ))}
@@ -239,7 +244,7 @@ export default function SupplierTemplateScreen() {
 
       <div data-testid="tpl-editor" style={{ overflow: "auto" }}>
         <h3 style={{ margin: "0 0 8px" }}>{draft.id ? "Edit template" : "New template"}</h3>
-        {error && <div data-testid="tpl-error" style={{ color: "#b00", marginBottom: 8 }}>{error}</div>}
+        {error && <div data-testid="tpl-error" style={{ color: "var(--pc-state-danger)", marginBottom: 8 }}>{error}</div>}
 
         <label style={{ display: "block", fontSize: 12 }}>Name</label>
         <input
@@ -314,7 +319,7 @@ export default function SupplierTemplateScreen() {
             {saving ? "Saving…" : "Save (Ctrl+S)"}
           </button>
           <button data-testid="tpl-test" onClick={doTest}>Test (Ctrl+T)</button>
-          <button data-testid="tpl-delete" onClick={doDelete} disabled={!selectedId} style={{ color: "#b00" }}>
+          <button data-testid="tpl-delete" onClick={doDelete} disabled={!selectedId} style={{ color: "var(--pc-state-danger)" }}>
             Delete (Del)
           </button>
         </div>
@@ -361,6 +366,7 @@ export default function SupplierTemplateScreen() {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }

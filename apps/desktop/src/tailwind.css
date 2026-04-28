@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@pharmacare/design-system/tailwind.css";
+
+/* Mark this file's content; ensures tree-shake doesn't drop. */
+.pc-tailwind-loaded { display: none; }

@@ -271,8 +271,8 @@ export function TenderReversalModal(
     >
       <div
         style={{
-          background: "#1e293b",
-          color: "#e5e7eb",
+          background: "var(--pc-bg-surface-2)",
+          color: "var(--pc-text-primary)",
           padding: 20,
           borderRadius: 8,
           minWidth: 480,
@@ -325,8 +325,8 @@ export function TenderReversalModal(
                   padding: "6px 10px",
                   border: "1px solid #334155",
                   borderRadius: 4,
-                  background: active ? "#2563eb" : "#0f172a",
-                  color: active ? "white" : "#cbd5e1",
+                  background: active ? "var(--pc-state-info)" : "var(--pc-bg-canvas)",
+                  color: active ? "white" : "var(--pc-border-default)",
                   cursor: "pointer",
                 }}
               >
@@ -349,7 +349,7 @@ export function TenderReversalModal(
         >
           <label
             htmlFor="tender-reversal-amount"
-            style={{ fontSize: 12, color: "#94a3b8", minWidth: 60 }}
+            style={{ fontSize: 12, color: "var(--pc-text-tertiary)", minWidth: 60 }}
           >
             Amount ₹
           </label>
@@ -372,8 +372,8 @@ export function TenderReversalModal(
               padding: "6px 8px",
               borderRadius: 4,
               border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#e5e7eb",
+              background: "var(--pc-bg-canvas)",
+              color: "var(--pc-text-primary)",
             }}
           />
           {(mode === "card" || mode === "upi" || mode === "credit") && (
@@ -394,8 +394,8 @@ export function TenderReversalModal(
                 padding: "6px 8px",
                 borderRadius: 4,
                 border: "1px solid #334155",
-                background: "#0f172a",
-                color: "#e5e7eb",
+                background: "var(--pc-bg-canvas)",
+                color: "var(--pc-text-primary)",
               }}
             />
           )}
@@ -407,7 +407,7 @@ export function TenderReversalModal(
               padding: "6px 10px",
               borderRadius: 4,
               border: "none",
-              background: "#16a34a",
+              background: "var(--pc-state-success)",
               color: "white",
               cursor: "pointer",
             }}
@@ -418,7 +418,7 @@ export function TenderReversalModal(
 
         <div data-testid="tender-reversal-list" style={{ marginBottom: 12 }}>
           {tenders.length === 0 && (
-            <div style={{ fontSize: 12, color: "#64748b", padding: "6px 0" }}>
+            <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", padding: "6px 0" }}>
               No reversal tenders yet.
             </div>
           )}
@@ -441,7 +441,7 @@ export function TenderReversalModal(
                 {formatINR(t.amountPaise as Paise)}
               </span>
               {t.refNo && (
-                <span style={{ fontSize: 11, color: "#94a3b8" }}>{t.refNo}</span>
+                <span style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>{t.refNo}</span>
               )}
               <button
                 type="button"
@@ -452,7 +452,7 @@ export function TenderReversalModal(
                   borderRadius: 4,
                   border: "1px solid #334155",
                   background: "transparent",
-                  color: "#f87171",
+                  color: "var(--pc-state-danger)",
                   cursor: "pointer",
                 }}
                 aria-label={`Remove tender ${i + 1}`}
@@ -468,7 +468,7 @@ export function TenderReversalModal(
             data-testid="tender-reversal-err"
             role="alert"
             style={{
-              color: "#f87171",
+              color: "var(--pc-state-danger)",
               fontSize: 12,
               marginBottom: 8,
             }}
@@ -484,7 +484,7 @@ export function TenderReversalModal(
             onClick={resetToDefault}
             style={{
               padding: "8px 14px",
-              background: "#64748b",
+              background: "var(--pc-text-secondary)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -498,7 +498,7 @@ export function TenderReversalModal(
             onClick={onCancel}
             style={{
               padding: "8px 14px",
-              background: "#334155",
+              background: "var(--pc-border-subtle)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -515,7 +515,7 @@ export function TenderReversalModal(
             aria-keyshortcuts="F10"
             style={{
               padding: "8px 14px",
-              background: isBalanced ? "#16a34a" : "#64748b",
+              background: isBalanced ? "var(--pc-state-success)" : "var(--pc-text-secondary)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -539,13 +539,13 @@ function Stat(props: {
 }): JSX.Element {
   const color =
     props.tone === "warn"
-      ? "#f59e0b"
+      ? "var(--pc-state-warning)"
       : props.tone === "info"
-        ? "#22d3ee"
-        : "#22c55e";
+        ? "var(--pc-state-info)"
+        : "var(--pc-state-success)";
   return (
-    <div style={{ padding: "6px 8px", background: "#0f172a", borderRadius: 4 }}>
-      <div style={{ fontSize: 11, color: "#94a3b8" }}>{props.label}</div>
+    <div style={{ padding: "6px 8px", background: "var(--pc-bg-canvas)", borderRadius: 4 }}>
+      <div style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>{props.label}</div>
       <div
         data-testid={props.testId}
         style={{ fontSize: 16, color, fontWeight: 700 }}

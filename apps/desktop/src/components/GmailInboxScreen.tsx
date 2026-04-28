@@ -1,14 +1,11 @@
 // GmailInboxScreen — X1 moat surface. Owner connects Gmail, we read
 // distributor-bill attachments into GRN drafts. See ADR 0002 / 0003.
-//
-// Covered here:
-//   - Connect / disconnect / status
-//   - List messages matching a saved query (default: has:attachment newer_than:30d)
-//   - On click → fetch first text-like attachment → apply selected supplier
-//     template → preview draft → "Send to GRN (F4)" hand-off
-//   - Manual paste fallback (dev loop + any attachment that won't decode as text)
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Mail, Search, FileText, Sparkles, ArrowRight, Plug, AlertCircle } from "lucide-react";
+import {
+  Glass, Badge, Button, Input, Skeleton, Illustration,
+} from "@pharmacare/design-system";
 import {
   type OAuthStatus, type SupplierTemplateDTO, type TemplateTestResult,
   type GmailMessageSummary, type GmailAttachmentMeta,
@@ -50,14 +47,10 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
   const [parsed, setParsed] = useState<TemplateTestResult | null>(null);
   const [sourceMessageId, setSourceMessageId] = useState<string | null>(null);
 
-  const selectedMsg = useMemo(
-    () => messages.find((m) => m.id === selectedId) ?? null,
-    [messages, selectedId],
-  );
+  const selectedMsg = useMemo(() => messages.find((m) => m.id === selectedId) ?? null, [messages, selectedId]);
 
   const refresh = useCallback(async () => {
-    try { setStatus(await gmailStatusRpc(SHOP_ID)); }
-    catch (e) { setErr(String(e)); }
+    try { setStatus(await gmailStatusRpc(SHOP_ID)); } catch (e) { setErr(String(e)); }
   }, []);
 
   useEffect(() => {
@@ -92,11 +85,9 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
     if (!att) { setSample(m.snippet ?? ""); return; }
     setFetchBusy(true);
     try {
-      const p = await gmailFetchAttachmentRpc(
-        SHOP_ID, m.id, att.attachmentId, att.filename, att.mimeType,
-      );
-      if (p.text && p.text.trim().length > 0) { setSample(p.text); }
-      else { setSample(`[binary attachment saved at ${p.path} — paste invoice text below]`); }
+      const p = await gmailFetchAttachmentRpc(SHOP_ID, m.id, att.attachmentId, att.filename, att.mimeType);
+      if (p.text && p.text.trim().length > 0) setSample(p.text);
+      else setSample(`[binary attachment saved at ${p.path} — paste invoice text below]`);
     } catch (e) { setErr(String(e)); }
     finally { setFetchBusy(false); }
   }, []);
@@ -122,138 +113,215 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
     if (onGoToGrn) onGoToGrn();
   }, [parsed, sourceMessageId, onGoToGrn]);
 
+  // Confidence proxy: parsed-lines count vs sample line count.
+  const confidencePct = useMemo(() => {
+    if (!parsed) return null;
+    const sampleLines = sample.split("\n").filter((l) => l.trim()).length || 1;
+    return Math.min(100, Math.round((parsed.lines.length / sampleLines) * 100));
+  }, [parsed, sample]);
+
   return (
-    <div style={{ padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-      <div data-testid="gmail-connection">
-        <h3 style={{ margin: "0 0 8px" }}>Gmail connection</h3>
-        {status?.connected ? (
-          <div>
-            <div data-testid="gmail-status-connected" style={{ color: "#070", marginBottom: 8 }}>
-              Connected as <strong>{status.accountEmail ?? "unknown"}</strong>
-            </div>
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
-              Scopes: {status.scopes.join(", ")}
-            </div>
-            <button data-testid="gmail-disconnect" onClick={doDisconnect} disabled={loading}>
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div data-testid="gmail-status-disconnected" style={{ color: "#666", marginBottom: 8 }}>
-              Not connected. Clicking Connect opens your browser to Google consent.
-            </div>
-            <button data-testid="gmail-connect" onClick={doConnect} disabled={loading}>
-              {loading ? "Opening browser…" : "Connect Gmail"}
-            </button>
-          </div>
-        )}
-        {err && <div data-testid="gmail-error" style={{ color: "#b00", marginTop: 8, fontSize: 12 }}>{err}</div>}
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight inline-flex items-center gap-2">
+          <Badge variant="brand">X1</Badge>
+          Distributor inbox
+        </h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">
+          Gmail bills → parsed GRN draft in one click
+        </p>
+      </header>
 
-        <h3 style={{ margin: "16px 0 8px" }}>Inbox</h3>
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-          <input
-            data-testid="gmail-query"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
-            placeholder="Gmail search query"
-          />
-          <button data-testid="gmail-list" onClick={doListInbox} disabled={loading || !status?.connected}>
-            {loading ? "…" : "Fetch"}
-          </button>
-        </div>
-        <ul data-testid="gmail-messages" style={{ listStyle: "none", padding: 0, margin: 0, maxHeight: 300, overflowY: "auto", border: "1px solid #ddd" }}>
-          {messages.length === 0 && (
-            <li style={{ padding: 8, fontSize: 12, color: "#888" }}>No messages. Connect Gmail and click Fetch.</li>
-          )}
-          {messages.map((m) => (
-            <li
-              key={m.id}
-              data-testid={`gmail-msg-${m.id}`}
-              onClick={() => void doSelectMessage(m)}
-              style={{
-                padding: 8, borderBottom: "1px solid #eee", cursor: "pointer",
-                background: selectedId === m.id ? "#eef6ff" : undefined,
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{m.subject || "(no subject)"}</div>
-              <div style={{ fontSize: 11, color: "#666" }}>{m.from} · {m.date}</div>
-              <div style={{ fontSize: 11, color: "#888" }}>
-                {m.attachments.length} attachment{m.attachments.length === 1 ? "" : "s"}
-                {m.attachments.length > 0 && `: ${m.attachments.map((a) => a.filename).join(", ")}`}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" style={{ minHeight: "calc(100vh - 200px)" }}>
+        {/* ── Left: connection + inbox ─────────────────────── */}
+        <Glass depth={1} className="p-4 flex flex-col" data-testid="gmail-connection">
+          <div className="mb-3">
+            <h3 className="text-[14px] font-medium inline-flex items-center gap-2">
+              <Plug size={14} aria-hidden /> Gmail connection
+            </h3>
+            {status?.connected ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
+                <Badge variant="success">connected</Badge>
+                <span data-testid="gmail-status-connected" className="text-[var(--pc-text-secondary)]">
+                  as <strong className="text-[var(--pc-text-primary)]">{status.accountEmail ?? "unknown"}</strong>
+                </span>
+                <Button variant="ghost" size="sm" data-testid="gmail-disconnect" onClick={doDisconnect} disabled={loading}>
+                  Disconnect
+                </Button>
+                {status.scopes.length > 0 ? (
+                  <span className="basis-full mt-0.5 inline-flex flex-wrap items-center gap-1 text-[10px] text-[var(--pc-text-tertiary)]">
+                    <span className="uppercase tracking-[0.5px]">scopes</span>
+                    {status.scopes.map((sc) => (
+                      <span key={sc} className="font-mono rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface-2)] px-1.5 py-0.5">{sc}</span>
+                    ))}
+                  </span>
+                ) : null}
               </div>
-            </li>
-          ))}
-        </ul>
-        {fetchBusy && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Fetching attachment…</div>}
-      </div>
-
-      <div data-testid="gmail-manual">
-        <h3 style={{ margin: "0 0 8px" }}>Parse & draft</h3>
-        {selectedMsg && (
-          <div style={{ fontSize: 12, color: "#444", marginBottom: 6 }}>
-            Source: <strong>{selectedMsg.subject}</strong>
-          </div>
-        )}
-        <label style={{ display: "block", fontSize: 12 }}>Template</label>
-        <select
-          data-testid="gmail-template"
-          value={templateId}
-          onChange={(e) => setTemplateId(e.target.value)}
-          style={{ width: "100%", marginBottom: 8 }}
-        >
-          <option value="">— select —</option>
-          {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        <label style={{ display: "block", fontSize: 12 }}>Invoice text</label>
-        <textarea
-          data-testid="gmail-sample"
-          value={sample}
-          onChange={(e) => setSample(e.target.value)}
-          rows={8}
-          style={{ width: "100%", fontFamily: "monospace", fontSize: 12, marginBottom: 8 }}
-        />
-        <div style={{ display: "flex", gap: 8 }}>
-          <button data-testid="gmail-parse" onClick={doParse}>Parse</button>
-          <button
-            data-testid="gmail-send-grn"
-            onClick={doSendToGrn}
-            disabled={!canSendToGrn}
-            title={canSendToGrn ? "Hand off to GRN (F4)" : "Parse a non-empty result first"}
-          >
-            Send to GRN (F4)
-          </button>
-        </div>
-        {parsed && (
-          <div data-testid="gmail-parsed" style={{ marginTop: 8, fontSize: 12 }}>
-            <div>Invoice no: <strong>{parsed.header.invoiceNo ?? "—"}</strong></div>
-            <div>Invoice date: <strong>{parsed.header.invoiceDate ?? "—"}</strong></div>
-            <div>Line count: <strong>{parsed.lines.length}</strong></div>
-            {parsed.lines.length > 0 && (
-              <table style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", fontSize: 11 }}>
-                <thead><tr style={{ background: "#f4f4f4" }}>
-                  <th style={{ textAlign: "left", padding: 4 }}>Product</th>
-                  <th style={{ textAlign: "left", padding: 4 }}>Batch</th>
-                  <th style={{ textAlign: "left", padding: 4 }}>Expiry</th>
-                  <th style={{ textAlign: "right", padding: 4 }}>Qty</th>
-                  <th style={{ textAlign: "right", padding: 4 }}>Rate</th>
-                </tr></thead>
-                <tbody>
-                  {parsed.lines.map((l, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: 4 }}>{l.productHint}</td>
-                      <td style={{ padding: 4 }}>{l.batchNo ?? "—"}</td>
-                      <td style={{ padding: 4 }}>{l.expiryDate ?? "—"}</td>
-                      <td style={{ padding: 4, textAlign: "right" }}>{l.qty}</td>
-                      <td style={{ padding: 4, textAlign: "right" }}>{(l.ratePaise / 100).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            ) : (
+              <div className="mt-2 flex items-center gap-2">
+                <span data-testid="gmail-status-disconnected" className="text-[12px] text-[var(--pc-text-secondary)]">
+                  Not connected
+                </span>
+                <Button size="sm" data-testid="gmail-connect" onClick={doConnect} disabled={loading} leadingIcon={<Mail size={14} />}>
+                  {loading ? "Opening browser…" : "Connect Gmail"}
+                </Button>
+              </div>
             )}
           </div>
-        )}
+
+          {err && (
+            <div data-testid="gmail-error" className="mb-2 inline-flex items-center gap-2 rounded-[var(--pc-radius-md)] border border-[var(--pc-state-danger)] bg-[var(--pc-state-danger-bg)] px-2 py-1 text-[12px] text-[var(--pc-state-danger)]">
+              <AlertCircle size={12} /> {err}
+            </div>
+          )}
+
+          <div className="mt-2 mb-2 flex items-center gap-2">
+            <Input
+              data-testid="gmail-query"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Gmail search query"
+              leading={<Search size={14} />}
+              className="flex-1"
+            />
+            <Button size="sm" variant="secondary" data-testid="gmail-list" onClick={doListInbox} disabled={loading || !status?.connected}>
+              {loading ? "…" : "Fetch"}
+            </Button>
+          </div>
+
+          <ul data-testid="gmail-messages" className="flex-1 overflow-y-auto rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] divide-y divide-[var(--pc-border-subtle)]" style={{ maxHeight: 420 }}>
+            {messages.length === 0 && (
+              <li className="flex flex-col items-center gap-2 px-4 py-8 text-center text-[12px] text-[var(--pc-text-tertiary)]">
+                <Illustration name="x1-gmail" size={64} />
+                No messages. Connect Gmail and click Fetch.
+              </li>
+            )}
+            {messages.map((m) => {
+              const active = selectedId === m.id;
+              return (
+                <li
+                  key={m.id}
+                  data-testid={`gmail-msg-${m.id}`}
+                  onClick={() => void doSelectMessage(m)}
+                  className={
+                    "cursor-pointer p-3 transition-colors " +
+                    (active ? "bg-[var(--pc-state-info-bg)]" : "hover:bg-[var(--pc-bg-surface-2)]")
+                  }
+                >
+                  <div className="text-[12px] font-medium leading-tight">{m.subject || "(no subject)"}</div>
+                  <div className="mt-0.5 text-[11px] text-[var(--pc-text-secondary)]">{m.from} · {m.date}</div>
+                  <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-[var(--pc-text-tertiary)]">
+                    <FileText size={11} /> {m.attachments.length} att{m.attachments.length === 1 ? "" : "s"}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {fetchBusy && <div className="mt-2 text-[11px] text-[var(--pc-text-secondary)]">Fetching attachment…</div>}
+        </Glass>
+
+        {/* ── Right: parse + draft + parsed result ──────────────── */}
+        <Glass depth={1} className="p-4 flex flex-col" data-testid="gmail-manual">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h3 className="text-[14px] font-medium inline-flex items-center gap-2">
+              <Sparkles size={14} aria-hidden style={{ color: "var(--pc-accent-saffron)" }} />
+              Parse &amp; draft
+            </h3>
+            {selectedMsg && (
+              <span className="text-[11px] text-[var(--pc-text-secondary)] truncate max-w-[60%]">
+                from <strong className="text-[var(--pc-text-primary)]">{selectedMsg.subject}</strong>
+              </span>
+            )}
+          </div>
+
+          <label className="block text-[11px] text-[var(--pc-text-secondary)] mb-1">Template</label>
+          <select
+            data-testid="gmail-template"
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className="mb-2 w-full h-9 rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] px-2 text-[13px]"
+          >
+            <option value="">— select —</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+
+          <label className="block text-[11px] text-[var(--pc-text-secondary)] mb-1">Invoice text</label>
+          <textarea
+            data-testid="gmail-sample"
+            value={sample}
+            onChange={(e) => setSample(e.target.value)}
+            rows={8}
+            className="mb-2 w-full rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] p-2 font-mono text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--pc-brand-primary)]"
+          />
+
+          <div className="flex gap-2 mb-3">
+            <Button size="sm" variant="secondary" data-testid="gmail-parse" onClick={doParse}>Parse</Button>
+            <Button
+              size="sm"
+              variant="saffron"
+              data-testid="gmail-send-grn"
+              onClick={doSendToGrn}
+              disabled={!canSendToGrn}
+              title={canSendToGrn ? "Hand off to GRN (F4)" : "Parse a non-empty result first"}
+              trailingIcon={<ArrowRight size={14} />}
+            >
+              Send to GRN (F4)
+            </Button>
+          </div>
+
+          {parsed && (
+            <div data-testid="gmail-parsed" className="flex-1 overflow-auto rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)]">
+              {/* Confidence ribbon */}
+              <div className="flex items-center gap-3 border-b border-[var(--pc-border-subtle)] px-3 py-2 bg-[var(--pc-bg-surface-2)]">
+                <span className="text-[11px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">parsed</span>
+                <span className="pc-tabular text-[14px] font-medium">{parsed.lines.length} lines</span>
+                {confidencePct !== null && (
+                  <Badge variant={confidencePct >= 90 ? "success" : confidencePct >= 70 ? "warning" : "danger"}>
+                    {confidencePct}% confidence
+                  </Badge>
+                )}
+                <span className="ml-auto text-[11px] text-[var(--pc-text-secondary)]">
+                  inv #{parsed.header.invoiceNo ?? "—"} · {parsed.header.invoiceDate ?? "—"}
+                </span>
+              </div>
+              {parsed.lines.length > 0 ? (
+                <table className="w-full border-collapse text-[12px]">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
+                      <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium">Product</th>
+                      <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium">Batch</th>
+                      <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium">Expiry</th>
+                      <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium text-right">Qty</th>
+                      <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium text-right">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsed.lines.map((l, i) => (
+                      <tr key={i} className="hover:bg-[var(--pc-bg-surface-2)]">
+                        <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2">{l.productHint}</td>
+                        <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-mono text-[var(--pc-text-secondary)]">{l.batchNo ?? "—"}</td>
+                        <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 pc-tabular text-[var(--pc-text-secondary)]">{l.expiryDate ?? "—"}</td>
+                        <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 text-right pc-tabular">{l.qty}</td>
+                        <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 text-right pc-tabular">{(l.ratePaise / 100).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="px-4 py-8 text-center text-[12px] text-[var(--pc-text-tertiary)]">
+                  Template did not extract any lines. Adjust template or paste cleaner text.
+                </div>
+              )}
+            </div>
+          )}
+
+          {!parsed && !sample && !selectedMsg && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center text-[12px] text-[var(--pc-text-tertiary)] py-6">
+              <Illustration name="x1-gmail" size={96} />
+              <p className="mt-2 max-w-[260px]">Connect Gmail, fetch your inbox, and click a distributor bill to parse it into a GRN draft.</p>
+            </div>
+          )}
+        </Glass>
       </div>
     </div>
   );

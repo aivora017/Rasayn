@@ -184,7 +184,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
       }}
     >
       <div style={{
-        background: "#1e293b", color: "#e5e7eb", padding: 20, borderRadius: 8,
+        background: "var(--pc-bg-surface-2)", color: "var(--pc-text-primary)", padding: 20, borderRadius: 8,
         minWidth: 440, maxWidth: 560, border: "1px solid #334155",
       }}>
         <h3 id="payment-title" style={{ margin: "0 0 12px" }}>Payment</h3>
@@ -215,8 +215,8 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
                 aria-keyshortcuts={`Alt+${MODE_HOTKEY[m]}`}
                 style={{
                   padding: "6px 10px", border: "1px solid #334155", borderRadius: 4,
-                  background: active ? "#2563eb" : "#0f172a",
-                  color: active ? "white" : "#cbd5e1", cursor: "pointer",
+                  background: active ? "var(--pc-state-info)" : "var(--pc-bg-canvas)",
+                  color: active ? "white" : "var(--pc-border-default)", cursor: "pointer",
                 }}
               >
                 {MODE_LABEL[m]} <span style={{ opacity: 0.6, fontSize: 11 }}>Alt+{MODE_HOTKEY[m]}</span>
@@ -227,7 +227,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
 
         {/* Amount + ref + add */}
         <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center" }}>
-          <label htmlFor="tender-amount" style={{ fontSize: 12, color: "#94a3b8", minWidth: 60 }}>Amount ₹</label>
+          <label htmlFor="tender-amount" style={{ fontSize: 12, color: "var(--pc-text-tertiary)", minWidth: 60 }}>Amount ₹</label>
           <input
             id="tender-amount"
             ref={amountRef}
@@ -244,7 +244,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
             }}
             style={{
               flex: 1, padding: "6px 8px", borderRadius: 4, border: "1px solid #334155",
-              background: "#0f172a", color: "#e5e7eb",
+              background: "var(--pc-bg-canvas)", color: "var(--pc-text-primary)",
             }}
           />
           {(mode === "card" || mode === "upi" || mode === "credit") && (
@@ -256,7 +256,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
               onChange={(e) => setRefNo(e.target.value)}
               style={{
                 width: 100, padding: "6px 8px", borderRadius: 4, border: "1px solid #334155",
-                background: "#0f172a", color: "#e5e7eb",
+                background: "var(--pc-bg-canvas)", color: "var(--pc-text-primary)",
               }}
             />
           )}
@@ -266,7 +266,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
             onClick={() => addTender(mode)}
             style={{
               padding: "6px 10px", borderRadius: 4, border: "none",
-              background: "#16a34a", color: "white", cursor: "pointer",
+              background: "var(--pc-state-success)", color: "white", cursor: "pointer",
             }}
           >
             Add
@@ -276,7 +276,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
         {/* Tender rows */}
         <div data-testid="tender-list" style={{ marginBottom: 12 }}>
           {tenders.length === 0 && (
-            <div style={{ fontSize: 12, color: "#64748b", padding: "6px 0" }}>
+            <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", padding: "6px 0" }}>
               No tenders added. Confirming will record a single {MODE_LABEL[mode]} tender for the bill total.
             </div>
           )}
@@ -291,14 +291,14 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
             >
               <span style={{ minWidth: 60, fontSize: 12 }}>{MODE_LABEL[t.mode]}</span>
               <span style={{ flex: 1, fontFamily: "monospace" }}>{formatINR(t.amountPaise as Paise)}</span>
-              {t.refNo && <span style={{ fontSize: 11, color: "#94a3b8" }}>{t.refNo}</span>}
+              {t.refNo && <span style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>{t.refNo}</span>}
               <button
                 type="button"
                 data-testid={`tender-remove-${i}`}
                 onClick={() => removeTender(i)}
                 style={{
                   padding: "2px 8px", borderRadius: 4, border: "1px solid #334155",
-                  background: "transparent", color: "#f87171", cursor: "pointer",
+                  background: "transparent", color: "var(--pc-state-danger)", cursor: "pointer",
                 }}
                 aria-label={`Remove tender ${i + 1}`}
               >
@@ -314,7 +314,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
             type="button"
             onClick={onCancel}
             data-testid="payment-cancel"
-            style={{ padding: "8px 14px", background: "#334155", color: "white", border: "none", borderRadius: 4 }}
+            style={{ padding: "8px 14px", background: "var(--pc-border-subtle)", color: "white", border: "none", borderRadius: 4 }}
           >
             Cancel (Esc)
           </button>
@@ -327,7 +327,7 @@ export function PaymentModal(props: PaymentModalProps): JSX.Element | null {
             aria-keyshortcuts="F10"
             style={{
               padding: "8px 14px",
-              background: isBalanced ? "#16a34a" : "#64748b",
+              background: isBalanced ? "var(--pc-state-success)" : "var(--pc-text-secondary)",
               color: "white", border: "none", borderRadius: 4, fontWeight: 700,
               cursor: isBalanced ? "pointer" : "not-allowed",
             }}
@@ -344,12 +344,12 @@ function Stat(props: {
   label: string; value: string; testId?: string; tone?: "ok" | "warn" | "info";
 }): JSX.Element {
   const color =
-    props.tone === "warn" ? "#f59e0b"
-      : props.tone === "info" ? "#22d3ee"
-        : "#22c55e";
+    props.tone === "warn" ? "var(--pc-state-warning)"
+      : props.tone === "info" ? "var(--pc-state-info)"
+        : "var(--pc-state-success)";
   return (
-    <div style={{ padding: "6px 8px", background: "#0f172a", borderRadius: 4 }}>
-      <div style={{ fontSize: 11, color: "#94a3b8" }}>{props.label}</div>
+    <div style={{ padding: "6px 8px", background: "var(--pc-bg-canvas)", borderRadius: 4 }}>
+      <div style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>{props.label}</div>
       <div data-testid={props.testId} style={{ fontSize: 16, color, fontWeight: 700 }}>
         {props.value}
       </div>

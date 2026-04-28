@@ -1,0 +1,57 @@
+/*
+ * PharmaCare Pro — Tailwind 4 @theme bridge.
+ *
+ * Apps import this AFTER `@import "tailwindcss"` to register our tokens
+ * as Tailwind theme values. Result: classes like `bg-pc-brand`, `text-pc-text-primary`,
+ * `rounded-pc-lg`, `shadow-pc-1` work out of the box.
+ *
+ * Always also import "@pharmacare/design-system/tokens.css" for the raw
+ * CSS custom properties (so direct `var()` references work too).
+ */
+
+@theme {
+  /* Color scale */
+  --color-pc-canvas: var(--pc-bg-canvas);
+  --color-pc-surface: var(--pc-bg-surface);
+  --color-pc-surface-2: var(--pc-bg-surface-2);
+  --color-pc-surface-3: var(--pc-bg-surface-3);
+  --color-pc-text: var(--pc-text-primary);
+  --color-pc-text-secondary: var(--pc-text-secondary);
+  --color-pc-text-tertiary: var(--pc-text-tertiary);
+  --color-pc-brand: var(--pc-brand-primary);
+  --color-pc-brand-soft: var(--pc-brand-primary-soft);
+  --color-pc-saffron: var(--pc-accent-saffron);
+  --color-pc-saffron-soft: var(--pc-accent-saffron-soft);
+  --color-pc-success: var(--pc-state-success);
+  --color-pc-success-bg: var(--pc-state-success-bg);
+  --color-pc-warning: var(--pc-state-warning);
+  --color-pc-warning-bg: var(--pc-state-warning-bg);
+  --color-pc-danger: var(--pc-state-danger);
+  --color-pc-danger-bg: var(--pc-state-danger-bg);
+  --color-pc-info: var(--pc-state-info);
+  --color-pc-info-bg: var(--pc-state-info-bg);
+
+  /* Typography */
+  --font-pc-sans: var(--pc-font-sans);
+  --font-pc-mono: var(--pc-font-mono);
+
+  /* Radius */
+  --radius-pc-sm: var(--pc-radius-sm);
+  --radius-pc-md: var(--pc-radius-md);
+  --radius-pc-lg: var(--pc-radius-lg);
+  --radius-pc-xl: var(--pc-radius-xl);
+
+  /* Shadow / elevation */
+  --shadow-pc-1: var(--pc-elevation-1);
+  --shadow-pc-2: var(--pc-elevation-2);
+  --shadow-pc-3: var(--pc-elevation-3);
+}
+
+/* Skeleton breathing animation — kept here so apps don't need to redefine. */
+@keyframes pc-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.pc-skeleton {
+  animation: pc-breathe 1500ms ease-in-out infinite;
+}

@@ -199,12 +199,12 @@ export function ReconcileTab() {
 
   return (
     <div data-testid="reconcile-tab" style={{ padding: 4 }}>
-      {err && <div data-testid="rec-err" style={{ color: "#dc2626", marginBottom: 8 }}>{err}</div>}
+      {err && <div data-testid="rec-err" style={{ color: "var(--pc-state-danger)", marginBottom: 8 }}>{err}</div>}
 
       {ui === "idle" && (
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16 }}>
           <label style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Session title</div>
+            <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", marginBottom: 4 }}>Session title</div>
             <input
               data-testid="rec-title"
               value={title}
@@ -216,7 +216,7 @@ export function ReconcileTab() {
             data-testid="rec-open"
             onClick={openNew}
             disabled={busy}
-            style={{ padding: "8px 16px", background: "#0f172a", color: "white", border: 0, borderRadius: 4, cursor: "pointer" }}
+            style={{ padding: "8px 16px", background: "var(--pc-bg-canvas)", color: "white", border: 0, borderRadius: 4, cursor: "pointer" }}
           >
             {busy ? "…" : "Open new session (F2)"}
           </button>
@@ -228,7 +228,7 @@ export function ReconcileTab() {
           <h3 style={{ fontSize: 14, margin: "0 0 8px" }}>Previous sessions</h3>
           <table style={{ width: "100%", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: "#f1f5f9" }}>
+              <tr style={{ background: "var(--pc-bg-surface-2)" }}>
                 <th style={{ textAlign: "left", padding: 6 }}>Title</th>
                 <th>Status</th>
                 <th>Lines</th>
@@ -240,7 +240,7 @@ export function ReconcileTab() {
             </thead>
             <tbody>
               {sessions.length === 0 && (
-                <tr><td colSpan={7} data-testid="rec-history-empty" style={{ padding: 12, color: "#64748b" }}>No sessions yet.</td></tr>
+                <tr><td colSpan={7} data-testid="rec-history-empty" style={{ padding: 12, color: "var(--pc-text-secondary)" }}>No sessions yet.</td></tr>
               )}
               {sessions.map((s) => (
                 <tr key={s.id} data-testid={`rec-history-row-${s.id}`}>
@@ -249,7 +249,7 @@ export function ReconcileTab() {
                   <td style={{ textAlign: "center" }}>{s.lineCount}</td>
                   <td style={{ textAlign: "center" }}>{s.adjustmentCount}</td>
                   <td>{formatDT(s.openedAt)}</td>
-                  <td>{s.finalizedAt ? formatDT(s.finalizedAt) : <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                  <td>{s.finalizedAt ? formatDT(s.finalizedAt) : <span style={{ color: "var(--pc-text-tertiary)" }}>—</span>}</td>
                   <td>
                     <button
                       data-testid={`rec-history-open-${s.id}`}
@@ -317,7 +317,7 @@ function SessionView(props: {
         <button onClick={props.onBack} style={{ padding: "4px 10px", fontSize: 12 }} data-testid="rec-back">← back</button>
         <strong data-testid="rec-session-title">{snap.session.title}</strong>
         <StatusBadge status={snap.session.status} />
-        <span style={{ fontSize: 12, color: "#64748b" }}>Opened {formatDT(snap.session.openedAt)}</span>
+        <span style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>Opened {formatDT(snap.session.openedAt)}</span>
       </div>
 
       {isOpen && (
@@ -341,7 +341,7 @@ function SessionView(props: {
             data-testid="rec-add-line"
             onClick={props.onAddLine}
             disabled={busy}
-            style={{ padding: "8px 16px", background: "#0f172a", color: "white", border: 0, borderRadius: 4, cursor: "pointer" }}
+            style={{ padding: "8px 16px", background: "var(--pc-bg-canvas)", color: "white", border: 0, borderRadius: 4, cursor: "pointer" }}
           >
             {busy ? "…" : "Add (F4)"}
           </button>
@@ -361,13 +361,13 @@ function SessionView(props: {
         <Stat label="Matched" value={String(variance.totals.matched)} />
         <Stat label="Shortages" value={String(variance.totals.shortages)} color="#b91c1c" />
         <Stat label="Overages" value={String(variance.totals.overages)} color="#0369a1" />
-        <Stat label="Uncounted" value={String(variance.totals.uncounted)} color="#64748b" />
+        <Stat label="Uncounted" value={String(variance.totals.uncounted)} color="var(--pc-text-secondary)" />
       </div>
 
       <h4 style={{ fontSize: 13, margin: "4px 0" }}>Variance by product</h4>
       <table data-testid="rec-by-product" style={{ width: "100%", fontSize: 13, marginBottom: 16 }}>
         <thead>
-          <tr style={{ background: "#f1f5f9" }}>
+          <tr style={{ background: "var(--pc-bg-surface-2)" }}>
             <th style={{ textAlign: "left", padding: 6 }}>Product</th>
             <th>Batches affected</th>
             <th style={{ textAlign: "right" }}>Net Δ (units)</th>
@@ -375,7 +375,7 @@ function SessionView(props: {
         </thead>
         <tbody>
           {byProduct.length === 0 && (
-            <tr><td colSpan={3} style={{ padding: 8, color: "#64748b" }}>No variance.</td></tr>
+            <tr><td colSpan={3} style={{ padding: 8, color: "var(--pc-text-secondary)" }}>No variance.</td></tr>
           )}
           {byProduct.map((p) => (
             <tr key={p.productId} data-testid={`rec-prod-${p.productId}`}>
@@ -392,7 +392,7 @@ function SessionView(props: {
       <h4 style={{ fontSize: 13, margin: "4px 0" }}>All batches</h4>
       <table data-testid="rec-rows" style={{ width: "100%", fontSize: 12 }}>
         <thead>
-          <tr style={{ background: "#f1f5f9" }}>
+          <tr style={{ background: "var(--pc-bg-surface-2)" }}>
             <th style={{ textAlign: "left", padding: 6 }}>Product</th>
             <th>Batch</th>
             <th>Expiry</th>
@@ -411,11 +411,11 @@ function SessionView(props: {
               <td>{r.expiryDate}</td>
               <td style={{ textAlign: "right" }}>{r.systemQty}</td>
               <td style={{ textAlign: "right" }}>{r.countedQty ?? "—"}</td>
-              <td style={{ textAlign: "right", color: r.delta < 0 ? "#b91c1c" : r.delta > 0 ? "#0369a1" : "#64748b" }}>
+              <td style={{ textAlign: "right", color: r.delta < 0 ? "#b91c1c" : r.delta > 0 ? "#0369a1" : "var(--pc-text-secondary)" }}>
                 {r.delta > 0 ? "+" : ""}{r.delta}
               </td>
               <td><KindBadge kind={r.kind} /></td>
-              <td>{r.suggestedReason ?? <span style={{ color: "#94a3b8" }}>—</span>}</td>
+              <td>{r.suggestedReason ?? <span style={{ color: "var(--pc-text-tertiary)" }}>—</span>}</td>
             </tr>
           ))}
         </tbody>
@@ -450,13 +450,13 @@ function ConfirmFinalizeModal(props: {
     >
       <div style={{ background: "white", padding: 20, borderRadius: 6, minWidth: 640, maxWidth: "90vw", maxHeight: "85vh", overflow: "auto" }}>
         <h3 style={{ marginTop: 0 }}>Finalize count — confirm adjustments</h3>
-        <p style={{ color: "#64748b", fontSize: 13 }}>
+        <p style={{ color: "var(--pc-text-secondary)", fontSize: 13 }}>
           Owner-only action. Writes {adjustable.length} stock_adjustments rows and updates batch qty_on_hand.
           <br/>Append-only — this cannot be undone.
         </p>
         <table style={{ width: "100%", fontSize: 12, marginBottom: 12 }}>
           <thead>
-            <tr style={{ background: "#f1f5f9" }}>
+            <tr style={{ background: "var(--pc-bg-surface-2)" }}>
               <th style={{ textAlign: "left", padding: 6 }}>Batch</th>
               <th>Δ</th>
               <th>Reason</th>
@@ -513,7 +513,7 @@ function ConfirmFinalizeModal(props: {
 
 function StatusBadge({ status }: { status: CountSessionDTO["status"] }) {
   const colors: Record<CountSessionDTO["status"], string> = {
-    open: "#059669", finalized: "#0369a1", cancelled: "#64748b",
+    open: "#059669", finalized: "#0369a1", cancelled: "var(--pc-text-secondary)",
   };
   return (
     <span style={{ background: colors[status], color: "white", padding: "1px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
@@ -524,7 +524,7 @@ function StatusBadge({ status }: { status: CountSessionDTO["status"] }) {
 
 function KindBadge({ kind }: { kind: VarianceRow["kind"] }) {
   const colors: Record<VarianceRow["kind"], string> = {
-    match: "#059669", shortage: "#b91c1c", overage: "#0369a1", uncounted: "#94a3b8",
+    match: "#059669", shortage: "#b91c1c", overage: "#0369a1", uncounted: "var(--pc-text-tertiary)",
   };
   return (
     <span style={{ background: colors[kind], color: "white", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
@@ -536,8 +536,8 @@ function KindBadge({ kind }: { kind: VarianceRow["kind"] }) {
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div style={{ padding: 8, background: "#f8fafc", borderRadius: 4 }}>
-      <div style={{ fontSize: 11, color: "#64748b" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: color ?? "#0f172a" }}>{value}</div>
+      <div style={{ fontSize: 11, color: "var(--pc-text-secondary)" }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: color ?? "var(--pc-bg-canvas)" }}>{value}</div>
     </div>
   );
 }

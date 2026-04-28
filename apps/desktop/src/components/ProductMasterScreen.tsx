@@ -289,18 +289,24 @@ export function ProductMasterScreen(): JSX.Element {
   const active = useMemo(() => rows.filter((r) => r.isActive).length, [rows]);
 
   return (
-    <div className="screen product-master" data-testid="product-master">
-      <div className="screen-header">
-        <h2>Product Master</h2>
-        <div className="screen-hint">
-          <span className="kbd">Alt+N</span> New · <span className="kbd">Enter</span> Edit ·
-          <span className="kbd">Alt+S</span> Save · <span className="kbd">Alt+D</span> Deactivate ·
-          <span className="kbd">/</span> Search · <span className="kbd">Esc</span> Cancel
-        </div>
-        <div className="screen-stats">
+    <div className="screen product-master mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]" data-testid="product-master">
+      <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-[var(--pc-radius-pill)] px-2 py-0.5 text-[11px] font-medium bg-[var(--pc-state-success-bg)] text-[var(--pc-state-success)]">X2</span>
+          Product master
+        </h1>
+        <span className="text-[11px] text-[var(--pc-text-secondary)] font-mono">
           {rows.length} total · {active} active · {rows.length - active} inactive
+        </span>
+        <div className="ml-auto flex items-center gap-1 flex-wrap">
+          <kbd className="rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--pc-text-secondary)] font-mono">Alt+N</kbd>
+          <span className="text-[10px] text-[var(--pc-text-tertiary)]">new</span>
+          <kbd className="ml-2 rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--pc-text-secondary)] font-mono">Alt+S</kbd>
+          <span className="text-[10px] text-[var(--pc-text-tertiary)]">save</span>
+          <kbd className="ml-2 rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--pc-text-secondary)] font-mono">/</kbd>
+          <span className="text-[10px] text-[var(--pc-text-tertiary)]">search</span>
         </div>
-      </div>
+      </header>
 
       {msg && <div className="banner" role="status">{msg}</div>}
 

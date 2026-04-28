@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { formatINR, type Paise } from "@pharmacare/shared-types";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Search, Filter as FilterIcon, AlertCircle } from "lucide-react";
+import { Glass, Badge, Skeleton, Input, formatINR as fmtINR } from "@pharmacare/design-system";
+import { type Paise } from "@pharmacare/shared-types";
 import { listStockRpc, type StockRow } from "../lib/ipc.js";
 import { ReconcileTab } from "./inventory/ReconcileTab.js";
+
+/**
+ * Inventory — sticky-header dense table with semantic chips, glass tabs,
+ * filter chips with counts, and tokenized empty/loading/error states.
+ */
 
 type Filter = "all" | "low" | "near" | "out" | "expired";
 type TabKey = "batches" | "reconcile";
@@ -12,7 +19,6 @@ const LOW_STOCK_UNDER = 10;
 export function InventoryScreen() {
   const [tab, setTab] = useState<TabKey>("batches");
 
-  // Tab shortcuts: B = Batches, R = Reconcile (when focus isn't in an input).
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -26,18 +32,18 @@ export function InventoryScreen() {
   }, []);
 
   return (
-    <div style={{ padding: 20 }} data-testid="inventory-screen">
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Inventory</h2>
-        <div role="tablist" aria-label="Inventory tabs" style={{ display: "flex", gap: 4 }}>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]" data-testid="inventory-screen">
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Inventory</h1>
+        <div role="tablist" aria-label="Inventory tabs" className="ml-auto flex items-center gap-0.5 rounded-[var(--pc-radius-md)] bg-[var(--pc-bg-surface-2)] p-0.5">
           <TabButton active={tab === "batches"} onClick={() => setTab("batches")} testId="inv-tab-batches">
-            Batches <kbd style={kbd}>B</kbd>
+            Batches <kbd className="ml-1 rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface)] px-1 py-0.5 text-[10px] text-[var(--pc-text-secondary)] font-mono">B</kbd>
           </TabButton>
           <TabButton active={tab === "reconcile"} onClick={() => setTab("reconcile")} testId="inv-tab-reconcile">
-            Reconcile <kbd style={kbd}>R</kbd>
+            Reconcile <kbd className="ml-1 rounded-[var(--pc-radius-sm)] bg-[var(--pc-bg-surface)] px-1 py-0.5 text-[10px] text-[var(--pc-text-secondary)] font-mono">R</kbd>
           </TabButton>
         </div>
-      </div>
+      </header>
 
       {tab === "batches" && <BatchesTab />}
       {tab === "reconcile" && <ReconcileTab />}
@@ -53,24 +59,17 @@ function TabButton({ active, onClick, children, testId }: { active: boolean; onC
       data-testid={testId}
       data-active={active}
       onClick={onClick}
-      style={{
-        padding: "6px 14px",
-        borderRadius: 4,
-        border: "1px solid #cbd5e1",
-        background: active ? "#0f172a" : "white",
-        color: active ? "white" : "#0f172a",
-        cursor: "pointer",
-        fontWeight: active ? 600 : 400,
-      }}
+      className={
+        "rounded-[var(--pc-radius-sm)] px-3 py-1.5 text-[12px] font-medium transition-colors " +
+        (active
+          ? "bg-[var(--pc-bg-surface)] text-[var(--pc-text-primary)] shadow-[var(--pc-elevation-1)]"
+          : "text-[var(--pc-text-secondary)] hover:text-[var(--pc-text-primary)]")
+      }
     >
       {children}
     </button>
   );
 }
-
-const kbd: React.CSSProperties = {
-  background: "#e2e8f0", color: "#0f172a", padding: "0 4px", borderRadius: 2, fontSize: 10, marginLeft: 4, fontFamily: "monospace",
-};
 
 function BatchesTab() {
   const [q, setQ] = useState("");
@@ -109,121 +108,169 @@ function BatchesTab() {
   }), [rows]);
 
   return (
-    <div data-testid="batches-tab">
-      <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "center" }}>
-        <input
-          type="search"
-          placeholder="Search by name or molecule…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          data-testid="inv-search"
-          style={{ flex: 1, padding: 8, border: "1px solid #cbd5e1", borderRadius: 4 }}
-        />
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }} data-testid="inv-filters">
-        {(["all","low","near","out","expired"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            data-testid={`inv-filter-${f}`}
-            data-active={filter === f}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 4,
-              border: "1px solid #cbd5e1",
-              background: filter === f ? "#0f172a" : "white",
-              color: filter === f ? "white" : "#0f172a",
-              cursor: "pointer",
-              fontWeight: filter === f ? 600 : 400,
-            }}
-          >
-            {labelFor(f)} <span style={{ opacity: 0.6 }}>({counts[f]})</span>
-          </button>
-        ))}
-      </div>
-
-      {err && <div data-testid="inv-err" style={{ color: "#dc2626", marginBottom: 8 }}>{err}</div>}
-      {loading && <div data-testid="inv-loading" style={{ color: "#64748b" }}>Loading…</div>}
-
-      <table data-testid="inv-table">
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left" }}>Product</th>
-            <th>Sched</th>
-            <th style={{ textAlign: "right" }}>Qty</th>
-            <th>Batches</th>
-            <th>FEFO Expiry</th>
-            <th style={{ textAlign: "right" }}>MRP</th>
-            <th>Flags</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.length === 0 && !loading && (
-            <tr><td colSpan={7} data-testid="inv-empty" style={{ padding: 24, textAlign: "center", color: "#64748b" }}>No rows.</td></tr>
-          )}
-          {visible.map((r) => (
-            <tr key={r.productId} data-testid={`inv-row-${r.productId}`}>
-              <td>
-                <div><strong>{r.name}</strong></div>
-                {r.genericName && <div style={{ fontSize: 12, color: "#64748b" }}>{r.genericName} · {r.manufacturer}</div>}
-              </td>
-              <td><SchedBadge schedule={r.schedule} /></td>
-              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }} data-testid={`inv-qty-${r.productId}`}>
-                {r.totalQty}
-              </td>
-              <td style={{ textAlign: "center" }}>{r.batchCount}</td>
-              <td data-testid={`inv-expiry-${r.productId}`}>
-                {r.nearestExpiry ?? <span style={{ color: "#94a3b8" }}>—</span>}
-                {r.daysToExpiry !== null && (
-                  <span style={{ fontSize: 11, color: "#64748b", marginLeft: 6 }}>({r.daysToExpiry}d)</span>
-                )}
-              </td>
-              <td style={{ textAlign: "right" }}>{formatINR(r.mrpPaise as Paise)}</td>
-              <td data-testid={`inv-flags-${r.productId}`}><Flags row={r} /></td>
-            </tr>
+    <div data-testid="batches-tab" className="flex flex-col gap-3">
+      {/* Toolbar — search + filter chips */}
+      <Glass depth={1} className="p-3">
+        <div className="flex items-center gap-2 mb-3">
+          <Input
+            inputSize="md"
+            type="search"
+            placeholder="Search by name or molecule…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            data-testid="inv-search"
+            leading={<Search size={14} />}
+            className="flex-1"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="inv-filters">
+          <FilterIcon size={14} className="text-[var(--pc-text-tertiary)]" />
+          {(["all","low","near","out","expired"] as const).map((f) => (
+            <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)} testId={`inv-filter-${f}`} count={counts[f]}>
+              {labelFor(f)}
+            </FilterChip>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </Glass>
+
+      {err && (
+        <div data-testid="inv-err" className="flex items-center gap-2 rounded-[var(--pc-radius-md)] border border-[var(--pc-state-danger)] bg-[var(--pc-state-danger-bg)] px-3 py-2 text-[12px] text-[var(--pc-state-danger)]">
+          <AlertCircle size={14} aria-hidden /> {err}
+        </div>
+      )}
+
+      <Glass depth={1} className="p-0 overflow-hidden">
+        {loading && rows.length === 0 ? (
+          <div data-testid="inv-loading" className="flex flex-col gap-2 p-3">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} width="100%" height={28} />)}
+          </div>
+        ) : (
+          <div className="overflow-auto max-h-[calc(100vh-280px)]">
+            <table data-testid="inv-table" className="w-full border-collapse text-[13px]">
+              <thead className="sticky top-0 bg-[color-mix(in_oklab,var(--pc-bg-surface-2)_92%,transparent)] backdrop-blur z-10">
+                <tr className="text-left text-[10px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
+                  <th className="border-b border-[var(--pc-border-subtle)] px-3 py-2 font-medium">Product</th>
+                  <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium">Sched</th>
+                  <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium text-right">Qty</th>
+                  <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium text-center">Batches</th>
+                  <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium">FEFO Expiry</th>
+                  <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium text-right">MRP</th>
+                  <th className="border-b border-[var(--pc-border-subtle)] px-2 py-2 font-medium">Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={7} data-testid="inv-empty" className="px-3 py-12 text-center text-[12px] text-[var(--pc-text-secondary)]">
+                      No rows.
+                    </td>
+                  </tr>
+                )}
+                {visible.map((r) => (
+                  <tr key={r.productId} data-testid={`inv-row-${r.productId}`} className="hover:bg-[var(--pc-bg-surface-2)] transition-colors">
+                    <td className="border-b border-[var(--pc-border-subtle)] px-3 py-2 align-top">
+                      <div className="font-medium leading-tight">{r.name}</div>
+                      {r.genericName && (
+                        <div className="text-[11px] text-[var(--pc-text-secondary)] mt-0.5">
+                          {r.genericName} · {r.manufacturer}
+                        </div>
+                      )}
+                    </td>
+                    <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 align-top">
+                      <SchedBadge schedule={r.schedule} />
+                    </td>
+                    <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 align-top text-right pc-tabular" data-testid={`inv-qty-${r.productId}`}>
+                      <span style={qtyStyle(r)}>{r.totalQty}</span>
+                    </td>
+                    <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 align-top text-center pc-tabular text-[var(--pc-text-secondary)]">
+                      {r.batchCount}
+                    </td>
+                    <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 align-top" data-testid={`inv-expiry-${r.productId}`}>
+                      {r.nearestExpiry ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="pc-tabular text-[12px]">{r.nearestExpiry}</span>
+                          {r.daysToExpiry !== null && <ExpiryChip days={r.daysToExpiry} />}
+                        </div>
+                      ) : <span className="text-[var(--pc-text-tertiary)]">—</span>}
+                    </td>
+                    <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 align-top text-right pc-tabular">
+                      {fmtINR(r.mrpPaise as Paise)}
+                    </td>
+                    <td className="border-b border-[var(--pc-border-subtle)] px-2 py-2 align-top" data-testid={`inv-flags-${r.productId}`}>
+                      <Flags row={r} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Glass>
     </div>
   );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+  testId,
+  count,
+}: { active: boolean; onClick: () => void; children: React.ReactNode; testId: string; count: number }) {
+  return (
+    <button
+      onClick={onClick}
+      data-testid={testId}
+      data-active={active}
+      className={
+        "inline-flex items-center gap-1.5 rounded-[var(--pc-radius-pill)] px-2.5 py-1 text-[11px] font-medium transition-colors " +
+        (active
+          ? "bg-[var(--pc-brand-primary)] text-white"
+          : "bg-[var(--pc-bg-surface-2)] text-[var(--pc-text-secondary)] hover:bg-[var(--pc-bg-surface-3)] hover:text-[var(--pc-text-primary)]")
+      }
+    >
+      {children}
+      <span className={"pc-tabular " + (active ? "opacity-80" : "opacity-60")}>{count}</span>
+    </button>
+  );
+}
+
+function qtyStyle(r: StockRow): CSSProperties {
+  if (r.totalQty === 0) return { color: "var(--pc-text-tertiary)" };
+  if (r.totalQty <= LOW_STOCK_UNDER) return { color: "var(--pc-state-warning)", fontWeight: 500 };
+  return {};
+}
+
+function ExpiryChip({ days }: { days: number }) {
+  if (days <= 0) return <Badge variant="danger">expired</Badge>;
+  if (days <= 30) return <Badge variant="danger">{days}d</Badge>;
+  if (days <= NEAR_EXPIRY_DAYS) return <Badge variant="warning">{days}d</Badge>;
+  return <span className="text-[10px] text-[var(--pc-text-tertiary)]">{days}d</span>;
 }
 
 function labelFor(f: Filter): string {
   switch (f) {
     case "all":     return "All";
-    case "low":     return "Low stock";
-    case "near":    return `Near expiry (≤${NEAR_EXPIRY_DAYS}d)`;
-    case "out":     return "Out of stock";
-    case "expired": return "Expired on shelf";
+    case "low":     return "Low";
+    case "near":    return `≤${NEAR_EXPIRY_DAYS}d`;
+    case "out":     return "Out";
+    case "expired": return "Expired";
   }
 }
 
 function Flags({ row }: { row: StockRow }) {
-  const flags: Array<{ key: string; text: string; color: string }> = [];
-  if (row.totalQty === 0) flags.push({ key: "out", text: "OUT", color: "#64748b" });
-  else if (row.totalQty <= LOW_STOCK_UNDER) flags.push({ key: "low", text: "LOW", color: "#f59e0b" });
-  if (row.daysToExpiry !== null && row.daysToExpiry <= 30) flags.push({ key: "near", text: "≤30d", color: "#dc2626" });
-  else if (row.daysToExpiry !== null && row.daysToExpiry <= NEAR_EXPIRY_DAYS) flags.push({ key: "near", text: `≤${NEAR_EXPIRY_DAYS}d`, color: "#f59e0b" });
-  if (row.hasExpiredStock > 0) flags.push({ key: "exp", text: `EXPIRED×${row.hasExpiredStock}`, color: "#7c2d12" });
-  if (flags.length === 0) return <span style={{ color: "#94a3b8" }}>—</span>;
-  return (
-    <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
-      {flags.map((f) => (
-        <span key={f.key} style={{ background: f.color, color: "white", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
-          {f.text}
-        </span>
-      ))}
-    </span>
-  );
+  const out: JSX.Element[] = [];
+  if (row.totalQty === 0) out.push(<Badge key="out" variant="neutral">OUT</Badge>);
+  else if (row.totalQty <= LOW_STOCK_UNDER) out.push(<Badge key="low" variant="warning">LOW</Badge>);
+  if (row.daysToExpiry !== null && row.daysToExpiry <= 30) out.push(<Badge key="d30" variant="danger">≤30d</Badge>);
+  else if (row.daysToExpiry !== null && row.daysToExpiry <= NEAR_EXPIRY_DAYS) out.push(<Badge key="d90" variant="warning">≤{NEAR_EXPIRY_DAYS}d</Badge>);
+  if (row.hasExpiredStock > 0) out.push(<Badge key="exp" variant="warning">EXPIRED×{row.hasExpiredStock}</Badge>);
+  if (out.length === 0) return <span className="text-[var(--pc-text-tertiary)]">—</span>;
+  return <span className="inline-flex flex-wrap gap-1">{out}</span>;
 }
 
 function SchedBadge({ schedule }: { schedule: StockRow["schedule"] }) {
-  if (schedule === "OTC") return <span style={{ color: "#64748b", fontSize: 12 }}>OTC</span>;
-  const color = schedule === "X" || schedule === "NDPS" ? "#7c2d12" : "#dc2626";
-  return (
-    <span style={{ background: color, color: "white", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
-      {schedule}
-    </span>
-  );
+  if (schedule === "OTC") return <span className="text-[11px] text-[var(--pc-text-secondary)]">OTC</span>;
+  const variant = schedule === "X" || schedule === "NDPS" ? "warning" : "danger";
+  return <Badge variant={variant}>{schedule}</Badge>;
 }

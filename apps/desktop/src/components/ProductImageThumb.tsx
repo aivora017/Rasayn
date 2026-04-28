@@ -45,7 +45,7 @@ export function ProductImageThumb(props: ProductImageThumbProps) {
     width: size, height: size,
     borderRadius: rounded ? 4 : 0,
     display: "inline-flex", alignItems: "center", justifyContent: "center",
-    background: "#f2f2f2", color: "#666",
+    background: "var(--pc-bg-surface-2)", color: "var(--pc-text-secondary)",
     fontSize: Math.max(9, Math.floor(size / 5)),
     overflow: "hidden", boxSizing: "border-box",
   };

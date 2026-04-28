@@ -96,9 +96,9 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
   if (!open || !target) return null;
 
   const toneColor =
-    target.daysToExpiry <= 30 ? "#ef4444" :
-    target.daysToExpiry <= 90 ? "#f59e0b" :
-    "#22c55e";
+    target.daysToExpiry <= 30 ? "var(--pc-state-danger)" :
+    target.daysToExpiry <= 90 ? "var(--pc-state-warning)" :
+    "var(--pc-state-success)";
 
   return (
     <div
@@ -112,7 +112,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
       }}
     >
       <div style={{
-        background: "#1e293b", color: "#e5e7eb", padding: 20, borderRadius: 8,
+        background: "var(--pc-bg-surface-2)", color: "var(--pc-text-primary)", padding: 20, borderRadius: 8,
         minWidth: 480, maxWidth: 560, border: "1px solid #334155",
       }}>
         <h3 id="expiry-override-title" style={{ margin: "0 0 12px" }}>
@@ -121,12 +121,12 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
 
         <div style={{
           marginBottom: 12, padding: "8px 10px", borderRadius: 4,
-          background: "#0f172a", borderLeft: `3px solid ${toneColor}`,
+          background: "var(--pc-bg-canvas)", borderLeft: `3px solid ${toneColor}`,
         }}>
           <div data-testid="expiry-override-product" style={{ fontWeight: 600 }}>
             {target.productName}
           </div>
-          <div data-testid="expiry-override-batch" style={{ fontSize: 12, color: "#cbd5e1" }}>
+          <div data-testid="expiry-override-batch" style={{ fontSize: 12, color: "var(--pc-border-default)" }}>
             Batch {target.batchNo} · expires {target.expiryDate}
           </div>
           <div
@@ -143,7 +143,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
             role="alert"
             style={{
               marginBottom: 12, padding: "8px 10px", borderRadius: 4,
-              background: "#7f1d1d", color: "#fecaca", fontSize: 13,
+              background: "var(--pc-state-danger)", color: "var(--pc-state-danger-bg)", fontSize: 13,
             }}
           >
             Only an owner can approve a near-expiry sale. Current user:{" "}
@@ -152,7 +152,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
           </div>
         )}
 
-        <label htmlFor="expiry-override-reason" style={{ fontSize: 12, color: "#94a3b8" }}>
+        <label htmlFor="expiry-override-reason" style={{ fontSize: 12, color: "var(--pc-text-tertiary)" }}>
           Reason (min 4 chars — recorded to the audit log)
         </label>
         <textarea
@@ -166,7 +166,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
           style={{
             width: "100%", marginTop: 4, marginBottom: 8, padding: "6px 8px",
             borderRadius: 4, border: "1px solid #334155",
-            background: "#0f172a", color: "#e5e7eb", fontFamily: "inherit",
+            background: "var(--pc-bg-canvas)", color: "var(--pc-text-primary)", fontFamily: "inherit",
             resize: "vertical",
           }}
         />
@@ -177,7 +177,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
             role="alert"
             style={{
               marginBottom: 8, padding: "6px 8px", borderRadius: 4,
-              background: "#7f1d1d", color: "#fecaca", fontSize: 12, fontFamily: "monospace",
+              background: "var(--pc-state-danger)", color: "var(--pc-state-danger-bg)", fontSize: 12, fontFamily: "monospace",
             }}
           >
             {err}
@@ -190,7 +190,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
             onClick={onCancel}
             data-testid="expiry-override-cancel"
             style={{
-              padding: "8px 14px", background: "#334155", color: "white",
+              padding: "8px 14px", background: "var(--pc-border-subtle)", color: "white",
               border: "none", borderRadius: 4,
             }}
           >
@@ -205,7 +205,7 @@ export function OwnerOverrideModal(props: OwnerOverrideModalProps): JSX.Element 
             aria-keyshortcuts="F10"
             style={{
               padding: "8px 14px",
-              background: canConfirm ? "#b45309" : "#64748b",
+              background: canConfirm ? "var(--pc-state-warning)" : "var(--pc-text-secondary)",
               color: "white", border: "none", borderRadius: 4, fontWeight: 700,
               cursor: canConfirm ? "pointer" : "not-allowed",
             }}

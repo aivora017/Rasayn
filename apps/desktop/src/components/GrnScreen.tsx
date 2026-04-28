@@ -20,6 +20,7 @@ import {
   dismissPendingGrnDraft,
   type PendingGrnDraft,
 } from "../lib/pendingGrnDraft.js";
+import { PhotoBillCapture } from "./PhotoBillCapture.js";
 
 // D03 (tech-debt 2026-04-18): the hard-coded SUPPLIERS demo list was removed.
 // Real supplier rows now come from `listSuppliersRpc(shopId)` on mount.
@@ -272,12 +273,25 @@ export function GrnScreen() {
   }, [doSave]);
 
   return (
-    <div style={{ padding: 16 }}>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Receive (GRN)</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">manual entry · Gmail import (X1) · photo-bill (X3)</p>
+        <div className="ml-auto inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-[var(--pc-radius-pill)] px-2 py-0.5 text-[11px] font-medium bg-[var(--pc-accent-saffron-soft)] text-[var(--pc-accent-saffron-hover)]">X3</span>
+          <span className="text-[10px] text-[var(--pc-text-secondary)]">Drag a paper bill anywhere to capture</span>
+        </div>
+      </header>
+      {!importedDraft && (
+        <div className="mb-4">
+          <PhotoBillCapture />
+        </div>
+      )}
       {importedDraft && (
         <div
           data-testid="grn-imported-banner"
           style={{
-            background: "#eef6ff", border: "1px solid #9ec5ff", padding: 8,
+            background: "var(--pc-state-info-bg)", border: "1px solid #9ec5ff", padding: 8,
             marginBottom: 12, fontSize: 12, borderRadius: 4,
           }}
         >
@@ -298,7 +312,7 @@ export function GrnScreen() {
           </div>
           {importedDraft.parsedLines.length > 0 && (
             <table style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", fontSize: 11 }}>
-              <thead><tr style={{ background: "#dbeafe" }}>
+              <thead><tr style={{ background: "var(--pc-state-info-bg)" }}>
                 <th style={{ textAlign: "left", padding: 4 }}>Parsed product</th>
                 <th style={{ textAlign: "left", padding: 4 }}>Match</th>
                 <th style={{ textAlign: "left", padding: 4 }}>Batch</th>
@@ -373,7 +387,7 @@ export function GrnScreen() {
               </tbody>
             </table>
           )}
-          <div style={{ marginTop: 6, color: "#555" }}>
+          <div style={{ marginTop: 6, color: "var(--pc-text-secondary)" }}>
             High/medium-confidence matches are auto-appended below. Low / no-match rows stay here — skip or search manually, then save with F9.
           </div>
         </div>
@@ -431,7 +445,7 @@ export function GrnScreen() {
       </div>
 
       {lines.length === 0 ? (
-        <div data-testid="grn-empty" style={{ padding: 24, color: "#888", textAlign: "center" }}>
+        <div data-testid="grn-empty" style={{ padding: 24, color: "var(--pc-text-tertiary)", textAlign: "center" }}>
           Search a product above to start a receipt.
         </div>
       ) : (
@@ -535,8 +549,8 @@ export function GrnScreen() {
           style={{
             position: "fixed", bottom: 40, right: 24,
             padding: "10px 16px", borderRadius: 6,
-            background: toast.kind === "ok" ? "#1e7d32" : "#b00020",
-            color: "#fff", fontWeight: 500,
+            background: toast.kind === "ok" ? "var(--pc-state-success)" : "var(--pc-state-danger)",
+            color: "var(--pc-bg-surface)", fontWeight: 500,
           }}
         >
           {toast.msg}
