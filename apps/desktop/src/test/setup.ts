@@ -82,3 +82,38 @@ if (blobProto && typeof blobProto.arrayBuffer !== "function") {
     });
   };
 }
+
+// ─── i18n bootstrap for tests ────────────────────────────
+// react-i18next's useTranslation returns the key when no instance is
+// initialized — that breaks every test that asserts on translated text.
+// Initialize i18n synchronously before any test imports run.
+import { initI18n } from "@pharmacare/design-system";
+initI18n("en");
+
+// ─── ResizeObserver polyfill (Recharts ResponsiveContainer) ──
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class ROStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = ROStub;
+}
+
+// ─── HTMLCanvasElement.getContext stub (AmbientMesh canvas) ──
+// jsdom doesn't implement canvas; stub the methods AmbientMesh actually
+// calls so the effect runs without throwing.
+if (typeof HTMLCanvasElement !== "undefined") {
+  const proto = HTMLCanvasElement.prototype as unknown as {
+    getContext: (id: string) => unknown;
+  };
+  proto.getContext = (() => ({
+    clearRect: () => {},
+    arc: () => {},
+    beginPath: () => {},
+    fill: () => {},
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    globalAlpha: 1,
+    fillStyle: "",
+  })) as unknown as typeof proto.getContext;
+}

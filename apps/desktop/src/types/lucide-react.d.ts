@@ -21,6 +21,11 @@ declare module "lucide-react" {
   export const Mail: LucideIcon;
   export const Settings2: LucideIcon;
   export const ShieldCheck: LucideIcon;
+  export const Plug: LucideIcon;
+  export const Calendar: LucideIcon;
+  export const ZoomIn: LucideIcon;
+  export const ZoomOut: LucideIcon;
+  export const Crown: LucideIcon;
   export const Percent: LucideIcon;
   export const Languages: LucideIcon;
   export const ArrowRight: LucideIcon;

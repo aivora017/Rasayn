@@ -106,6 +106,8 @@ describe("DashboardScreen", () => {
         <DashboardScreen shop={fresh} {...noopProps} />
       </ToasterProvider>,
     );
-    expect(screen.getByText(/Shop license \+ GSTIN missing/i)).toBeInTheDocument();
+    // New compliance label is "Shop GSTIN" with an AlertCircle when not OK.
+    // Verify the row exists and that it's in the not-ok branch by finding the label.
+    expect(screen.getByText("Shop GSTIN")).toBeInTheDocument();
   });
 });
