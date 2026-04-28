@@ -354,8 +354,8 @@ export function ReturnsScreen() {
             onClick={() => setMode(m)}
             style={{
               padding: "6px 14px", fontSize: 13, fontWeight: 600,
-              background: mode === m ? "#1e3a8a" : "#e2e8f0",
-              color: mode === m ? "#fff" : "#0f172a",
+              background: mode === m ? "var(--pc-state-info)" : "var(--pc-bg-surface-2)",
+              color: mode === m ? "var(--pc-bg-surface)" : "var(--pc-bg-canvas)",
               border: "none", cursor: "pointer",
             }}
           >{m === "gstr1" ? "GSTR-1" : m === "irn" ? "IRN Records" : "Refunds (F4)"}</button>
@@ -411,14 +411,14 @@ export function ReturnsScreen() {
           onClick={() => setConfirmFile(true)}
           disabled={!canFile}
           title={!isOwner ? "Owner-only action" : (!savedReturn ? "Generate first" : savedReturn.status !== "draft" ? "Already filed" : "Mark Filed")}
-          style={{ padding: "6px 12px", background: canFile ? "#1e3a8a" : "#bbb", color: "#fff", border: "none" }}
+          style={{ padding: "6px 12px", background: canFile ? "var(--pc-state-info)" : "var(--pc-text-tertiary)", color: "var(--pc-bg-surface)", border: "none" }}
         >Mark Filed (F12)</button>
       </div>
 
-      {err && <div data-testid="ret-err" role="alert" style={{ color: "#b00020", marginBottom: 10 }}>{err}</div>}
+      {err && <div data-testid="ret-err" role="alert" style={{ color: "var(--pc-state-danger)", marginBottom: 10 }}>{err}</div>}
 
       {savedReturn && (
-        <div data-testid="ret-saved-banner" style={{ marginBottom: 10, padding: "8px 12px", background: "#eef7ee", border: "1px solid #9bc79b", fontSize: 13 }}>
+        <div data-testid="ret-saved-banner" style={{ marginBottom: 10, padding: "8px 12px", background: "var(--pc-state-success-bg)", border: "1px solid #9bc79b", fontSize: 13 }}>
           Return <strong>{savedReturn.returnType}</strong> for period <strong>{savedReturn.period}</strong> — status:{" "}
           <strong data-testid="ret-saved-status">{savedReturn.status}</strong>{" "}·{" "}
           {savedReturn.billCount} bills · total {formatRupees(savedReturn.grandTotalPaise)} ·
@@ -437,8 +437,8 @@ export function ReturnsScreen() {
                 onClick={() => setTab(t)}
                 style={{
                   padding: "4px 12px", fontSize: 13,
-                  background: tab === t ? "#1e3a8a" : "#eee",
-                  color: tab === t ? "#fff" : "#222",
+                  background: tab === t ? "var(--pc-state-info)" : "var(--pc-bg-surface-2)",
+                  color: tab === t ? "var(--pc-bg-surface)" : "var(--pc-text-primary)",
                   border: "none", cursor: "pointer",
                 }}
               >{t.toUpperCase()}</button>
@@ -453,13 +453,13 @@ export function ReturnsScreen() {
               <div>HSN rows (B2B / B2C): {summary.hsnB2bRowCount} / {summary.hsnB2cRowCount}</div>
               <div>Exempt rows: {summary.exempRowCount} · Doc rows: {summary.docRowCount}</div>
               {summary.gaps.length > 0 && (
-                <div style={{ color: "#b4651a", marginTop: 6 }} data-testid="ret-gaps">
+                <div style={{ color: "var(--pc-state-warning)", marginTop: 6 }} data-testid="ret-gaps">
                   Doc-series gaps:{" "}
                   {summary.gaps.map((g) => `${g.series}: ${g.gapNums.join(",")}`).join(" · ")}
                 </div>
               )}
               {summary.invalid.length > 0 && (
-                <div style={{ color: "#b00020", marginTop: 6 }} data-testid="ret-invalid">
+                <div style={{ color: "var(--pc-state-danger)", marginTop: 6 }} data-testid="ret-invalid">
                   Invalid bills ({summary.invalid.length}):{" "}
                   {summary.invalid.slice(0,5).map((i) => `${i.billId}(${i.reason})`).join(", ")}
                   {summary.invalid.length > 5 && ` +${summary.invalid.length - 5} more`}
@@ -481,7 +481,7 @@ export function ReturnsScreen() {
                     <tr key={bb.ctin}><td style={{ padding: 4 }}>{bb.ctin}</td><td>{bb.inv.length}</td><td>{tv.toFixed(2)}</td></tr>
                   );
                 })}
-                {result.json.b2b.length === 0 && <tr><td colSpan={3} style={{ padding: 6, color: "#888" }}>No B2B invoices.</td></tr>}
+                {result.json.b2b.length === 0 && <tr><td colSpan={3} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No B2B invoices.</td></tr>}
               </tbody>
             </table>
           )}
@@ -497,7 +497,7 @@ export function ReturnsScreen() {
                   const tv = b.inv.reduce((s, inv) => s + inv.val, 0);
                   return <tr key={b.pos}><td style={{ padding: 4 }}>{b.pos}</td><td>{b.inv.length}</td><td>{tv.toFixed(2)}</td></tr>;
                 })}
-                {result.json.b2cl.length === 0 && <tr><td colSpan={3} style={{ padding: 6, color: "#888" }}>No B2CL invoices.</td></tr>}
+                {result.json.b2cl.length === 0 && <tr><td colSpan={3} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No B2CL invoices.</td></tr>}
               </tbody>
             </table>
           )}
@@ -512,7 +512,7 @@ export function ReturnsScreen() {
                 {result.json.b2cs.map((r, i) => (
                   <tr key={i}><td style={{ padding: 4 }}>{r.pos}</td><td>{r.rt}%</td><td>{r.txval.toFixed(2)}</td><td>{r.iamt.toFixed(2)}</td><td>{r.camt.toFixed(2)}</td><td>{r.samt.toFixed(2)}</td></tr>
                 ))}
-                {result.json.b2cs.length === 0 && <tr><td colSpan={6} style={{ padding: 6, color: "#888" }}>No B2CS rows.</td></tr>}
+                {result.json.b2cs.length === 0 && <tr><td colSpan={6} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No B2CS rows.</td></tr>}
               </tbody>
             </table>
           )}
@@ -531,7 +531,7 @@ export function ReturnsScreen() {
                   <tr key={`b2c-${i}`}><td style={{ padding: 4 }}>B2C</td><td>{r.hsn_sc}</td><td>{r.rt}%</td><td>{r.qty}</td><td>{r.txval.toFixed(2)}</td></tr>
                 ))}
                 {result.json.hsn.hsn_b2b.data.length + result.json.hsn.hsn_b2c.data.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: 6, color: "#888" }}>No HSN rows.</td></tr>
+                  <tr><td colSpan={5} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No HSN rows.</td></tr>
                 )}
               </tbody>
             </table>
@@ -547,7 +547,7 @@ export function ReturnsScreen() {
                 {result.json.nil.inv.map((r, i) => (
                   <tr key={i}><td style={{ padding: 4 }}>{r.sply_ty}</td><td>{r.nil_amt.toFixed(2)}</td><td>{r.expt_amt.toFixed(2)}</td><td>{r.ngsup_amt.toFixed(2)}</td></tr>
                 ))}
-                {result.json.nil.inv.length === 0 && <tr><td colSpan={4} style={{ padding: 6, color: "#888" }}>No exempt rows.</td></tr>}
+                {result.json.nil.inv.length === 0 && <tr><td colSpan={4} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No exempt rows.</td></tr>}
               </tbody>
             </table>
           )}
@@ -563,7 +563,7 @@ export function ReturnsScreen() {
                   <tr key={i}><td style={{ padding: 4 }}>{d.from}</td><td>{d.to}</td><td>{d.totnum}</td><td>{d.cancel}</td></tr>
                 )) ?? null}
                 {(result.json.doc_issue.doc_det[0]?.docs.length ?? 0) === 0 && (
-                  <tr><td colSpan={4} style={{ padding: 6, color: "#888" }}>No doc rows.</td></tr>
+                  <tr><td colSpan={4} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No doc rows.</td></tr>
                 )}
               </tbody>
             </table>
@@ -588,7 +588,7 @@ export function ReturnsScreen() {
                 <td>{h.generatedAt}</td><td>{h.filedAt ?? "—"}</td>
               </tr>
             ))}
-            {history.length === 0 && <tr><td colSpan={7} style={{ padding: 6, color: "#888" }}>No prior returns.</td></tr>}
+            {history.length === 0 && <tr><td colSpan={7} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No prior returns.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -605,14 +605,14 @@ export function ReturnsScreen() {
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          <div style={{ background: "#fff", padding: 20, borderRadius: 4, minWidth: 360 }}>
+          <div style={{ background: "var(--pc-bg-surface)", padding: 20, borderRadius: 4, minWidth: 360 }}>
             <h3 style={{ margin: "0 0 8px" }}>Mark GSTR-1 {savedReturn.period} as Filed?</h3>
-            <p style={{ fontSize: 13, color: "#555" }}>
+            <p style={{ fontSize: 13, color: "var(--pc-text-secondary)" }}>
               This back-fills <code>filed_period</code> on the {savedReturn.billCount} bill(s) in this return,
               locking them against re-export. Action is audit-logged to <strong>{currentUser?.name ?? "?"}</strong>.
             </p>
             {!isOwner && (
-              <div style={{ color: "#b00020", fontSize: 13, marginBottom: 8 }} data-testid="ret-file-forbidden">
+              <div style={{ color: "var(--pc-state-danger)", fontSize: 13, marginBottom: 8 }} data-testid="ret-file-forbidden">
                 Owner role required. Current user is not an active owner.
               </div>
             )}
@@ -622,7 +622,7 @@ export function ReturnsScreen() {
                 data-testid="ret-file-confirm"
                 onClick={() => void markFiled()}
                 disabled={!isOwner || busy}
-                style={{ background: "#1e3a8a", color: "#fff", border: "none", padding: "6px 12px" }}
+                style={{ background: "var(--pc-state-info)", color: "var(--pc-bg-surface)", border: "none", padding: "6px 12px" }}
               >Confirm Mark Filed</button>
             </div>
           </div>
@@ -655,13 +655,13 @@ export function ReturnsScreen() {
               disabled={irnBusy}
               style={{ padding: "6px 14px" }}
             >{irnBusy ? "Loading…" : "Refresh"}</button>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b" }}>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--pc-text-secondary)" }}>
               {irnRecords.length} records
             </span>
           </div>
 
           {irnErr && (
-            <div data-testid="irn-err" role="alert" style={{ color: "#b00020", marginBottom: 10 }}>{irnErr}</div>
+            <div data-testid="irn-err" role="alert" style={{ color: "var(--pc-state-danger)", marginBottom: 10 }}>{irnErr}</div>
           )}
 
           <table data-testid="irn-table" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
@@ -689,12 +689,12 @@ export function ReturnsScreen() {
                       fontSize: 11,
                       fontWeight: 700,
                       textTransform: "uppercase",
-                      color: "#fff",
-                      background: r.status === "acked" ? "#16a34a"
-                        : r.status === "failed" ? "#dc2626"
-                        : r.status === "cancelled" ? "#64748b"
-                        : r.status === "submitted" ? "#2563eb"
-                        : "#b45309",
+                      color: "var(--pc-bg-surface)",
+                      background: r.status === "acked" ? "var(--pc-state-success)"
+                        : r.status === "failed" ? "var(--pc-state-danger)"
+                        : r.status === "cancelled" ? "var(--pc-text-secondary)"
+                        : r.status === "submitted" ? "var(--pc-state-info)"
+                        : "var(--pc-state-warning)",
                     }}>{r.status}</span>
                   </td>
                   <td style={{ padding: 6, fontFamily: "monospace", fontSize: 11 }}>
@@ -704,7 +704,7 @@ export function ReturnsScreen() {
                   <td style={{ padding: 6, textAlign: "center" }}>{r.attemptCount}</td>
                   <td style={{ padding: 6 }}>{r.submittedAt ? r.submittedAt.slice(0, 19).replace("T", " ") : "—"}</td>
                   <td style={{ padding: 6 }}>{r.ackDate ? r.ackDate.slice(0, 19).replace("T", " ") : "—"}</td>
-                  <td style={{ padding: 6, color: "#b00020" }}>
+                  <td style={{ padding: 6, color: "var(--pc-state-danger)" }}>
                     {r.errorMsg ? `${r.errorCode ?? ""} ${r.errorMsg}`.trim() : ""}
                   </td>
                   <td style={{ padding: 6 }}>
@@ -712,14 +712,14 @@ export function ReturnsScreen() {
                       <button
                         data-testid={`irn-cancel-${r.id}`}
                         onClick={() => { setCancelTarget(r); setCancelRemarks(""); setCancelReasonCode("2"); }}
-                        style={{ padding: "3px 10px", background: "#dc2626", color: "#fff", border: "none", fontSize: 11 }}
+                        style={{ padding: "3px 10px", background: "var(--pc-state-danger)", color: "var(--pc-bg-surface)", border: "none", fontSize: 11 }}
                       >Cancel</button>
                     )}
                   </td>
                 </tr>
               ))}
               {irnRecords.length === 0 && !irnBusy && (
-                <tr><td colSpan={9} style={{ padding: 12, color: "#64748b", textAlign: "center" }}>
+                <tr><td colSpan={9} style={{ padding: 12, color: "var(--pc-text-secondary)", textAlign: "center" }}>
                   No IRN records for this filter.
                 </td></tr>
               )}
@@ -736,9 +736,9 @@ export function ReturnsScreen() {
                 display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
               }}
             >
-              <div style={{ background: "#fff", padding: 20, borderRadius: 6, minWidth: 400, maxWidth: 520 }}>
+              <div style={{ background: "var(--pc-bg-surface)", padding: 20, borderRadius: 6, minWidth: 400, maxWidth: 520 }}>
                 <h3 style={{ marginTop: 0 }}>Cancel IRN</h3>
-                <p style={{ fontSize: 13, color: "#334155" }}>
+                <p style={{ fontSize: 13, color: "var(--pc-border-subtle)" }}>
                   Bill <code>{cancelTarget.billId}</code> — current status <strong>{cancelTarget.status}</strong>
                 </p>
                 <label style={{ display: "block", fontSize: 12, marginBottom: 8 }}>
@@ -774,7 +774,7 @@ export function ReturnsScreen() {
                     data-testid="irn-cancel-confirm"
                     onClick={() => void doCancelIrn()}
                     disabled={irnBusy}
-                    style={{ padding: "6px 14px", background: "#dc2626", color: "#fff", border: "none" }}
+                    style={{ padding: "6px 14px", background: "var(--pc-state-danger)", color: "var(--pc-bg-surface)", border: "none" }}
                   >Confirm Cancel</button>
                 </div>
               </div>
@@ -812,25 +812,25 @@ export function ReturnsScreen() {
             <button
               data-testid="refund-open-picker"
               onClick={() => setPickerOpen(true)}
-              style={{ padding: "8px 14px", background: "#1e3a8a", color: "#fff", fontWeight: 600, border: "none" }}
+              style={{ padding: "8px 14px", background: "var(--pc-state-info)", color: "var(--pc-bg-surface)", fontWeight: 600, border: "none" }}
             >Open partial-refund picker</button>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b" }}>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--pc-text-secondary)" }}>
               {refundHistory.length} prior refund{refundHistory.length === 1 ? "" : "s"} on this bill
             </span>
           </div>
 
           {refundLoadErr && (
-            <div data-testid="refund-load-err" role="alert" style={{ color: "#b00020" }}>{refundLoadErr}</div>
+            <div data-testid="refund-load-err" role="alert" style={{ color: "var(--pc-state-danger)" }}>{refundLoadErr}</div>
           )}
           {refundToast && (
             <div data-testid="refund-toast" role="status" style={{
-              background: "#dcfce7", color: "#15803d", padding: "8px 12px",
+              background: "var(--pc-state-success-bg)", color: "var(--pc-state-success)", padding: "8px 12px",
               borderRadius: 4, fontWeight: 600,
             }}>{refundToast}</div>
           )}
 
           {refundHistory.length === 0 && !refundLoadErr && (
-            <div style={{ color: "#64748b", fontSize: 13 }}>
+            <div style={{ color: "var(--pc-text-secondary)", fontSize: 13 }}>
               Enter a bill ID and press Enter to load this bill&apos;s refund history,
               or press F4 in BillingScreen to launch the picker directly.
             </div>

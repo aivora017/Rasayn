@@ -1,18 +1,177 @@
+/*
+ * apps/desktop — global stylesheet.
+ *
+ * NorthStar §4-§6 compliance: every value is a token reference. No hex
+ * literals. Light/dark are token-driven via design-system tokens.css.
+ *
+ * Legacy class names are kept as a back-compat layer (.app, .topbar,
+ * .bill, .bill-lines, .totals, .statusbar, .kbd) so any screen still using
+ * them inherits the new token-driven styling without per-file edits.
+ */
+
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
-body { background: #0f172a; color: #e5e7eb; }
-.app { display: grid; grid-template-rows: 48px 1fr 48px; height: 100%; }
-.topbar { background: #1e293b; display: flex; align-items: center; padding: 0 16px; gap: 16px; border-bottom: 1px solid #334155; }
-.topbar .brand { font-weight: 700; letter-spacing: 0.5px; }
-.topbar .shortcut { color: #94a3b8; font-size: 12px; }
-.statusbar { background: #1e293b; border-top: 1px solid #334155; padding: 0 16px; display: flex; align-items: center; gap: 24px; font-size: 12px; color: #94a3b8; }
-.bill { display: grid; grid-template-columns: 1fr 380px; height: 100%; }
-.bill-lines { padding: 16px; overflow: auto; }
-.bill-lines table { width: 100%; border-collapse: collapse; }
-.bill-lines th, .bill-lines td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #334155; }
-.bill-lines th { color: #94a3b8; font-weight: 500; font-size: 12px; text-transform: uppercase; }
-.bill-lines input { background: #0f172a; color: #e5e7eb; border: 1px solid #334155; padding: 6px 8px; border-radius: 4px; width: 100%; }
-.totals { background: #1e293b; padding: 16px; border-left: 1px solid #334155; display: flex; flex-direction: column; gap: 8px; }
-.totals .row { display: flex; justify-content: space-between; font-size: 14px; }
-.totals .grand { font-size: 28px; font-weight: 700; border-top: 1px solid #334155; padding-top: 12px; margin-top: 8px; color: #22c55e; }
-.kbd { background: #334155; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 11px; color: #e5e7eb; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: var(--pc-font-sans);
+  font-size: var(--pc-text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--pc-bg-canvas);
+  color: var(--pc-text-primary);
+}
+
+/* Tabular numerals everywhere a number lives in dense UI. */
+table, .pc-tabular, td.num, td[data-num="1"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Legacy back-compat layer ──────────────────────────── */
+/*
+ *  AppShell now owns the visual chrome, but the original layout grid
+ *  ("app", "topbar", "statusbar") is preserved here so any screen still
+ *  rendering raw "bill"/"totals" markup picks up tokenized look.
+ */
+.app {
+  display: grid;
+  grid-template-rows: 52px 1fr 36px;
+  height: 100%;
+  background: var(--pc-bg-canvas);
+  color: var(--pc-text-primary);
+}
+
+.topbar {
+  background: var(--pc-bg-surface);
+  border-bottom: 1px solid var(--pc-border-subtle);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+}
+.topbar .brand {
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: var(--pc-text-primary);
+}
+.topbar .shortcut {
+  color: var(--pc-text-tertiary);
+  font-size: var(--pc-text-2xs);
+}
+
+.statusbar {
+  background: var(--pc-bg-surface);
+  border-top: 1px solid var(--pc-border-subtle);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: var(--pc-text-2xs);
+  color: var(--pc-text-secondary);
+}
+
+/* ─── Bill rail (cashier flow) ──────────────────────────── */
+.bill {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  height: 100%;
+  background: var(--pc-bg-canvas);
+}
+
+.bill-lines {
+  padding: 16px;
+  overflow: auto;
+  background: var(--pc-bg-canvas);
+}
+.bill-lines table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--pc-text-sm);
+}
+.bill-lines th, .bill-lines td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--pc-border-subtle);
+}
+.bill-lines th {
+  color: var(--pc-text-secondary);
+  font-weight: 500;
+  font-size: var(--pc-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.bill-lines tbody tr:hover {
+  background: var(--pc-bg-surface-2);
+}
+.bill-lines input {
+  background: var(--pc-bg-surface);
+  color: var(--pc-text-primary);
+  border: 1px solid var(--pc-border-subtle);
+  padding: 6px 8px;
+  border-radius: var(--pc-radius-sm);
+  width: 100%;
+  font-size: var(--pc-text-sm);
+  outline: none;
+  transition: border-color var(--pc-duration-instant) var(--pc-easing-ease-out);
+}
+.bill-lines input:hover  { border-color: var(--pc-border-default); }
+.bill-lines input:focus  { border-color: var(--pc-brand-primary); box-shadow: 0 0 0 2px var(--pc-brand-primary-soft); }
+
+.totals {
+  background: var(--pc-bg-surface);
+  padding: 16px;
+  border-left: 1px solid var(--pc-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--pc-text-sm);
+}
+.totals .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--pc-text-sm);
+  color: var(--pc-text-secondary);
+}
+.totals .row.gross,
+.totals .row.tax,
+.totals .row.discount {
+  color: var(--pc-text-primary);
+}
+.totals .grand {
+  font-size: var(--pc-text-2xl);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--pc-border-subtle);
+  padding-top: 12px;
+  margin-top: 8px;
+  color: var(--pc-state-success);
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Kbd chip — used widely across screens. */
+.kbd {
+  background: var(--pc-bg-surface-3);
+  color: var(--pc-text-secondary);
+  padding: 2px 6px;
+  border-radius: var(--pc-radius-sm);
+  font-family: var(--pc-font-mono);
+  font-size: var(--pc-text-2xs);
+  border: 1px solid var(--pc-border-subtle);
+}
+
+/* Generic button reset (legacy buttons that don't use design-system). */
+button, .btn {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+/* Screens still using their own layout get reasonable defaults. */
+input, select, textarea {
+  font-family: inherit;
+}

@@ -76,7 +76,7 @@ export function ProductSearch({ onPick, autoFocus, testId, initialQuery }: Props
           style={{
             position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
             listStyle: "none", margin: 0, padding: 0,
-            background: "#1e293b", border: "1px solid #334155", borderRadius: 4, maxHeight: 280, overflow: "auto",
+            background: "var(--pc-bg-surface-2)", border: "1px solid #334155", borderRadius: 4, maxHeight: 280, overflow: "auto",
           }}
         >
           {hits.map((h, i) => (
@@ -86,18 +86,18 @@ export function ProductSearch({ onPick, autoFocus, testId, initialQuery }: Props
               onMouseDown={(e) => { e.preventDefault(); pick(h); }}
               style={{
                 padding: "8px 10px", cursor: "pointer",
-                background: i === cursor ? "#334155" : "transparent",
+                background: i === cursor ? "var(--pc-border-subtle)" : "transparent",
                 borderBottom: "1px solid #1e293b",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{h.name}</strong>
-                <span style={{ color: "#94a3b8", fontSize: 12 }}>
-                  {h.schedule !== "OTC" && <span style={{ background: "#dc2626", color: "white", padding: "1px 5px", borderRadius: 3, marginRight: 6 }}>{h.schedule}</span>}
+                <span style={{ color: "var(--pc-text-tertiary)", fontSize: 12 }}>
+                  {h.schedule !== "OTC" && <span style={{ background: "var(--pc-state-danger)", color: "white", padding: "1px 5px", borderRadius: 3, marginRight: 6 }}>{h.schedule}</span>}
                   \u20b9{(h.mrpPaise / 100).toFixed(2)}
                 </span>
               </div>
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+              <div style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>
                 {h.genericName ?? "\u2014"} \u00b7 {h.manufacturer} \u00b7 GST {h.gstRate}%
               </div>
             </li>

@@ -128,10 +128,10 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
         <h3 style={{ margin: "0 0 8px" }}>Gmail connection</h3>
         {status?.connected ? (
           <div>
-            <div data-testid="gmail-status-connected" style={{ color: "#070", marginBottom: 8 }}>
+            <div data-testid="gmail-status-connected" style={{ color: "var(--pc-state-success)", marginBottom: 8 }}>
               Connected as <strong>{status.accountEmail ?? "unknown"}</strong>
             </div>
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", marginBottom: 8 }}>
               Scopes: {status.scopes.join(", ")}
             </div>
             <button data-testid="gmail-disconnect" onClick={doDisconnect} disabled={loading}>
@@ -140,7 +140,7 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
           </div>
         ) : (
           <div>
-            <div data-testid="gmail-status-disconnected" style={{ color: "#666", marginBottom: 8 }}>
+            <div data-testid="gmail-status-disconnected" style={{ color: "var(--pc-text-secondary)", marginBottom: 8 }}>
               Not connected. Clicking Connect opens your browser to Google consent.
             </div>
             <button data-testid="gmail-connect" onClick={doConnect} disabled={loading}>
@@ -148,7 +148,7 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
             </button>
           </div>
         )}
-        {err && <div data-testid="gmail-error" style={{ color: "#b00", marginTop: 8, fontSize: 12 }}>{err}</div>}
+        {err && <div data-testid="gmail-error" style={{ color: "var(--pc-state-danger)", marginTop: 8, fontSize: 12 }}>{err}</div>}
 
         <h3 style={{ margin: "16px 0 8px" }}>Inbox</h3>
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -165,7 +165,7 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
         </div>
         <ul data-testid="gmail-messages" style={{ listStyle: "none", padding: 0, margin: 0, maxHeight: 300, overflowY: "auto", border: "1px solid #ddd" }}>
           {messages.length === 0 && (
-            <li style={{ padding: 8, fontSize: 12, color: "#888" }}>No messages. Connect Gmail and click Fetch.</li>
+            <li style={{ padding: 8, fontSize: 12, color: "var(--pc-text-tertiary)" }}>No messages. Connect Gmail and click Fetch.</li>
           )}
           {messages.map((m) => (
             <li
@@ -174,25 +174,25 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
               onClick={() => void doSelectMessage(m)}
               style={{
                 padding: 8, borderBottom: "1px solid #eee", cursor: "pointer",
-                background: selectedId === m.id ? "#eef6ff" : undefined,
+                background: selectedId === m.id ? "var(--pc-state-info-bg)" : undefined,
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 600 }}>{m.subject || "(no subject)"}</div>
-              <div style={{ fontSize: 11, color: "#666" }}>{m.from} · {m.date}</div>
-              <div style={{ fontSize: 11, color: "#888" }}>
+              <div style={{ fontSize: 11, color: "var(--pc-text-secondary)" }}>{m.from} · {m.date}</div>
+              <div style={{ fontSize: 11, color: "var(--pc-text-tertiary)" }}>
                 {m.attachments.length} attachment{m.attachments.length === 1 ? "" : "s"}
                 {m.attachments.length > 0 && `: ${m.attachments.map((a) => a.filename).join(", ")}`}
               </div>
             </li>
           ))}
         </ul>
-        {fetchBusy && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Fetching attachment…</div>}
+        {fetchBusy && <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", marginTop: 4 }}>Fetching attachment…</div>}
       </div>
 
       <div data-testid="gmail-manual">
         <h3 style={{ margin: "0 0 8px" }}>Parse & draft</h3>
         {selectedMsg && (
-          <div style={{ fontSize: 12, color: "#444", marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--pc-text-secondary)", marginBottom: 6 }}>
             Source: <strong>{selectedMsg.subject}</strong>
           </div>
         )}
@@ -232,7 +232,7 @@ export default function GmailInboxScreen({ onGoToGrn }: GmailInboxScreenProps = 
             <div>Line count: <strong>{parsed.lines.length}</strong></div>
             {parsed.lines.length > 0 && (
               <table style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", fontSize: 11 }}>
-                <thead><tr style={{ background: "#f4f4f4" }}>
+                <thead><tr style={{ background: "var(--pc-bg-surface-2)" }}>
                   <th style={{ textAlign: "left", padding: 4 }}>Product</th>
                   <th style={{ textAlign: "left", padding: 4 }}>Batch</th>
                   <th style={{ textAlign: "left", padding: 4 }}>Expiry</th>

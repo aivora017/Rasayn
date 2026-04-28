@@ -98,8 +98,8 @@ export function ReportsScreen() {
             onClick={() => setTab(t)}
             style={{
               padding: "6px 14px", fontWeight: 500,
-              background: tab === t ? "#1e3a8a" : "#eee",
-              color: tab === t ? "#fff" : "#222",
+              background: tab === t ? "var(--pc-state-info)" : "var(--pc-bg-surface-2)",
+              color: tab === t ? "var(--pc-bg-surface)" : "var(--pc-text-primary)",
               border: "none", borderRadius: 4, cursor: "pointer",
             }}
           >
@@ -108,7 +108,7 @@ export function ReportsScreen() {
         ))}
       </div>
 
-      {err && <div data-testid="rpt-err" style={{ color: "#b00020", marginBottom: 8 }}>{err}</div>}
+      {err && <div data-testid="rpt-err" style={{ color: "var(--pc-state-danger)", marginBottom: 8 }}>{err}</div>}
 
       {tab === "daybook" && (
         <div>
@@ -152,7 +152,7 @@ export function ReportsScreen() {
                 <span>IGST: {formatINR(daybook.summary.igstPaise as Paise)}</span>
               </div>
               {daybook.rows.length === 0 ? (
-                <div data-testid="rpt-daybook-empty" style={{ color: "#888" }}>No bills on {date}.</div>
+                <div data-testid="rpt-daybook-empty" style={{ color: "var(--pc-text-tertiary)" }}>No bills on {date}.</div>
               ) : (
                 <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
                   <thead>
@@ -211,7 +211,7 @@ export function ReportsScreen() {
             >Export CSV</button>
           </div>
           {gstr && (gstr.length === 0 ? (
-            <div data-testid="rpt-gstr-empty" style={{ color: "#888" }}>No taxable sales in range.</div>
+            <div data-testid="rpt-gstr-empty" style={{ color: "var(--pc-text-tertiary)" }}>No taxable sales in range.</div>
           ) : (
             <table data-testid="rpt-gstr-table" style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
               <thead><tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
@@ -249,7 +249,7 @@ export function ReportsScreen() {
             </label>
           </div>
           {movers && (movers.length === 0 ? (
-            <div data-testid="rpt-mov-empty" style={{ color: "#888" }}>No sales in range.</div>
+            <div data-testid="rpt-mov-empty" style={{ color: "var(--pc-text-tertiary)" }}>No sales in range.</div>
           ) : (
             <table data-testid="rpt-mov-table" style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
               <thead><tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>

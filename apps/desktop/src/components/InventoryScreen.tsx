@@ -57,8 +57,8 @@ function TabButton({ active, onClick, children, testId }: { active: boolean; onC
         padding: "6px 14px",
         borderRadius: 4,
         border: "1px solid #cbd5e1",
-        background: active ? "#0f172a" : "white",
-        color: active ? "white" : "#0f172a",
+        background: active ? "var(--pc-bg-canvas)" : "white",
+        color: active ? "white" : "var(--pc-bg-canvas)",
         cursor: "pointer",
         fontWeight: active ? 600 : 400,
       }}
@@ -69,7 +69,7 @@ function TabButton({ active, onClick, children, testId }: { active: boolean; onC
 }
 
 const kbd: React.CSSProperties = {
-  background: "#e2e8f0", color: "#0f172a", padding: "0 4px", borderRadius: 2, fontSize: 10, marginLeft: 4, fontFamily: "monospace",
+  background: "var(--pc-bg-surface-2)", color: "var(--pc-bg-canvas)", padding: "0 4px", borderRadius: 2, fontSize: 10, marginLeft: 4, fontFamily: "monospace",
 };
 
 function BatchesTab() {
@@ -132,8 +132,8 @@ function BatchesTab() {
               padding: "6px 12px",
               borderRadius: 4,
               border: "1px solid #cbd5e1",
-              background: filter === f ? "#0f172a" : "white",
-              color: filter === f ? "white" : "#0f172a",
+              background: filter === f ? "var(--pc-bg-canvas)" : "white",
+              color: filter === f ? "white" : "var(--pc-bg-canvas)",
               cursor: "pointer",
               fontWeight: filter === f ? 600 : 400,
             }}
@@ -143,8 +143,8 @@ function BatchesTab() {
         ))}
       </div>
 
-      {err && <div data-testid="inv-err" style={{ color: "#dc2626", marginBottom: 8 }}>{err}</div>}
-      {loading && <div data-testid="inv-loading" style={{ color: "#64748b" }}>Loading…</div>}
+      {err && <div data-testid="inv-err" style={{ color: "var(--pc-state-danger)", marginBottom: 8 }}>{err}</div>}
+      {loading && <div data-testid="inv-loading" style={{ color: "var(--pc-text-secondary)" }}>Loading…</div>}
 
       <table data-testid="inv-table">
         <thead>
@@ -160,13 +160,13 @@ function BatchesTab() {
         </thead>
         <tbody>
           {visible.length === 0 && !loading && (
-            <tr><td colSpan={7} data-testid="inv-empty" style={{ padding: 24, textAlign: "center", color: "#64748b" }}>No rows.</td></tr>
+            <tr><td colSpan={7} data-testid="inv-empty" style={{ padding: 24, textAlign: "center", color: "var(--pc-text-secondary)" }}>No rows.</td></tr>
           )}
           {visible.map((r) => (
             <tr key={r.productId} data-testid={`inv-row-${r.productId}`}>
               <td>
                 <div><strong>{r.name}</strong></div>
-                {r.genericName && <div style={{ fontSize: 12, color: "#64748b" }}>{r.genericName} · {r.manufacturer}</div>}
+                {r.genericName && <div style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>{r.genericName} · {r.manufacturer}</div>}
               </td>
               <td><SchedBadge schedule={r.schedule} /></td>
               <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }} data-testid={`inv-qty-${r.productId}`}>
@@ -174,9 +174,9 @@ function BatchesTab() {
               </td>
               <td style={{ textAlign: "center" }}>{r.batchCount}</td>
               <td data-testid={`inv-expiry-${r.productId}`}>
-                {r.nearestExpiry ?? <span style={{ color: "#94a3b8" }}>—</span>}
+                {r.nearestExpiry ?? <span style={{ color: "var(--pc-text-tertiary)" }}>—</span>}
                 {r.daysToExpiry !== null && (
-                  <span style={{ fontSize: 11, color: "#64748b", marginLeft: 6 }}>({r.daysToExpiry}d)</span>
+                  <span style={{ fontSize: 11, color: "var(--pc-text-secondary)", marginLeft: 6 }}>({r.daysToExpiry}d)</span>
                 )}
               </td>
               <td style={{ textAlign: "right" }}>{formatINR(r.mrpPaise as Paise)}</td>
@@ -201,12 +201,12 @@ function labelFor(f: Filter): string {
 
 function Flags({ row }: { row: StockRow }) {
   const flags: Array<{ key: string; text: string; color: string }> = [];
-  if (row.totalQty === 0) flags.push({ key: "out", text: "OUT", color: "#64748b" });
-  else if (row.totalQty <= LOW_STOCK_UNDER) flags.push({ key: "low", text: "LOW", color: "#f59e0b" });
-  if (row.daysToExpiry !== null && row.daysToExpiry <= 30) flags.push({ key: "near", text: "≤30d", color: "#dc2626" });
-  else if (row.daysToExpiry !== null && row.daysToExpiry <= NEAR_EXPIRY_DAYS) flags.push({ key: "near", text: `≤${NEAR_EXPIRY_DAYS}d`, color: "#f59e0b" });
-  if (row.hasExpiredStock > 0) flags.push({ key: "exp", text: `EXPIRED×${row.hasExpiredStock}`, color: "#7c2d12" });
-  if (flags.length === 0) return <span style={{ color: "#94a3b8" }}>—</span>;
+  if (row.totalQty === 0) flags.push({ key: "out", text: "OUT", color: "var(--pc-text-secondary)" });
+  else if (row.totalQty <= LOW_STOCK_UNDER) flags.push({ key: "low", text: "LOW", color: "var(--pc-state-warning)" });
+  if (row.daysToExpiry !== null && row.daysToExpiry <= 30) flags.push({ key: "near", text: "≤30d", color: "var(--pc-state-danger)" });
+  else if (row.daysToExpiry !== null && row.daysToExpiry <= NEAR_EXPIRY_DAYS) flags.push({ key: "near", text: `≤${NEAR_EXPIRY_DAYS}d`, color: "var(--pc-state-warning)" });
+  if (row.hasExpiredStock > 0) flags.push({ key: "exp", text: `EXPIRED×${row.hasExpiredStock}`, color: "var(--pc-state-warning)" });
+  if (flags.length === 0) return <span style={{ color: "var(--pc-text-tertiary)" }}>—</span>;
   return (
     <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
       {flags.map((f) => (
@@ -219,8 +219,8 @@ function Flags({ row }: { row: StockRow }) {
 }
 
 function SchedBadge({ schedule }: { schedule: StockRow["schedule"] }) {
-  if (schedule === "OTC") return <span style={{ color: "#64748b", fontSize: 12 }}>OTC</span>;
-  const color = schedule === "X" || schedule === "NDPS" ? "#7c2d12" : "#dc2626";
+  if (schedule === "OTC") return <span style={{ color: "var(--pc-text-secondary)", fontSize: 12 }}>OTC</span>;
+  const color = schedule === "X" || schedule === "NDPS" ? "var(--pc-state-warning)" : "var(--pc-state-danger)";
   return (
     <span style={{ background: color, color: "white", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
       {schedule}

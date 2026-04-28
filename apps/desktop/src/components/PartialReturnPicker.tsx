@@ -427,8 +427,8 @@ export function PartialReturnPicker(
     >
       <div
         style={{
-          background: "#0f172a",
-          color: "#e5e7eb",
+          background: "var(--pc-bg-canvas)",
+          color: "var(--pc-text-primary)",
           padding: 20,
           borderRadius: 8,
           minWidth: 820,
@@ -444,7 +444,7 @@ export function PartialReturnPicker(
         >
           Partial refund
           <span
-            style={{ fontSize: 12, color: "#64748b", fontWeight: 400 }}
+            style={{ fontSize: 12, color: "var(--pc-text-secondary)", fontWeight: 400 }}
             aria-label="Keyboard shortcuts"
           >
             Enter load · F7 return-in-full · F6 tender · F9 save · Esc cancel
@@ -462,7 +462,7 @@ export function PartialReturnPicker(
         >
           <label
             htmlFor="ret-picker-bill-id"
-            style={{ fontSize: 12, color: "#94a3b8" }}
+            style={{ fontSize: 12, color: "var(--pc-text-tertiary)" }}
           >
             Bill ID
           </label>
@@ -485,8 +485,8 @@ export function PartialReturnPicker(
               padding: "6px 8px",
               borderRadius: 4,
               border: "1px solid #334155",
-              background: "#1e293b",
-              color: "#e5e7eb",
+              background: "var(--pc-bg-surface-2)",
+              color: "var(--pc-text-primary)",
               fontFamily: "monospace",
               fontSize: 12,
             }}
@@ -500,7 +500,7 @@ export function PartialReturnPicker(
               padding: "6px 14px",
               borderRadius: 4,
               border: "none",
-              background: "#2563eb",
+              background: "var(--pc-state-info)",
               color: "white",
               cursor: "pointer",
             }}
@@ -514,8 +514,8 @@ export function PartialReturnPicker(
             role="alert"
             data-testid="ret-picker-err"
             style={{
-              color: "#f87171",
-              background: "#7f1d1d",
+              color: "var(--pc-state-danger)",
+              background: "var(--pc-state-danger)",
               padding: "6px 10px",
               borderRadius: 4,
               marginBottom: 10,
@@ -531,8 +531,8 @@ export function PartialReturnPicker(
             role="status"
             data-testid="ret-picker-concurrency"
             style={{
-              color: "#fde68a",
-              background: "#78350f",
+              color: "var(--pc-state-warning-bg)",
+              background: "var(--pc-state-warning)",
               padding: "6px 10px",
               borderRadius: 4,
               marginBottom: 10,
@@ -550,12 +550,12 @@ export function PartialReturnPicker(
                 display: "flex",
                 gap: 20,
                 fontSize: 12,
-                color: "#94a3b8",
+                color: "var(--pc-text-tertiary)",
                 marginBottom: 8,
               }}
             >
               <span>
-                Bill <strong style={{ color: "#e5e7eb" }}>{bill.bill.billNo}</strong>
+                Bill <strong style={{ color: "var(--pc-text-primary)" }}>{bill.bill.billNo}</strong>
               </span>
               <span>
                 Billed{" "}
@@ -563,7 +563,7 @@ export function PartialReturnPicker(
               </span>
               <span>
                 Grand{" "}
-                <strong style={{ color: "#e5e7eb" }}>
+                <strong style={{ color: "var(--pc-text-primary)" }}>
                   {formatRupees(bill.bill.grandTotalPaise)}
                 </strong>
               </span>
@@ -586,7 +586,7 @@ export function PartialReturnPicker(
                   style={{
                     borderBottom: "1px solid #334155",
                     textAlign: "left",
-                    color: "#94a3b8",
+                    color: "var(--pc-text-tertiary)",
                   }}
                 >
                   <th style={{ padding: 4 }}>#</th>
@@ -619,12 +619,12 @@ export function PartialReturnPicker(
                       data-over-qty={l.overQty || undefined}
                       style={{
                         borderBottom: "1px solid #1e293b",
-                        background: l.overQty ? "#7f1d1d" : "transparent",
+                        background: l.overQty ? "var(--pc-state-danger)" : "transparent",
                       }}
                     >
-                      <td style={{ padding: 4, color: "#64748b" }}>{idx + 1}</td>
+                      <td style={{ padding: 4, color: "var(--pc-text-secondary)" }}>{idx + 1}</td>
                       <td style={{ padding: 4 }}>{l.billLine.productName}</td>
-                      <td style={{ padding: 4, fontSize: 11, color: "#94a3b8" }}>
+                      <td style={{ padding: 4, fontSize: 11, color: "var(--pc-text-tertiary)" }}>
                         {l.billLine.batchNo ?? "—"}
                       </td>
                       <td style={{ padding: 4 }}>{l.billLine.qty}</td>
@@ -644,8 +644,8 @@ export function PartialReturnPicker(
                             padding: "4px 6px",
                             borderRadius: 3,
                             border: "1px solid #334155",
-                            background: "#1e293b",
-                            color: "#e5e7eb",
+                            background: "var(--pc-bg-surface-2)",
+                            color: "var(--pc-text-primary)",
                             textAlign: "right",
                           }}
                         />
@@ -662,8 +662,8 @@ export function PartialReturnPicker(
                             padding: "3px 6px",
                             borderRadius: 3,
                             border: "1px solid #334155",
-                            background: "#1e293b",
-                            color: "#e5e7eb",
+                            background: "var(--pc-bg-surface-2)",
+                            color: "var(--pc-text-primary)",
                           }}
                         >
                           {REASON_OPTIONS.map((r) => (
@@ -689,7 +689,7 @@ export function PartialReturnPicker(
                   <tr>
                     <td
                       colSpan={8}
-                      style={{ padding: 12, color: "#64748b", textAlign: "center" }}
+                      style={{ padding: 12, color: "var(--pc-text-secondary)", textAlign: "center" }}
                     >
                       No lines on this bill.
                     </td>
@@ -706,7 +706,7 @@ export function PartialReturnPicker(
                 marginBottom: 12,
               }}
             >
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              <span style={{ fontSize: 12, color: "var(--pc-text-tertiary)" }}>
                 Tender plan:{" "}
                 {tenders
                   ? tenders
@@ -721,7 +721,7 @@ export function PartialReturnPicker(
               </span>
               <strong
                 data-testid="ret-picker-total"
-                style={{ fontSize: 16, color: "#22c55e" }}
+                style={{ fontSize: 16, color: "var(--pc-state-success)" }}
               >
                 Refund {formatRupees(refundTotalPaise)}
               </strong>
@@ -744,7 +744,7 @@ export function PartialReturnPicker(
             disabled={!bill || refundTotalPaise <= 0}
             style={{
               padding: "6px 14px",
-              background: "#2563eb",
+              background: "var(--pc-state-info)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -760,7 +760,7 @@ export function PartialReturnPicker(
             style={{
               padding: "6px 14px",
               background:
-                !bill || hasErrors || !tenders ? "#64748b" : "#16a34a",
+                !bill || hasErrors || !tenders ? "var(--pc-text-secondary)" : "var(--pc-state-success)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -775,7 +775,7 @@ export function PartialReturnPicker(
             onClick={onCancel}
             style={{
               padding: "6px 14px",
-              background: "#334155",
+              background: "var(--pc-border-subtle)",
               color: "white",
               border: "none",
               borderRadius: 4,

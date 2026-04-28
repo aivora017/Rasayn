@@ -601,7 +601,7 @@ export function BillingScreen() {
       <div className="bill-lines">
         <h2 style={{ marginTop: 0 }}>
           New Bill{" "}
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+          <span style={{ fontSize: 12, color: "var(--pc-text-tertiary)" }}>
             · <span className="kbd">F1</span> new
             · <span className="kbd">F2</span> customer
             · <span className="kbd">F3</span> add-line
@@ -631,7 +631,7 @@ export function BillingScreen() {
               padding: "8px 12px",
               marginBottom: 12,
               borderRadius: 4,
-              background: toast.kind === "ok" ? "#16a34a" : "#dc2626",
+              background: toast.kind === "ok" ? "var(--pc-state-success)" : "var(--pc-state-danger)",
               color: "white",
               fontWeight: 600,
             }}
@@ -647,8 +647,8 @@ export function BillingScreen() {
             style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "6px 10px", marginBottom: 10, borderRadius: 4,
-              border: "1px solid #334155", background: "#0f172a",
-              fontSize: 12, color: "#cbd5e1",
+              border: "1px solid #334155", background: "var(--pc-bg-canvas)",
+              fontSize: 12, color: "var(--pc-border-default)",
             }}
           >
             <span style={{ fontWeight: 600 }}>e-Invoice IRN</span>
@@ -656,7 +656,7 @@ export function BillingScreen() {
               if (!irnRecord) {
                 return (
                   <>
-                    <span style={{ color: "#94a3b8" }}>not submitted</span>
+                    <span style={{ color: "var(--pc-text-tertiary)" }}>not submitted</span>
                     <button
                       data-testid="irn-submit"
                       onClick={() => void submitIrn()}
@@ -664,8 +664,8 @@ export function BillingScreen() {
                       style={{
                         marginLeft: "auto",
                         padding: "4px 10px",
-                        background: submittingIrn ? "#475569" : "#16a34a",
-                        color: "#fff",
+                        background: submittingIrn ? "var(--pc-border-default)" : "var(--pc-state-success)",
+                        color: "var(--pc-bg-surface)",
                         border: "none",
                         cursor: submittingIrn ? "wait" : "pointer",
                         fontWeight: 600,
@@ -676,19 +676,19 @@ export function BillingScreen() {
               }
               const s = irnRecord.status;
               const palette: Record<string, string> = {
-                pending: "#b45309",
-                submitted: "#2563eb",
-                acked: "#16a34a",
-                failed: "#dc2626",
-                cancelled: "#64748b",
+                pending: "var(--pc-state-warning)",
+                submitted: "var(--pc-state-info)",
+                acked: "var(--pc-state-success)",
+                failed: "var(--pc-state-danger)",
+                cancelled: "var(--pc-text-secondary)",
               };
               return (
                 <>
                   <span
                     data-testid="irn-status-badge"
                     style={{
-                      background: palette[s] ?? "#475569",
-                      color: "#fff",
+                      background: palette[s] ?? "var(--pc-border-default)",
+                      color: "var(--pc-bg-surface)",
                       padding: "2px 8px",
                       borderRadius: 3,
                       fontSize: 11,
@@ -699,16 +699,16 @@ export function BillingScreen() {
                   {irnRecord.irn && (
                     <code
                       data-testid="irn-number"
-                      style={{ fontSize: 11, color: "#e2e8f0" }}
+                      style={{ fontSize: 11, color: "var(--pc-bg-surface-2)" }}
                     >{irnRecord.irn.slice(0, 8)}…{irnRecord.irn.slice(-6)}</code>
                   )}
                   {s === "failed" && irnRecord.errorMsg && (
                     <span
                       data-testid="irn-error"
-                      style={{ fontSize: 11, color: "#fca5a5" }}
+                      style={{ fontSize: 11, color: "var(--pc-state-danger)" }}
                     >{irnRecord.errorMsg}</span>
                   )}
-                  <span style={{ color: "#64748b", fontSize: 11 }}>
+                  <span style={{ color: "var(--pc-text-secondary)", fontSize: 11 }}>
                     attempt {irnRecord.attemptCount} · {irnRecord.vendor}
                   </span>
                   {(s === "failed" || s === "pending") && (
@@ -719,8 +719,8 @@ export function BillingScreen() {
                       style={{
                         marginLeft: "auto",
                         padding: "3px 10px",
-                        background: submittingIrn ? "#475569" : "#2563eb",
-                        color: "#fff",
+                        background: submittingIrn ? "var(--pc-border-default)" : "var(--pc-state-info)",
+                        color: "var(--pc-bg-surface)",
                         border: "none",
                         cursor: submittingIrn ? "wait" : "pointer",
                         fontWeight: 600,
@@ -738,12 +738,12 @@ export function BillingScreen() {
           data-testid="cust-bar"
           style={{
             border: "1px solid #334155", borderRadius: 4, padding: 10, marginBottom: 12,
-            background: "#1e293b",
+            background: "var(--pc-bg-surface-2)",
           }}
         >
           <label
             htmlFor="cust-search"
-            style={{ display: "block", fontSize: 11, color: "#94a3b8", marginBottom: 4 }}
+            style={{ display: "block", fontSize: 11, color: "var(--pc-text-tertiary)", marginBottom: 4 }}
           >
             Customer <span className="kbd">F2</span>
           </label>
@@ -765,7 +765,7 @@ export function BillingScreen() {
                 style={{
                   position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
                   listStyle: "none", margin: 0, padding: 0,
-                  background: "#0f172a", border: "1px solid #334155",
+                  background: "var(--pc-bg-canvas)", border: "1px solid #334155",
                   maxHeight: 180, overflowY: "auto",
                 }}
               >
@@ -797,19 +797,19 @@ export function BillingScreen() {
 
         {rxRequired && (
           <div data-testid="rx-required-banner" role="alert" style={{
-            border: "1px solid #dc2626", background: "#fef2f2", padding: 12, marginBottom: 12, borderRadius: 4,
+            border: "1px solid #dc2626", background: "var(--pc-state-danger-bg)", padding: 12, marginBottom: 12, borderRadius: 4,
           }}>
-            <div style={{ fontWeight: 600, color: "#991b1b", marginBottom: 6 }}>
+            <div style={{ fontWeight: 600, color: "var(--pc-state-danger)", marginBottom: 6 }}>
               Prescription required (Schedule H/H1/X)
             </div>
             {!customer ? (
-              <div style={{ fontSize: 13, color: "#991b1b" }}>
+              <div style={{ fontSize: 13, color: "var(--pc-state-danger)" }}>
                 Pick a customer above (<span className="kbd">F2</span>) to attach prescription.
               </div>
             ) : (
               <div style={{ marginTop: 4, fontSize: 13 }}>
                 {rxList.length === 0 ? (
-                  <em style={{ color: "#666" }}>No prescriptions on file.</em>
+                  <em style={{ color: "var(--pc-text-secondary)" }}>No prescriptions on file.</em>
                 ) : (
                   <div data-testid="rx-pick-list">
                     {rxList.map((r) => (
@@ -847,7 +847,7 @@ export function BillingScreen() {
         )}
 
         {lines.length === 0 ? (
-          <div style={{ padding: 24, textAlign: "center", color: "#64748b" }} data-testid="empty-state">
+          <div style={{ padding: 24, textAlign: "center", color: "var(--pc-text-secondary)" }} data-testid="empty-state">
             No items. Search a product to add a line.
           </div>
         ) : (
@@ -874,7 +874,7 @@ export function BillingScreen() {
                     <td>
                       <div><strong>{l.name}</strong></div>
                       {l.schedule !== "OTC" && (
-                        <span style={{ background: "#dc2626", color: "white", padding: "1px 5px", borderRadius: 3, fontSize: 10 }}>
+                        <span style={{ background: "var(--pc-state-danger)", color: "white", padding: "1px 5px", borderRadius: 3, fontSize: 10 }}>
                           {l.schedule}
                         </span>
                       )}
@@ -888,7 +888,7 @@ export function BillingScreen() {
                               !Number.isFinite(days) || days > EXPIRY_AMBER_DAYS ? "none"
                                 : days > EXPIRY_RED_DAYS ? "amber"
                                   : "red";
-                            const bg = tone === "red" ? "#dc2626" : tone === "amber" ? "#b45309" : undefined;
+                            const bg = tone === "red" ? "var(--pc-state-danger)" : tone === "amber" ? "var(--pc-state-warning)" : undefined;
                             return (
                               <>
                                 <span title={`Exp ${l.batch.expiryDate}`}>{l.batch.batchNo}</span>
@@ -908,7 +908,7 @@ export function BillingScreen() {
                               </>
                             );
                           })()
-                        : <span style={{ color: "#ef4444" }}>No stock</span>}
+                        : <span style={{ color: "var(--pc-state-danger)" }}>No stock</span>}
                     </td>
                     <td>{formatINR(l.mrpPaise)}</td>
                     <td>
@@ -939,7 +939,7 @@ export function BillingScreen() {
                         onClick={() => removeLine(idx)}
                         data-testid={`line-remove-${idx}`}
                         aria-label={`Remove ${l.name}`}
-                        style={{ background: "transparent", color: "#94a3b8", border: "none", cursor: "pointer" }}
+                        style={{ background: "transparent", color: "var(--pc-text-tertiary)", border: "none", cursor: "pointer" }}
                       >✕</button>
                     </td>
                   </tr>
@@ -966,7 +966,7 @@ export function BillingScreen() {
           aria-keyshortcuts="F10"
           style={{
             padding: 12,
-            background: canSave ? "#16a34a" : "#64748b",
+            background: canSave ? "var(--pc-state-success)" : "var(--pc-text-secondary)",
             color: "white", border: "none", borderRadius: 6, fontWeight: 700, fontSize: 16,
             cursor: canSave ? "pointer" : "not-allowed",
           }}
@@ -987,7 +987,7 @@ export function BillingScreen() {
           }}
         >
           <div style={{
-            background: "#1e293b", color: "#e5e7eb", padding: 24, borderRadius: 8,
+            background: "var(--pc-bg-surface-2)", color: "var(--pc-text-primary)", padding: 24, borderRadius: 8,
             minWidth: 480, maxWidth: 640, border: "1px solid #334155",
           }}>
             <h3 id="batch-override-title" style={{ margin: "0 0 8px" }}>
@@ -997,14 +997,14 @@ export function BillingScreen() {
               <div
                 data-testid="batch-override-only-one"
                 style={{
-                  background: "#78350f", color: "#fed7aa", padding: "6px 10px",
+                  background: "var(--pc-state-warning)", color: "var(--pc-state-warning-bg)", padding: "6px 10px",
                   borderRadius: 4, fontSize: 12, marginBottom: 8,
                 }}
               >
                 Only {batchCandidates.length} batch available — press Enter to confirm, Esc to cancel.
               </div>
             )}
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--pc-text-tertiary)", marginBottom: 8 }}>
               ↑/↓ to select · Enter to commit · Esc to cancel
             </div>
             <div
@@ -1017,7 +1017,7 @@ export function BillingScreen() {
               }}
             >
               {batchCandidates.length === 0 ? (
-                <div style={{ padding: 12, color: "#f87171" }}>
+                <div style={{ padding: 12, color: "var(--pc-state-danger)" }}>
                   No non-expired batches for this product.
                 </div>
               ) : (
@@ -1032,8 +1032,8 @@ export function BillingScreen() {
                     onDoubleClick={() => { setBatchSelectedIdx(i); commitBatchPick(); }}
                     style={{
                       padding: "8px 12px",
-                      background: i === batchSelectedIdx ? "#2563eb" : "transparent",
-                      color: i === batchSelectedIdx ? "white" : "#e5e7eb",
+                      background: i === batchSelectedIdx ? "var(--pc-state-info)" : "transparent",
+                      color: i === batchSelectedIdx ? "white" : "var(--pc-text-primary)",
                       cursor: "pointer",
                       fontFamily: "monospace",
                       fontSize: 13,
@@ -1054,7 +1054,7 @@ export function BillingScreen() {
               <button
                 onClick={closeBatchPicker}
                 data-testid="batch-override-cancel"
-                style={{ padding: "8px 14px", background: "#334155", color: "white", border: "none", borderRadius: 4 }}
+                style={{ padding: "8px 14px", background: "var(--pc-border-subtle)", color: "white", border: "none", borderRadius: 4 }}
               >
                 Cancel (Esc)
               </button>
@@ -1065,7 +1065,7 @@ export function BillingScreen() {
                 disabled={batchCandidates.length === 0}
                 style={{
                   padding: "8px 14px",
-                  background: batchCandidates.length ? "#16a34a" : "#64748b",
+                  background: batchCandidates.length ? "var(--pc-state-success)" : "var(--pc-text-secondary)",
                   color: "white", border: "none", borderRadius: 4, fontWeight: 700,
                   cursor: batchCandidates.length ? "pointer" : "not-allowed",
                 }}
