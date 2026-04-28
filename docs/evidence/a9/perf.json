@@ -2,10 +2,10 @@
   "adr": "0014",
   "gate": "Invoice/credit-note HTML render p95 <50ms",
   "source": "playbook v2.0 §0 (sub-2s keyboard path budget)",
-  "timestamp": "2026-04-27T09:33:11.928Z",
+  "timestamp": "2026-04-27T11:36:35.899Z",
   "runner": {
-    "node": "v22.22.0",
-    "platform": "linux",
+    "node": "v24.14.1",
+    "platform": "win32",
     "arch": "x64",
     "cpus": "12th Gen Intel(R) Core(TM) i3-12100"
   },
@@ -16,10 +16,10 @@
   "gateMs": 200,
   "statsMs": {
     "count": 200,
-    "mean": 0.07953065499999866,
-    "p50": 0.05422049999999956,
-    "p95": 0.12576119999999089,
-    "p99": 1.0783708700000136,
-    "max": 1.9183439999999905
+    "mean": 0.09636399999998957,
+    "p50": 0.06494999999995343,
+    "p95": 0.19023499999998422,
+    "p99": 0.6638109999998578,
+    "max": 2.069300000000112
   }
 }

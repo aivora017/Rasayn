@@ -1,14 +1,14 @@
 {
   "adr": "0010",
   "gate": "A6 — 10-line bill save, p95 < 400ms (ADR 0004 row A6)",
-  "timestamp": "2026-04-27T09:33:07.542Z",
+  "timestamp": "2026-04-27T12:35:45.426Z",
   "runner": {
-    "node": "v22.22.0",
-    "platform": "linux",
+    "node": "v24.14.1",
+    "platform": "win32",
     "arch": "x64",
     "cpus": "12th Gen Intel(R) Core(TM) i3-12100",
-    "cpuCount": 2,
-    "totalMemGB": 2.8
+    "cpuCount": 8,
+    "totalMemGB": 7.8
   },
   "params": {
     "iterations": 100,
@@ -18,11 +18,11 @@
   "gateMs": 400,
   "statsMs": {
     "count": 100,
-    "mean": 0.9455063799999988,
-    "p50": 0.8490460000000155,
-    "p95": 1.271520850000007,
-    "p99": 2.5763772499999953,
-    "max": 4.901318000000003
+    "mean": 2.3009330000000046,
+    "p50": 2.1060999999999694,
+    "p95": 3.487674999999877,
+    "p99": 5.165487999999884,
+    "max": 5.540499999999838
   },
   "notes": [
     "Gate is authoritative on i3-8100 / 4 GB / HDD / Windows 7 (A15 regression VM).",
