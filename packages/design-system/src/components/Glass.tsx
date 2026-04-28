@@ -1,16 +1,25 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useRef,
+  type HTMLAttributes,
+  type ReactNode,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { cn } from "../utils/cn.js";
+import { useReducedMotion } from "../utils/useReducedMotion.js";
 
 /**
- * Liquid-Glass surface — translucent panel with backdrop blur, layered
- * specular ring, and depth-aware shadow. Falls back to solid surface where
- * backdrop-filter is unsupported.
+ * Liquid-Glass surface v2 — cursor-aware specular, hover-lift transition,
+ * refractive edge-light on hover. Compose freely; multi-layer Glass works.
  *
  * NS §3 reference: Apple Liquid Glass — translucency communicates hierarchy.
  *
- * depth=1 → dialogs and inline panels (10 px blur, 60% surface)
- * depth=2 → floating cards above content (16 px blur, 70% surface)
- * depth=3 → modal / palette (28 px blur, 80% surface, strong specular)
+ *   depth=1 → inline panels (10 px blur, 75% surface)
+ *   depth=2 → floating cards above content (16 px blur, 70% surface)
+ *   depth=3 → modals / palettes (28 px blur, 80% surface, strong specular)
+ *
+ *   interactive → adds hover-lift + edge-light + cursor-tracking specular.
  */
 
 type Depth = 1 | 2 | 3;
@@ -21,7 +30,7 @@ export interface GlassProps extends HTMLAttributes<HTMLDivElement> {
   tone?: Tone;
   as?: "div" | "section" | "article" | "header" | "footer" | "aside" | "nav";
   children?: ReactNode;
-  /** When true, renders interactive cursor — used for tappable cards. */
+  /** Adds hover-lift + cursor-aware specular + edge-light. */
   interactive?: boolean;
 }
 
@@ -40,23 +49,57 @@ const TONE_STYLES: Record<Tone, string> = {
 };
 
 export const Glass = forwardRef<HTMLDivElement, GlassProps>(function Glass(
-  { depth = 1, tone = "neutral", as: As = "div", className, children, interactive, ...rest },
+  { depth = 1, tone = "neutral", as: As = "div", className, children, interactive, onMouseMove, onMouseLeave, ...rest },
   ref,
 ) {
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const reduce = useReducedMotion();
+
+  const handleMove = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    if (!interactive || reduce) return;
+    const el = innerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 100;
+    el.style.setProperty("--pc-glass-x", `${x.toFixed(1)}%`);
+    el.style.setProperty("--pc-glass-y", `${y.toFixed(1)}%`);
+    onMouseMove?.(e);
+  }, [interactive, reduce, onMouseMove]);
+
+  const handleLeave = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    if (interactive && innerRef.current) {
+      innerRef.current.style.removeProperty("--pc-glass-x");
+      innerRef.current.style.removeProperty("--pc-glass-y");
+    }
+    onMouseLeave?.(e);
+  }, [interactive, onMouseLeave]);
+
+  // Compose ref forwarding
+  const setRefs = (el: HTMLDivElement | null) => {
+    innerRef.current = el;
+    if (typeof ref === "function") ref(el);
+    else if (ref) (ref as { current: HTMLDivElement | null }).current = el;
+  };
+
   return (
     <As
-      ref={ref as never}
+      ref={setRefs as never}
+      onMouseMove={interactive ? handleMove : onMouseMove}
+      onMouseLeave={interactive ? handleLeave : onMouseLeave}
       className={cn(
         "relative rounded-[var(--pc-radius-lg)] overflow-hidden",
         DEPTH_STYLES[depth],
         TONE_STYLES[tone],
-        interactive && "cursor-pointer transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0",
+        interactive && "pc-glass-interactive",
         className,
       )}
       {...rest}
     >
-      {/* Specular highlight — top-left light source */}
+      {/* Static specular highlight — top-left light source */}
       <span aria-hidden className="pc-glass-specular" />
+      {/* Cursor-aware glow (only renders on interactive Glass) */}
+      {interactive ? <span aria-hidden className="pc-glass-cursor-glow" /> : null}
       <div className="relative z-10">{children}</div>
     </As>
   );

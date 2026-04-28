@@ -11,31 +11,31 @@
 
 :root {
   /* ─── Brand ─────────────────────────────────────────── */
-  --pc-brand-primary:        #0F6E56;   /* Pharmacy Green 600 */
-  --pc-brand-primary-hover:  #085041;
-  --pc-brand-primary-soft:   #E1F5EE;
-  --pc-accent-saffron:       #EF9F27;
-  --pc-accent-saffron-hover: #BA7517;
-  --pc-accent-saffron-soft:  #FAEEDA;
+  --pc-brand-primary:        #0E5142;   /* Pharmacy Green 600 */
+  --pc-brand-primary-hover:  #07382E;
+  --pc-brand-primary-soft:   #DCEDE6;
+  --pc-accent-saffron:       #FF8B5C;
+  --pc-accent-saffron-hover: #E66B3F;
+  --pc-accent-saffron-soft:  #FFE5D6;
 
   /* ─── Neutrals (warm) ───────────────────────────────── */
-  --pc-bg-canvas:    #FAF9F6;
-  --pc-bg-surface:   #FFFFFF;
-  --pc-bg-surface-2: #F5F3EE;
-  --pc-bg-surface-3: #EDEAE2;
+  --pc-bg-canvas:    #FCFBF6;
+  --pc-bg-surface:   #FFFEFA;
+  --pc-bg-surface-2: #F4F1E8;
+  --pc-bg-surface-3: #E9E5D9;
 
-  --pc-text-primary:   #0F1715;
-  --pc-text-secondary: #4F5754;
-  --pc-text-tertiary:  #7A8079;
+  --pc-text-primary:   #1A2120;
+  --pc-text-secondary: #565E5B;
+  --pc-text-tertiary:  #828884;
   --pc-text-on-brand:  #FFFFFF;
 
-  --pc-border-subtle:  #E5E1D6;
-  --pc-border-default: #D3D1C7;
+  --pc-border-subtle:  #E6E1D2;
+  --pc-border-default: #CFCBBC;
   --pc-border-strong:  #888780;
 
   /* ─── Semantic state ────────────────────────────────── */
-  --pc-state-success:    #1D9E75;
-  --pc-state-success-bg: #E1F5EE;
+  --pc-state-success:    #1A8762;
+  --pc-state-success-bg: #DCEDE6;
   --pc-state-warning:    #BA7517;
   --pc-state-warning-bg: #FAEEDA;
   --pc-state-danger:     #A32D2D;
@@ -44,9 +44,9 @@
   --pc-state-info-bg:    #E6F1FB;
 
   /* ─── Data viz (categorical, NEVER cycled like a rainbow) ──── */
-  --pc-viz-a: #0F6E56;  /* Sales — primary */
-  --pc-viz-b: #534AB7;  /* Margin / secondary */
-  --pc-viz-c: #EF9F27;  /* GST / regulatory */
+  --pc-viz-a: #0E5142;  /* Sales — primary */
+  --pc-viz-b: #6256B9;  /* Margin / secondary */
+  --pc-viz-c: #FF8B5C;  /* GST / regulatory */
   --pc-viz-d: #185FA5;  /* Suppliers / third-party */
   --pc-viz-n: #888780;  /* Neutral / "other" / baseline */
 
@@ -111,17 +111,17 @@
 
 /* ─── Dark mode (apply .dark to <html> or <body>) ───────── */
 .dark {
-  --pc-brand-primary:        #5DCAA5;
-  --pc-brand-primary-hover:  #9FE1CB;
-  --pc-brand-primary-soft:   #04342C;
-  --pc-accent-saffron:       #FAC775;
-  --pc-accent-saffron-hover: #EF9F27;
-  --pc-accent-saffron-soft:  #412402;
+  --pc-brand-primary:        #4FBB95;
+  --pc-brand-primary-hover:  #7DD0B0;
+  --pc-brand-primary-soft:   #062A22;
+  --pc-accent-saffron:       #FFB089;
+  --pc-accent-saffron-hover: #FF8B5C;
+  --pc-accent-saffron-soft:  #3A1C0E;
 
-  --pc-bg-canvas:    #0B0F0E;
-  --pc-bg-surface:   #141918;
-  --pc-bg-surface-2: #1A201F;
-  --pc-bg-surface-3: #222827;
+  --pc-bg-canvas:    #0A0F0E;
+  --pc-bg-surface:   #131918;
+  --pc-bg-surface-2: #18201F;
+  --pc-bg-surface-3: #1F2726;
 
   --pc-text-primary:   #F1EFE8;
   --pc-text-secondary: #B4B2A9;
@@ -230,9 +230,9 @@
 
 /* Signature gradient — used on splash, hero, branded loading. */
 .pc-signature-gradient {
-  background: radial-gradient(ellipse at 20% 0%, rgba(15,110,86,0.30) 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 100%, rgba(239,159,39,0.25) 0%, transparent 50%),
-              radial-gradient(ellipse at 50% 50%, rgba(83,74,183,0.15) 0%, transparent 60%),
+  background: radial-gradient(ellipse at 18% 0%, rgba(14,81,66,0.28) 0%, transparent 55%),
+              radial-gradient(ellipse at 82% 100%, rgba(255,139,92,0.22) 0%, transparent 55%),
+              radial-gradient(ellipse at 50% 50%, rgba(98,86,185,0.12) 0%, transparent 65%),
               var(--pc-bg-canvas);
 }
 
@@ -279,4 +279,100 @@
 .pc-devanagari, .pc-devanagari * {
   font-family: var(--pc-font-devanagari);
   line-height: 1.75;
+}
+
+/* ─── Glass v2 — cursor-aware glow + hover-lift ────────────── */
+.pc-glass-interactive {
+  cursor: pointer;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pc-glass-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    var(--pc-elevation-3);
+  border-color: color-mix(in oklab, var(--pc-brand-primary) 45%, transparent);
+}
+.pc-glass-interactive:active {
+  transform: translateY(0);
+  transition-duration: 80ms;
+}
+
+.pc-glass-cursor-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    300px circle at var(--pc-glass-x, 50%) var(--pc-glass-y, 50%),
+    color-mix(in oklab, var(--pc-brand-primary) 22%, transparent) 0%,
+    transparent 70%
+  );
+  transition: opacity 200ms ease-out;
+  z-index: 2;
+}
+.pc-glass-interactive:hover .pc-glass-cursor-glow {
+  opacity: 1;
+}
+
+/* Refractive edge ring on focus-within for keyboard nav */
+.pc-glass-interactive:focus-within {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in oklab, var(--pc-brand-primary) 70%, transparent),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.30),
+    var(--pc-elevation-3);
+}
+
+/* ─── Shimmer skeleton (replaces opacity-breathe) ─────────────── */
+@keyframes pc-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.pc-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--pc-bg-surface-3) 0%,
+    color-mix(in oklab, var(--pc-bg-surface-3) 40%, var(--pc-bg-surface)) 50%,
+    var(--pc-bg-surface-3) 100%
+  );
+  background-size: 200% 100%;
+  animation: pc-shimmer 1500ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.dark .pc-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--pc-bg-surface-3) 0%,
+    color-mix(in oklab, var(--pc-bg-surface-3) 40%, var(--pc-bg-surface-2)) 50%,
+    var(--pc-bg-surface-3) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* ─── Stagger entry helper (use on lists with .pc-stagger > * ) ───── */
+@keyframes pc-stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.pc-stagger > * {
+  animation: pc-stagger-in 400ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.pc-stagger > *:nth-child(1) { animation-delay: 30ms; }
+.pc-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.pc-stagger > *:nth-child(3) { animation-delay: 90ms; }
+.pc-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.pc-stagger > *:nth-child(5) { animation-delay: 150ms; }
+.pc-stagger > *:nth-child(6) { animation-delay: 180ms; }
+.pc-stagger > *:nth-child(7) { animation-delay: 210ms; }
+.pc-stagger > *:nth-child(8) { animation-delay: 240ms; }
+.pc-stagger > *:nth-child(9) { animation-delay: 270ms; }
+.pc-stagger > *:nth-child(n+10) { animation-delay: 300ms; }
+
+/* ─── Scroll-edge fade — adds a soft fade at scroll containers ─── */
+.pc-scroll-fade {
+  mask-image: linear-gradient(to bottom, transparent 0, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8%, black 92%, transparent 100%);
 }

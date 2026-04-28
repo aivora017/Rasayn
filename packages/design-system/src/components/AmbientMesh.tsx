@@ -26,10 +26,10 @@ interface Blob {
 }
 
 const HUES = [
-  "rgba(15, 110, 86, 0.55)",   // pharmacy green
-  "rgba(239, 159, 39, 0.45)",  // saffron
-  "rgba(83, 74, 183, 0.30)",   // purple accent
-  "rgba(29, 158, 117, 0.40)",  // light green
+  "rgba(14, 81, 66, 0.58)",    // deep forest
+  "rgba(255, 139, 92, 0.42)",  // warm coral
+  "rgba(98, 86, 185, 0.28)",   // soft indigo
+  "rgba(26, 135, 98, 0.36)",   // sage
 ];
 
 export function AmbientMesh({ blobs = 3, opacity = 0.5, className }: AmbientMeshProps): JSX.Element {

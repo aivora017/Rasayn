@@ -77,7 +77,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
   return (
     <div className="pc-app grid h-full pc-signature-gradient" style={{ gridTemplateRows: "56px 1fr 32px" }}>
       {/* ── Glass top bar ────────────────────────────────────── */}
-      <header role="banner" className="pc-glass-2 z-30 flex items-center gap-3 px-4">
+      <header role="banner" className="pc-glass-2 z-30 flex items-center gap-3 px-4 border-b border-[var(--pc-border-subtle)]">
         <div className="flex items-center gap-2">
           <span aria-hidden className="grid h-8 w-8 place-items-center rounded-[var(--pc-radius-md)] bg-[var(--pc-brand-primary)] text-white font-medium shadow-[var(--pc-elevation-1)]">℞</span>
           <div>
@@ -109,7 +109,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
 
       {/* ── Body: nav rail + content ──────────────────────────── */}
       <div className="grid min-h-0 relative" style={{ gridTemplateColumns: "240px 1fr" }}>
-        <nav aria-label="Primary" className="pc-glass-1 z-20 flex min-h-0 flex-col gap-4 overflow-y-auto p-3">
+        <nav aria-label="Primary" className="pc-glass-1 z-20 flex min-h-0 flex-col gap-4 overflow-y-auto p-3 pc-stagger">
           <NavTile
             active={mode === "dashboard"}
             label={t("nav.dashboard")}
@@ -153,7 +153,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
-      <footer role="contentinfo" className="pc-glass-1 z-20 flex items-center gap-4 px-4 text-[11px] text-[var(--pc-text-secondary)]">
+      <footer role="contentinfo" className="pc-glass-1 z-20 flex items-center gap-4 px-4 text-[11px] text-[var(--pc-text-secondary)] border-t border-[var(--pc-border-subtle)]">
         <span className="inline-flex items-center gap-1.5" data-testid="lan-mode">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--pc-state-success)] animate-pulse" aria-hidden />
           {t("app.lanOnline")}
