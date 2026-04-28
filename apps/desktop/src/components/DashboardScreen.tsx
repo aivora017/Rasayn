@@ -271,7 +271,7 @@ export function DashboardScreen({
         {/* Row 1 — 4 KPI glass cards with parallax + NumberFlip */}
         <section aria-label="Today summary" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Parallax>
-            <Glass depth={1} className="p-4" data-testid="kpi-sales">
+            <Glass depth={1} interactive className="p-4" data-testid="kpi-sales">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
                 <IndianRupee size={12} aria-hidden /> {t("dashboard.today")} {t("dashboard.sales")}
               </div>
@@ -297,7 +297,7 @@ export function DashboardScreen({
           </Parallax>
 
           <Parallax>
-            <Glass depth={1} className="p-4" data-testid="kpi-bills">
+            <Glass depth={1} interactive className="p-4" data-testid="kpi-bills">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
                 <Receipt size={12} aria-hidden /> {t("dashboard.bills")}
               </div>
@@ -315,7 +315,7 @@ export function DashboardScreen({
           </Parallax>
 
           <Parallax>
-            <Glass depth={1} className="p-4" data-testid="kpi-margin">
+            <Glass depth={1} interactive className="p-4" data-testid="kpi-margin">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
                 <Percent size={12} aria-hidden /> {t("dashboard.margin")}
               </div>
@@ -325,7 +325,7 @@ export function DashboardScreen({
           </Parallax>
 
           <Parallax>
-            <Glass depth={1} className="p-4" data-testid="kpi-cash">
+            <Glass depth={1} interactive className="p-4" data-testid="kpi-cash">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
                 <Wallet size={12} aria-hidden /> {t("dashboard.cashDrawer")}
               </div>
@@ -345,7 +345,7 @@ export function DashboardScreen({
 
         {/* Row 2 — Sales chart (real Recharts with comparison ghost) + Compliance pulse ring */}
         <section className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
-          <Glass depth={1} className="p-4" data-testid="dashboard-sales">
+          <Glass depth={1} interactive className="p-4" data-testid="dashboard-sales">
             <div className="mb-2 flex items-baseline justify-between">
               <h2 className="text-[14px] font-medium">{t("dashboard.sales7d")}</h2>
               <div className="flex items-center gap-3 text-[10px]">
@@ -373,7 +373,7 @@ export function DashboardScreen({
             </div>
           </Glass>
 
-          <Glass depth={1} className="p-4" data-testid="dashboard-compliance">
+          <Glass depth={1} interactive className="p-4" data-testid="dashboard-compliance">
             <h2 className="mb-2 text-[14px] font-medium">{t("dashboard.compliance")}</h2>
             <div className="flex items-center gap-4">
               <PulseRing percent={compliancePct} />
