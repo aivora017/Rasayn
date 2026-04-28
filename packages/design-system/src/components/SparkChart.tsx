@@ -35,8 +35,8 @@ interface SparkPoint {
 }
 
 const TONE_HEX: Record<SparkTone, string> = {
-  brand: "#0E5142",
-  saffron: "#FF8B5C",
+  brand: "#0A4338",
+  saffron: "#FF7A4A",
   warning: "#BA7517",
   danger: "#A32D2D",
   info: "#185FA5",

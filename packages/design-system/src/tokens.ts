@@ -12,14 +12,14 @@
 // ─── Spring physics tokens (Motion v12) ──────────────────────
 // North Star §7.2. Stiffness / damping / mass tuned for desktop.
 export const springs = {
-  /** Snappy: clicks, toggles, button presses. */
-  snap:   { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 },
+  /** Snappy: clicks, toggles, button presses. v3: stiffer + faster. */
+  snap:   { type: "spring" as const, stiffness: 600, damping: 30, mass: 0.55 },
   /** Default: most UI motion — sheets, page transitions, lists. */
-  smooth: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.8 },
+  smooth: { type: "spring" as const, stiffness: 340, damping: 28, mass: 0.75 },
   /** Soft: large objects, layout changes. */
-  gentle: { type: "spring" as const, stiffness: 180, damping: 26, mass: 1.0 },
-  /** Bouncy: success celebrations only. */
-  bounce: { type: "spring" as const, stiffness: 400, damping: 18, mass: 0.7 },
+  gentle: { type: "spring" as const, stiffness: 200, damping: 26, mass: 1.0 },
+  /** Bouncy: success celebrations only. v3: more bounce. */
+  bounce: { type: "spring" as const, stiffness: 480, damping: 14, mass: 0.7 },
 } as const;
 
 // ─── Duration tokens (ms) ────────────────────────────────────

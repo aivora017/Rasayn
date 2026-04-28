@@ -26,10 +26,10 @@ interface Blob {
 }
 
 const HUES = [
-  "rgba(14, 81, 66, 0.58)",    // deep forest
-  "rgba(255, 139, 92, 0.42)",  // warm coral
-  "rgba(98, 86, 185, 0.28)",   // soft indigo
-  "rgba(26, 135, 98, 0.36)",   // sage
+  "rgba(10, 67, 56, 0.62)",    // deeper forest
+  "rgba(255, 122, 74, 0.44)",  // saturated terracotta
+  "rgba(107, 91, 209, 0.30)",  // ai-violet
+  "rgba(31, 138, 105, 0.38)",  // sage
 ];
 
 export function AmbientMesh({ blobs = 3, opacity = 0.5, className }: AmbientMeshProps): JSX.Element {
@@ -62,11 +62,34 @@ export function AmbientMesh({ blobs = 3, opacity = 0.5, className }: AmbientMesh
       hue: HUES[i % HUES.length] ?? HUES[0]!,
     }));
 
+    // Parallax: each blob has an independent factor 0.10..0.45 so they shift
+    // at different rates as the surrounding scroll container moves.
+    const parallaxFactors = items.map((_, i) => 0.10 + (i * 0.13) % 0.35);
+    let scrollY = 0;
+    function findScrollParent(node: Element | null): Element | Window {
+      let n: Element | null = node;
+      while (n && n !== document.body) {
+        const o = getComputedStyle(n).overflowY;
+        if (o === "auto" || o === "scroll") return n;
+        n = n.parentElement;
+      }
+      return window;
+    }
+    const scrollHost = findScrollParent(canvas);
+    const onScroll = () => {
+      scrollY = scrollHost === window
+        ? window.scrollY
+        : (scrollHost as Element).scrollTop;
+    };
+    scrollHost.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
     let raf = 0;
     function tick() {
       if (!canvas || !ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const b of items) {
+      for (let i = 0; i < items.length; i++) {
+        const b = items[i]!;
         if (!reduce) {
           b.x += b.vx;
           b.y += b.vy;
@@ -75,13 +98,14 @@ export function AmbientMesh({ blobs = 3, opacity = 0.5, className }: AmbientMesh
           if (b.y < -b.r) b.y = canvas.height + b.r;
           if (b.y > canvas.height + b.r) b.y = -b.r;
         }
-        const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+        const parallaxY = b.y - scrollY * (parallaxFactors[i] ?? 0.2) * dpr;
+        const grad = ctx.createRadialGradient(b.x, parallaxY, 0, b.x, parallaxY, b.r);
         grad.addColorStop(0, b.hue);
         grad.addColorStop(1, "rgba(0,0,0,0)");
         ctx.globalAlpha = opacity;
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.arc(b.x, parallaxY, b.r, 0, Math.PI * 2);
         ctx.fill();
       }
       if (!reduce) raf = requestAnimationFrame(tick);
@@ -91,6 +115,7 @@ export function AmbientMesh({ blobs = 3, opacity = 0.5, className }: AmbientMesh
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      scrollHost.removeEventListener("scroll", onScroll);
     };
   }, [blobs, opacity, reduce]);
 

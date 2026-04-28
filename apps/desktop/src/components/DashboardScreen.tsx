@@ -268,8 +268,9 @@ export function DashboardScreen({
           </span>
         </header>
 
-        {/* Row 1 — 4 KPI glass cards with parallax + NumberFlip */}
-        <section aria-label="Today summary" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {/* Row 1 — 4 KPI glass cards inside a glass-2 hero panel for spatial layering */}
+        <Glass depth={2} className="mb-4 p-3 lg:p-4">
+          <section aria-label="Today summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Parallax>
             <Glass depth={1} interactive className="p-4" data-testid="kpi-sales">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.5px] text-[var(--pc-text-secondary)]">
@@ -341,7 +342,8 @@ export function DashboardScreen({
               ) : <Skeleton width="100%" height={68} />}
             </Glass>
           </Parallax>
-        </section>
+          </section>
+        </Glass>
 
         {/* Row 2 — Sales chart (real Recharts with comparison ghost) + Compliance pulse ring */}
         <section className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
