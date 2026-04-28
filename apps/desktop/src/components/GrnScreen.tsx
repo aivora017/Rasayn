@@ -20,6 +20,7 @@ import {
   dismissPendingGrnDraft,
   type PendingGrnDraft,
 } from "../lib/pendingGrnDraft.js";
+import { PhotoBillCapture } from "./PhotoBillCapture.js";
 
 // D03 (tech-debt 2026-04-18): the hard-coded SUPPLIERS demo list was removed.
 // Real supplier rows now come from `listSuppliersRpc(shopId)` on mount.
@@ -272,7 +273,20 @@ export function GrnScreen() {
   }, [doSave]);
 
   return (
-    <div style={{ padding: 16 }}>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Receive (GRN)</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">manual entry · Gmail import (X1) · photo-bill (X3)</p>
+        <div className="ml-auto inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-[var(--pc-radius-pill)] px-2 py-0.5 text-[11px] font-medium bg-[var(--pc-accent-saffron-soft)] text-[var(--pc-accent-saffron-hover)]">X3</span>
+          <span className="text-[10px] text-[var(--pc-text-secondary)]">Drag a paper bill anywhere to capture</span>
+        </div>
+      </header>
+      {!importedDraft && (
+        <div className="mb-4">
+          <PhotoBillCapture />
+        </div>
+      )}
       {importedDraft && (
         <div
           data-testid="grn-imported-banner"

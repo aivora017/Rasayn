@@ -344,23 +344,28 @@ export function ReturnsScreen() {
   const canFile = !!savedReturn && savedReturn.status === "draft" && isOwner && !busy;
 
   return (
-    <div style={{ padding: 16 }} data-testid="returns-screen">
-      <h2 style={{ margin: "0 0 12px" }}>GSTR-1 Returns</h2>
-      <div data-testid="ret-mode-switch" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {(["gstr1", "irn", "refunds"] as ReturnsMode[]).map((m) => (
-          <button
-            key={m}
-            data-testid={`ret-mode-${m}`}
-            onClick={() => setMode(m)}
-            style={{
-              padding: "6px 14px", fontSize: 13, fontWeight: 600,
-              background: mode === m ? "var(--pc-state-info)" : "var(--pc-bg-surface-2)",
-              color: mode === m ? "var(--pc-bg-surface)" : "var(--pc-bg-canvas)",
-              border: "none", cursor: "pointer",
-            }}
-          >{m === "gstr1" ? "GSTR-1" : m === "irn" ? "IRN Records" : "Refunds (F4)"}</button>
-        ))}
-      </div>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]" data-testid="returns-screen">
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Returns &amp; GSTR-1</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">monthly export · IRN cancel · partial refunds</p>
+        <div data-testid="ret-mode-switch" className="ml-auto inline-flex items-center gap-0.5 rounded-[var(--pc-radius-md)] bg-[var(--pc-bg-surface-2)] p-0.5">
+          {(["gstr1", "irn", "refunds"] as ReturnsMode[]).map((m) => (
+            <button
+              key={m}
+              data-testid={`ret-mode-${m}`}
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => setMode(m)}
+              className={
+                "rounded-[var(--pc-radius-sm)] px-3 py-1.5 text-[12px] font-medium transition-colors " +
+                (mode === m
+                  ? "bg-[var(--pc-bg-surface)] text-[var(--pc-text-primary)] shadow-[var(--pc-elevation-1)]"
+                  : "text-[var(--pc-text-secondary)] hover:text-[var(--pc-text-primary)]")
+              }
+            >{m === "gstr1" ? "GSTR-1" : m === "irn" ? "IRN Records" : "Refunds (F4)"}</button>
+          ))}
+        </div>
+      </header>
 
 {mode === "gstr1" && (<>
       {/* Period + action row */}

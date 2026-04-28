@@ -599,19 +599,21 @@ export function BillingScreen() {
   return (
     <div className="bill" data-testid="billing-root" role="region" aria-label="Billing">
       <div className="bill-lines">
-        <h2 style={{ marginTop: 0 }}>
-          New Bill{" "}
-          <span style={{ fontSize: 12, color: "var(--pc-text-tertiary)" }}>
-            · <span className="kbd">F1</span> new
-            · <span className="kbd">F2</span> customer
-            · <span className="kbd">F3</span> add-line
-            · <span className="kbd">F4</span> discount
-            · <span className="kbd">F6</span> payment
-            · <span className="kbd">F7</span> batch
-            · <span className="kbd">F10</span> save
-            · <span className="kbd">F9</span> print
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em" }}>
+            New bill
+          </h2>
+          <span style={{ fontSize: 11, color: "var(--pc-text-tertiary)", display: "inline-flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <span><span className="kbd">F1</span> new</span>
+            <span><span className="kbd">F2</span> customer</span>
+            <span><span className="kbd">F3</span> add-line</span>
+            <span><span className="kbd">F4</span> discount</span>
+            <span><span className="kbd">F6</span> payment</span>
+            <span><span className="kbd">F7</span> batch</span>
+            <span><span className="kbd">F10</span> save</span>
+            <span><span className="kbd">F9</span> print</span>
           </span>
-        </h2>
+        </div>
 
         <div
           role="status"

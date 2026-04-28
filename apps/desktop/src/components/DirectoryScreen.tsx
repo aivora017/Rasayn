@@ -120,28 +120,34 @@ export function DirectoryScreen() {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        {(["customers", "doctors"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            data-testid={`dir-tab-${t}`}
-            onClick={() => setTab(t)}
-            style={{
-              padding: "6px 14px", fontWeight: 500,
-              background: tab === t ? "var(--pc-state-info)" : "var(--pc-bg-surface-2)",
-              color: tab === t ? "var(--pc-bg-surface)" : "var(--pc-text-primary)",
-              border: "none", borderRadius: 4, cursor: "pointer",
-            }}
-          >{t === "customers" ? "Customers" : "Doctors"}</button>
-        ))}
-      </div>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Directory</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">customers · doctors · consent</p>
+        <div className="ml-auto inline-flex items-center gap-0.5 rounded-[var(--pc-radius-md)] bg-[var(--pc-bg-surface-2)] p-0.5">
+          {(["customers", "doctors"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              data-testid={`dir-tab-${t}`}
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={
+                "rounded-[var(--pc-radius-sm)] px-3 py-1.5 text-[12px] font-medium transition-colors " +
+                (tab === t
+                  ? "bg-[var(--pc-bg-surface)] text-[var(--pc-text-primary)] shadow-[var(--pc-elevation-1)]"
+                  : "text-[var(--pc-text-secondary)] hover:text-[var(--pc-text-primary)]")
+              }
+            >{t === "customers" ? "Customers" : "Doctors"}</button>
+          ))}
+        </div>
+      </header>
 
       <input
         data-testid="dir-search"
         placeholder={tab === "customers" ? "Search name / phone / GSTIN" : "Search name / reg no / phone"}
         value={q} onChange={(e) => setQ(e.target.value)}
-        style={{ width: "100%", padding: "8px 12px", fontSize: 14, marginBottom: 12 }}
+        className="w-full mb-3 h-9 rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--pc-brand-primary)]"
       />
 
       {tab === "customers" ? (

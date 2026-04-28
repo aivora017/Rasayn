@@ -199,8 +199,13 @@ export default function SupplierTemplateScreen() {
   )), [suppliers]);
 
   return (
-    <div style={{ padding: 12, display: "grid", gridTemplateColumns: "260px 1fr 1fr", gap: 12, height: "calc(100vh - 80px)" }}>
-      <div data-testid="tpl-sidebar" style={{ borderRight: "1px solid #ccc", paddingRight: 8, overflow: "auto" }}>
+    <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]">
+      <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-medium leading-tight">Supplier templates</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">parse rules for distributor invoices</p>
+      </header>
+      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 1fr", gap: 12, height: "calc(100vh - 200px)" }}>
+      <div data-testid="tpl-sidebar" className="overflow-auto rounded-[var(--pc-radius-lg)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] p-3">
         <div style={{ marginBottom: 8 }}>
           <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Supplier</label>
           <select
@@ -361,6 +366,7 @@ export default function SupplierTemplateScreen() {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }
