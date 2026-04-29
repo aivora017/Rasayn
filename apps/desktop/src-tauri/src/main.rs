@@ -21,6 +21,7 @@ mod products;
 mod products_perf;
 mod rbac;
 mod returns;
+mod stock_transfer;
 mod telemetry;
 mod whatsapp;
 
@@ -133,6 +134,12 @@ fn main() {
             printer::printer_write_bytes,
             printer::printer_test,
             photo_grn::photo_grn_run,
+            stock_transfer::stock_transfer_list,
+            stock_transfer::stock_transfer_create,
+            stock_transfer::stock_transfer_dispatch,
+            stock_transfer::stock_transfer_receive,
+            stock_transfer::stock_transfer_cancel,
+            stock_transfer::stock_transfer_list_lines,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,
