@@ -57,9 +57,15 @@ pub struct SavePartialReturnInput {
     pub actor_user_id: String,
     pub lines: Vec<PartialReturnLineInput>,
     pub tender_plan: Vec<ReturnTender>,
+    /// ADR-0030 idempotency token (UUIDv7). Optional for back-compat.
+    #[serde(default)]
+    pub idempotency_token: Option<String>,
+    /// SHA-256 of canonicalized request payload.
+    #[serde(default)]
+    pub request_hash: Option<String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SavePartialReturnResult {
     pub return_id: String,
@@ -154,6 +160,16 @@ pub fn save_partial_return(
     state: State<DbState>,
 ) -> Result<SavePartialReturnResult, String> {
     let mut c = state.0.lock().map_err(|e| e.to_string())?;
+
+    // ADR-0030 idempotency: check before doing any work.
+    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+        if let Some(cached) = crate::idempotency::check(&c, token, "save_partial_return", req_hash)? {
+            let r: SavePartialReturnResult = serde_json::from_str(&cached)
+                .map_err(|e| format!("idempotency replay decode: {e}"))?;
+            return Ok(r);
+        }
+    }
+
     save_partial_return_impl(&mut c, &input)
 }
 
@@ -509,14 +525,32 @@ pub fn save_partial_return_impl(
     )
     .map_err(|e| format!("INSERT_AUDIT:{}", e))?;
 
-    tx.commit().map_err(|e| format!("TX_COMMIT:{}", e))?;
-
-    Ok(SavePartialReturnResult {
+    let result = SavePartialReturnResult {
         return_id: input.return_id.clone(),
         refund_total_paise: refund_total,
-        einvoice_status: target_einvoice_status,
+        einvoice_status: target_einvoice_status.clone(),
         credit_note_issued_id: None,
-    })
+    };
+
+    // ADR-0030 idempotency record inside the same tx.
+    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+        let response_json = serde_json::to_string(&result)
+            .map_err(|e| format!("idempotency record encode: {e}"))?;
+        tx.execute(
+            "INSERT INTO idempotency_tokens
+               (token, command, request_hash, response_json, shop_id, actor_user_id, created_at, expires_at)
+             VALUES
+               (?1, 'save_partial_return', ?2, ?3, ?4, ?5,
+                strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 day'))",
+            params![token, req_hash, response_json, input.shop_id, input.actor_user_id],
+        )
+        .map_err(|e| format!("idempotency record: {e}"))?;
+    }
+
+    tx.commit().map_err(|e| format!("TX_COMMIT:{}", e))?;
+
+    Ok(result)
 }
 
 fn classify_line_error(e: rusqlite::Error, r: &LineInsertPlan) -> String {
@@ -853,6 +887,8 @@ mod tests {
                 amount_paise: 0,
                 ref_no: None,
             }],
+            idempotency_token: None,
+            request_hash: None,
         }
     }
 

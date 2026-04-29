@@ -24,3 +24,7 @@ logs/
 
 # TypeScript incremental build metadata (regenerated on every build)
 *.tsbuildinfo
+_tscheck_s13.json
+
+node_modules_root
+**/node_modules_root

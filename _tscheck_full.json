@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@pharmacare/*": ["packages/*/src"]
+    }
+  },
+  "include": [
+    "apps/desktop/src/**/*.tsx",
+    "apps/desktop/src/**/*.ts"
+  ],
+  "exclude": [
+    "apps/desktop/src/**/*.test.tsx",
+    "apps/desktop/src/**/*.test.ts",
+    "apps/desktop/src/test/**"
+  ]
+}

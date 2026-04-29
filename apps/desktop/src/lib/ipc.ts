@@ -78,6 +78,155 @@ export interface SaveBillResult {
 
 export interface Health { readonly ok: boolean; readonly version: string }
 
+
+// ─── Cash Shift / Khata / RBAC DTOs (MASTER_PLAN_v3 table-stakes) ───────
+
+export interface DenominationCountDTO {
+  readonly d2000: number;
+  readonly d500:  number;
+  readonly d200:  number;
+  readonly d100:  number;
+  readonly d50:   number;
+  readonly d20:   number;
+  readonly d10:   number;
+  readonly c5:    number;
+  readonly c2:    number;
+  readonly c1:    number;
+}
+
+export interface CashShiftDTO {
+  readonly id: string;
+  readonly shopId: string;
+  readonly openedByUserId: string;
+  readonly openedAt: string;
+  readonly openingBalancePaise: number;
+  readonly openingDenominations: DenominationCountDTO;
+  readonly closedAt?: string;
+  readonly closedByUserId?: string;
+  readonly closingBalancePaise?: number;
+  readonly closingDenominations?: DenominationCountDTO;
+  readonly expectedClosingPaise?: number;
+  readonly variancePaise?: number;
+  readonly varianceApprovedByUserId?: string;
+  readonly zReportJson?: string;
+}
+
+export interface ZReportDTO {
+  readonly shiftId: string;
+  readonly shopId: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly billCount: number;
+  readonly returnCount: number;
+  readonly totalSalesPaise: number;
+  readonly totalReturnsPaise: number;
+  readonly totalDiscountsPaise: number;
+  readonly gstByHsn: Readonly<Record<string, number>>;
+  readonly tenderBreakdown: {
+    readonly cash: number; readonly upi: number; readonly card: number;
+    readonly cheque: number; readonly credit: number;
+  };
+}
+
+export interface CashShiftOpenInput {
+  readonly shopId: string;
+  readonly openingDenominations: DenominationCountDTO;
+}
+
+export interface CashShiftCloseInput {
+  readonly shiftId: string;
+  readonly closingDenominations: DenominationCountDTO;
+  readonly varianceApprovedByUserId?: string;
+}
+
+// Khata DTOs
+export interface KhataEntryDTO {
+  readonly id: string;
+  readonly customerId: string;
+  readonly billId?: string;
+  readonly debitPaise: number;
+  readonly creditPaise: number;
+  readonly createdAt: string;
+  readonly note?: string;
+  readonly recordedByUserId: string;
+}
+
+export interface KhataAgingDTO {
+  readonly customerId: string;
+  readonly current: number;
+  readonly thirty: number;
+  readonly sixty: number;
+  readonly ninetyPlus: number;
+  readonly totalDuePaise: number;
+  readonly oldestDueDate: string | null;
+}
+
+export interface KhataLimitDTO {
+  readonly customerId: string;
+  readonly creditLimitPaise: number;
+  readonly currentDuePaise: number;
+  readonly defaultRiskScore: number;
+  readonly updatedAt: string;
+}
+
+// RBAC DTOs
+export type RoleDTO = "owner" | "manager" | "pharmacist" | "technician" | "cashier";
+
+export interface UserRowDTO {
+  readonly id: string;
+  readonly shopId: string;
+  readonly name: string;
+  readonly role: RoleDTO;
+  readonly mfaEnrolled: boolean;
+  readonly isActive: boolean;
+}
+
+export interface PermissionOverrideDTO {
+  readonly userId: string;
+  readonly permission: string;
+  readonly granted: boolean;
+  readonly reason?: string;
+  readonly grantedByUserId: string;
+  readonly grantedAt: string;
+}
+
+// ─── Printer / WhatsApp DTOs (S13 wiring) ────────────────────────────────
+export interface DiscoveredPrinterDTO {
+  readonly name: string;
+  readonly kind: string;            // "thermal" | "label" | "a4" | "unknown"
+}
+
+export interface PrinterWriteInputDTO {
+  readonly printerName: string;
+  readonly bytesB64: string;        // base64 of raw byte stream
+}
+
+export interface WhatsAppEnqueueInputDTO {
+  readonly id: string;
+  readonly toPhone: string;
+  readonly templateKey: string;
+  readonly locale: string;
+  readonly valuesJson: string;
+  readonly renderedBody: string;
+}
+
+export interface WhatsAppOutboxRowDTO {
+  readonly id: string;
+  readonly toPhone: string;
+  readonly templateKey: string;
+  readonly locale: string;
+  readonly valuesJson: string;
+  readonly renderedBody: string;
+  readonly status: "queued" | "sending" | "sent" | "failed" | "delivered" | "read";
+  readonly attempts: number;
+  readonly nextAttemptAt?: string;
+  readonly lastAttemptAt?: string;
+  readonly providerMessageId?: string;
+  readonly errorReason?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export type IpcCall =
   | { cmd: "health_check"; args: Record<string, never> }
   | { cmd: "db_version"; args: Record<string, never> }
@@ -153,7 +302,30 @@ export type IpcCall =
   | {
       cmd: "record_credit_note_irn";
       args: { input: RecordCreditNoteIrnInputDTO };
-    };
+    }
+  | { cmd: "cash_shift_find_open"; args: { shopId: string } }
+  | { cmd: "cash_shift_open"; args: { input: CashShiftOpenInput } }
+  | { cmd: "cash_shift_close"; args: { input: CashShiftCloseInput } }
+  | { cmd: "cash_shift_z_report"; args: { shiftId: string } }
+  | { cmd: "khata_list_entries"; args: { customerId: string } }
+  | { cmd: "khata_get_limit"; args: { customerId: string } }
+  | { cmd: "khata_set_limit"; args: { customerId: string; creditLimitPaise: number } }
+  | { cmd: "khata_aging"; args: { customerId: string } }
+  | { cmd: "khata_record_purchase"; args: { customerId: string; billId: string; amountPaise: number; note?: string } }
+  | { cmd: "khata_record_payment"; args: { customerId: string; amountPaise: number; note?: string } }
+  | { cmd: "rbac_list_users"; args: { shopId: string } }
+  | { cmd: "rbac_set_role"; args: { userId: string; role: RoleDTO } }
+  | { cmd: "rbac_list_overrides"; args: { userId: string } }
+  | { cmd: "rbac_upsert_override"; args: { input: PermissionOverrideDTO } }
+  | { cmd: "rbac_delete_override"; args: { userId: string; permission: string } }
+  | { cmd: "printer_list"; args: Record<string, never> }
+  | { cmd: "printer_write_bytes"; args: { input: PrinterWriteInputDTO } }
+  | { cmd: "printer_test"; args: { printerName: string } }
+  | { cmd: "whatsapp_enqueue"; args: { input: WhatsAppEnqueueInputDTO } }
+  | { cmd: "whatsapp_list"; args: { status?: string; limit?: number } }
+  | { cmd: "whatsapp_mark_sent"; args: { id: string; providerMessageId: string } }
+  | { cmd: "whatsapp_mark_failed"; args: { id: string; errorReason: string; nextAttemptAt?: string } }
+  | { cmd: "whatsapp_mark_delivered"; args: { id: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -374,6 +546,8 @@ export interface Customer {
   readonly consentAbdm: number;
   readonly consentMarketing: number;
 }
+/** Alias used by KhataScreen / WhatsApp wiring — same shape as Customer. */
+export type CustomerHit = Customer;
 export interface UpsertCustomerInput {
   readonly id?: string;
   readonly shopId: string;
@@ -1448,4 +1622,80 @@ export async function recordCreditNoteIrnRpc(
     cmd: "record_credit_note_irn",
     args: { input },
   });
+}
+
+// ─── Cash Shift / Khata / RBAC RPCs ─────────────────────────────────────
+
+export async function cashShiftFindOpenRpc(shopId: string): Promise<CashShiftDTO | null> {
+  return (await handler({ cmd: "cash_shift_find_open", args: { shopId } })) as CashShiftDTO | null;
+}
+export async function cashShiftOpenRpc(input: CashShiftOpenInput): Promise<CashShiftDTO> {
+  return (await handler({ cmd: "cash_shift_open", args: { input } })) as CashShiftDTO;
+}
+export async function cashShiftCloseRpc(input: CashShiftCloseInput): Promise<CashShiftDTO> {
+  return (await handler({ cmd: "cash_shift_close", args: { input } })) as CashShiftDTO;
+}
+export async function cashShiftZReportRpc(shiftId: string): Promise<ZReportDTO> {
+  return (await handler({ cmd: "cash_shift_z_report", args: { shiftId } })) as ZReportDTO;
+}
+
+export async function khataListEntriesRpc(customerId: string): Promise<readonly KhataEntryDTO[]> {
+  return (await handler({ cmd: "khata_list_entries", args: { customerId } })) as readonly KhataEntryDTO[];
+}
+export async function khataGetLimitRpc(customerId: string): Promise<KhataLimitDTO | null> {
+  return (await handler({ cmd: "khata_get_limit", args: { customerId } })) as KhataLimitDTO | null;
+}
+export async function khataSetLimitRpc(customerId: string, creditLimitPaise: number): Promise<KhataLimitDTO> {
+  return (await handler({ cmd: "khata_set_limit", args: { customerId, creditLimitPaise } })) as KhataLimitDTO;
+}
+export async function khataAgingRpc(customerId: string): Promise<KhataAgingDTO> {
+  return (await handler({ cmd: "khata_aging", args: { customerId } })) as KhataAgingDTO;
+}
+export async function khataRecordPurchaseRpc(args: { customerId: string; billId: string; amountPaise: number; note?: string }): Promise<KhataEntryDTO> {
+  return (await handler({ cmd: "khata_record_purchase", args })) as KhataEntryDTO;
+}
+export async function khataRecordPaymentRpc(args: { customerId: string; amountPaise: number; note?: string }): Promise<KhataEntryDTO> {
+  return (await handler({ cmd: "khata_record_payment", args })) as KhataEntryDTO;
+}
+
+export async function rbacListUsersRpc(shopId: string): Promise<readonly UserRowDTO[]> {
+  return (await handler({ cmd: "rbac_list_users", args: { shopId } })) as readonly UserRowDTO[];
+}
+export async function rbacSetRoleRpc(userId: string, role: RoleDTO): Promise<UserRowDTO> {
+  return (await handler({ cmd: "rbac_set_role", args: { userId, role } })) as UserRowDTO;
+}
+export async function rbacListOverridesRpc(userId: string): Promise<readonly PermissionOverrideDTO[]> {
+  return (await handler({ cmd: "rbac_list_overrides", args: { userId } })) as readonly PermissionOverrideDTO[];
+}
+export async function rbacUpsertOverrideRpc(input: PermissionOverrideDTO): Promise<PermissionOverrideDTO> {
+  return (await handler({ cmd: "rbac_upsert_override", args: { input } })) as PermissionOverrideDTO;
+}
+export async function rbacDeleteOverrideRpc(userId: string, permission: string): Promise<void> {
+  await handler({ cmd: "rbac_delete_override", args: { userId, permission } });
+}
+
+// ─── Printer / WhatsApp RPCs (S13) ──────────────────────────────────────
+export async function printerListRpc(): Promise<readonly DiscoveredPrinterDTO[]> {
+  return (await handler({ cmd: "printer_list", args: {} })) as readonly DiscoveredPrinterDTO[];
+}
+export async function printerWriteBytesRpc(input: PrinterWriteInputDTO): Promise<void> {
+  await handler({ cmd: "printer_write_bytes", args: { input } });
+}
+export async function printerTestRpc(printerName: string): Promise<void> {
+  await handler({ cmd: "printer_test", args: { printerName } });
+}
+export async function whatsappEnqueueRpc(input: WhatsAppEnqueueInputDTO): Promise<WhatsAppOutboxRowDTO> {
+  return (await handler({ cmd: "whatsapp_enqueue", args: { input } })) as WhatsAppOutboxRowDTO;
+}
+export async function whatsappListRpc(args: { status?: string; limit?: number } = {}): Promise<readonly WhatsAppOutboxRowDTO[]> {
+  return (await handler({ cmd: "whatsapp_list", args })) as readonly WhatsAppOutboxRowDTO[];
+}
+export async function whatsappMarkSentRpc(id: string, providerMessageId: string): Promise<void> {
+  await handler({ cmd: "whatsapp_mark_sent", args: { id, providerMessageId } });
+}
+export async function whatsappMarkFailedRpc(id: string, errorReason: string, nextAttemptAt?: string): Promise<void> {
+  await handler({ cmd: "whatsapp_mark_failed", args: { id, errorReason, ...(nextAttemptAt ? { nextAttemptAt } : {}) } });
+}
+export async function whatsappMarkDeliveredRpc(id: string): Promise<void> {
+  await handler({ cmd: "whatsapp_mark_delivered", args: { id } });
 }

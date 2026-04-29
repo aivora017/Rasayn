@@ -177,6 +177,16 @@ pub struct SaveBillInput {
     /// in `payment_mode`. Sum must equal grand_total ±50 paise (TENDER_TOLERANCE).
     #[serde(default)]
     pub tenders: Option<Vec<Tender>>,
+    /// ADR-0030 idempotency token (UUIDv7). Optional for backward-compat.
+    /// When supplied, server replays cached response on retry.
+    #[serde(default)]
+    pub idempotency_token: Option<String>,
+    /// SHA-256 of canonicalized request payload (matches @pharmacare/idempotency.canonicalRequestHash).
+    #[serde(default)]
+    pub request_hash: Option<String>,
+    /// Acting user id, for the idempotency_tokens row provenance.
+    #[serde(default)]
+    pub actor_user_id: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -199,7 +209,7 @@ pub struct SaveBillLine {
     pub discount_pct: Option<f64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveBillResult {
     pub bill_id: String,
@@ -238,6 +248,18 @@ pub fn save_bill(
     state: State<DbState>,
 ) -> Result<SaveBillResult, String> {
     let mut c = state.0.lock().map_err(|e| e.to_string())?;
+
+    // ADR-0030 idempotency. If the caller passed a token, check the table first.
+    // Hit + matching hash → replay cached response (deserialize JSON back into
+    // SaveBillResult). Hit + mismatch → IDEMPOTENCY_CONFLICT. Miss → proceed.
+    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+        if let Some(cached) = crate::idempotency::check(&c, token, "save_bill", req_hash)? {
+            let r: SaveBillResult = serde_json::from_str(&cached)
+                .map_err(|e| format!("idempotency replay decode: {e}"))?;
+            return Ok(r);
+        }
+    }
+
     let shop_state: String = c
         .query_row(
             "SELECT state_code FROM shops WHERE id = ?1",
@@ -461,12 +483,34 @@ pub fn save_bill(
                 "paymentMode": resolved_payment_mode,
             }).to_string()])
         .map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())?;
-    Ok(SaveBillResult {
-        bill_id,
+
+    // Build the response now so we can persist its JSON form for ADR-0030 replay.
+    let result = SaveBillResult {
+        bill_id: bill_id.clone(),
         grand_total_paise: grand,
         lines_inserted: lines_out.len(),
-    })
+    };
+
+    // ADR-0030 idempotency record (inside the same transaction — atomicity is the whole point).
+    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+        let actor = input.actor_user_id.as_deref().unwrap_or(&input.cashier_id);
+        let response_json = serde_json::to_string(&result)
+            .map_err(|e| format!("idempotency record encode: {e}"))?;
+        // Inline the INSERT against the transaction (idempotency::record takes &Connection so we adapt).
+        tx.execute(
+            "INSERT INTO idempotency_tokens
+               (token, command, request_hash, response_json, shop_id, actor_user_id, created_at, expires_at)
+             VALUES
+               (?1, 'save_bill', ?2, ?3, ?4, ?5,
+                strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 day'))",
+            params![token, req_hash, response_json, input.shop_id, actor],
+        )
+        .map_err(|e| format!("idempotency record: {e}"))?;
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(result)
 }
 
 // --- Inventory snapshot ---------------------------------------------------
@@ -612,9 +656,18 @@ pub struct SaveGrnInput {
     pub invoice_date: String,
     pub source: Option<String>,
     pub lines: Vec<SaveGrnLine>,
+    /// ADR-0030 idempotency token (UUIDv7). Optional for back-compat.
+    #[serde(default)]
+    pub idempotency_token: Option<String>,
+    /// SHA-256 of canonicalized request payload.
+    #[serde(default)]
+    pub request_hash: Option<String>,
+    /// Acting user id for the idempotency_tokens row.
+    #[serde(default)]
+    pub actor_user_id: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveGrnResult {
     pub grn_id: String,
@@ -663,6 +716,16 @@ pub fn save_grn(
             })
             .map_err(|_| "shopId required (no shop row exists)".to_string())?,
     };
+
+    // ADR-0030 idempotency check before any transaction work.
+    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+        if let Some(cached) = crate::idempotency::check(&c, token, "save_grn", req_hash)? {
+            let r: SaveGrnResult = serde_json::from_str(&cached)
+                .map_err(|e| format!("idempotency replay decode: {e}"))?;
+            return Ok(r);
+        }
+    }
+
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let mut batch_ids: Vec<String> = Vec::with_capacity(input.lines.len());
 
@@ -725,13 +788,32 @@ pub fn save_grn(
         batch_ids.push(id);
     }
 
-    tx.commit().map_err(|e| e.to_string())?;
     let lines_inserted = input.lines.len() as i64;
-    Ok(SaveGrnResult {
-        grn_id,
+    let result = SaveGrnResult {
+        grn_id: grn_id.clone(),
         lines_inserted,
-        batch_ids,
-    })
+        batch_ids: batch_ids.clone(),
+    };
+
+    // ADR-0030 idempotency record inside the same tx.
+    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+        let actor = input.actor_user_id.as_deref().unwrap_or("system");
+        let response_json = serde_json::to_string(&result)
+            .map_err(|e| format!("idempotency record encode: {e}"))?;
+        tx.execute(
+            "INSERT INTO idempotency_tokens
+               (token, command, request_hash, response_json, shop_id, actor_user_id, created_at, expires_at)
+             VALUES
+               (?1, 'save_grn', ?2, ?3, ?4, ?5,
+                strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 day'))",
+            params![token, req_hash, response_json, shop_id, actor],
+        )
+        .map_err(|e| format!("idempotency record: {e}"))?;
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(result)
 }
 
 // --- Reports --------------------------------------------------------------

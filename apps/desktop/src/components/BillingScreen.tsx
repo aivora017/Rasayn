@@ -16,6 +16,9 @@ import {
   type IrnRecordDTO,
 } from "../lib/ipc.js";
 import { renderInvoiceHtml, resolveLayout } from "@pharmacare/invoice-print";
+import { buildReceipt, type ReceiptInput, type ReceiptLine } from "@pharmacare/printer-escpos";
+import { printOnThermal } from "../lib/printer.js";
+import { queueAndShare, openWaMe } from "../lib/whatsapp.js";
 
 // A9 (ADR 0014) · Hidden-iframe print. The rendered HTML contains an inline
 // `window.print()` bootstrap so the cashier sees the system print dialog the
@@ -334,6 +337,40 @@ export function BillingScreen() {
       // A12 · IRN chip starts empty; user clicks "Submit to IRP" to create it.
       setIrnRecord(null);
       setToast({ kind: "ok", msg: `Saved · ${payload.billNo} · ${formatINR(r.grandTotalPaise as Paise)} · F9 to print` });
+      // S13 — post-save thermal print path. Best-effort; never fail the bill.
+      void (async () => {
+        try {
+          const lines: ReceiptLine[] = payload.lines.map((l, i) => ({
+            name: payload.lines[i] ? `Item ${i + 1}` : "—",
+            qty: l.qty,
+            mrp: l.mrpPaise / 100,
+            discount: ((l.mrpPaise * (l.discountPct ?? 0)) / 100) / 100,
+            lineTotal: ((l.mrpPaise * l.qty) - ((l.mrpPaise * l.qty * (l.discountPct ?? 0)) / 100)) / 100,
+          }));
+          const totals = {
+            subtotal: lines.reduce((a, l) => a + l.lineTotal, 0),
+            discount: lines.reduce((a, l) => a + (l.discount ?? 0), 0),
+            taxableValue: r.grandTotalPaise / 100,
+            cgst: 0, sgst: 0, igst: 0,
+            grandTotal: r.grandTotalPaise / 100,
+            roundOff: 0,
+          };
+          const recIn: ReceiptInput = {
+            header: { shopName: "Jagannath Pharmacy", addressLines: [] },
+            invoiceNo: payload.billNo,
+            billedAtIso: new Date().toISOString(),
+            cashier: payload.cashierId,
+            lines, totals,
+            width: 48,
+          };
+          const bytes = buildReceipt(recIn);
+          await printOnThermal(bytes);
+        } catch (e) {
+          // Surface as info — fall back to F9 path if thermal not configured.
+          // eslint-disable-next-line no-console
+          console.warn("thermal print skipped:", String(e));
+        }
+      })();
       setLines([]);
       setCustomer(null); setRxId(null); setCustQuery(""); setRxList([]);
       setPaymentOpen(false);

@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "PharmaCare Owner App",
+    "slug": "pharmacare-owner",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "newArchEnabled": true,
+    "scheme": "pharmacare-owner"
+  }
+}

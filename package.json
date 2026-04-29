@@ -5,6 +5,8 @@
   "description": "PharmaCare Pro — LAN-first desktop POS for Indian independent pharmacies. v2.0 Final Playbook.",
   "workspaces": [
     "apps/*",
+    "apps/mobile/*",
+    "apps/web/*",
     "packages/*"
   ],
   "scripts": {
