@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod backup_scheduler;
+mod cash_shift;
 mod cleartax;
 #[cfg(feature = "cleartax-live")]
 mod cleartax_wire;
@@ -8,14 +9,19 @@ mod cygnet;
 #[cfg(feature = "cygnet-live")]
 mod cygnet_wire;
 mod db;
+mod idempotency;
 mod images;
+mod khata;
 mod oauth;
 mod phash;
+mod printer;
 mod products;
 #[cfg(test)]
 mod products_perf;
+mod rbac;
 mod returns;
 mod telemetry;
+mod whatsapp;
 
 use crate::db::{apply_migrations, default_db_path, open_local, DbState};
 
@@ -111,6 +117,29 @@ fn main() {
             returns::get_refundable_qty,
             returns::record_credit_note_irn,
             returns::next_return_no,
+            cash_shift::cash_shift_find_open,
+            cash_shift::cash_shift_open,
+            cash_shift::cash_shift_close,
+            cash_shift::cash_shift_z_report,
+            khata::khata_list_entries,
+            khata::khata_get_limit,
+            khata::khata_set_limit,
+            khata::khata_aging,
+            khata::khata_record_purchase,
+            khata::khata_record_payment,
+            rbac::rbac_list_users,
+            rbac::rbac_set_role,
+            rbac::rbac_list_overrides,
+            rbac::rbac_upsert_override,
+            rbac::rbac_delete_override,
+            printer::printer_list,
+            printer::printer_write_bytes,
+            printer::printer_test,
+            whatsapp::whatsapp_enqueue,
+            whatsapp::whatsapp_list,
+            whatsapp::whatsapp_mark_sent,
+            whatsapp::whatsapp_mark_failed,
+            whatsapp::whatsapp_mark_delivered,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

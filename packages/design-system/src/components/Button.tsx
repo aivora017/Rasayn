@@ -16,7 +16,7 @@ import { useReducedMotion } from "../utils/useReducedMotion.js";
  *   - aria-label REQUIRED if children is icon-only.
  */
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "saffron";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "saffron" | "default";
 type Size = "sm" | "md" | "lg";
 
 type DOMButtonProps = Omit<
@@ -67,6 +67,10 @@ const variantStyles: Record<Variant, string> = {
   saffron:
     "bg-[var(--pc-accent-saffron)] text-[#412402] " +
     "hover:bg-[var(--pc-accent-saffron-hover)] hover:text-white " +
+    "disabled:opacity-50 disabled:cursor-not-allowed",
+  default:
+    "bg-[var(--pc-brand-primary)] text-[var(--pc-text-on-brand)] " +
+    "hover:bg-[var(--pc-brand-primary-hover)] " +
     "disabled:opacity-50 disabled:cursor-not-allowed",
 };
 

@@ -1,0 +1,28 @@
+{
+  "name": "@pharmacare/mobile-rider",
+  "version": "0.1.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "echo 'use expo build / eas build'"
+  },
+  "dependencies": {
+    "expo": "~52.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.0",
+    "react-native-reanimated": "~3.16.0",
+    "@pharmacare/shared-types": "*",
+    "@pharmacare/design-system": "*",
+    "@pharmacare/ai-copilot": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

@@ -16,6 +16,32 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import {
+  ShieldCheck,
+  Wallet,
+  Mic,
+  Bot,
+  Eye,
+  Snowflake,
+  CreditCard,
+  HeartHandshake,
+  Boxes,
+  ScanLine,
+  PuzzleIcon as Puzzle,
+  Stethoscope,
+  Sparkles,
+  Truck,
+  Trash2,
+  ScrollText,
+  Building2,
+  Upload,
+  FileDown,
+  KeyRound,
+  RefreshCw,
+  Monitor,
+} from "lucide-react";
+import { FEATURE_FLAGS } from "../featureFlags.js";
+
+import {
   IconButton,
   ThemeToggle,
   LocaleSwitcher,
@@ -78,6 +104,43 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
     ]},
   ];
 
+
+  // ── MASTER_PLAN_v3 preview nav group (flagged) ──────────────────────
+  type PreviewItem = NavItem;
+  const PREVIEW_ITEMS: ReadonlyArray<{ flag: keyof typeof FEATURE_FLAGS; item: PreviewItem }> = [
+    { flag: "onboarding",         item: { mode: "onboarding",        label: "Setup Wizard",      icon: <Building2 size={16} />,      shortcut: "" } },
+    { flag: "caExport",           item: { mode: "caExport",          label: "Export for CA",     icon: <FileText size={16} />,       shortcut: "" } },
+    { flag: "migrationImport",    item: { mode: "migrationImport",   label: "Migrate from…",     icon: <Upload size={16} />,         shortcut: "" } },
+    { flag: "dataExport",         item: { mode: "dataExport",        label: "Export Everything", icon: <FileDown size={16} />,       shortcut: "" } },
+    { flag: "license",            item: { mode: "license",           label: "Licence",           icon: <KeyRound size={16} />,       shortcut: "" } },
+    { flag: "updateChecker",      item: { mode: "updateChecker",     label: "Updates",           icon: <RefreshCw size={16} />,      shortcut: "" } },
+    { flag: "cfdDisplay",         item: { mode: "cfdDisplay",        label: "CFD Display",       icon: <Monitor size={16} />,        shortcut: "" } },
+    { flag: "cashShift",          item: { mode: "cashShift",         label: "Cash Shift",        icon: <Wallet size={16} />,         shortcut: "" } },
+    { flag: "khata",              item: { mode: "khata",             label: "Khata",             icon: <CreditCard size={16} />,     shortcut: "" } },
+    { flag: "doctorReport",       item: { mode: "doctorReport",      label: "Doctor Report",     icon: <Stethoscope size={16} />,    shortcut: "" } },
+    { flag: "loyalty",            item: { mode: "loyalty",           label: "Loyalty",           icon: <HeartHandshake size={16} />, shortcut: "" } },
+    { flag: "counseling",         item: { mode: "counseling",        label: "Counseling",        icon: <Stethoscope size={16} />,    shortcut: "" } },
+    { flag: "rbac",               item: { mode: "rbac",              label: "RBAC",              icon: <ShieldCheck size={16} />,    shortcut: "" } },
+    { flag: "stockTransfer",      item: { mode: "stockTransfer",     label: "Stock Transfer",    icon: <Boxes size={16} />,          shortcut: "" } },
+    { flag: "multiStore",         item: { mode: "multiStore",        label: "Multi-Store",       icon: <Boxes size={16} />,          shortcut: "" } },
+    { flag: "demandForecast",     item: { mode: "demandForecast",    label: "Demand Forecast",   icon: <ChartLine size={16} />,      shortcut: "" } },
+    { flag: "inspectorMode",      item: { mode: "inspectorMode",     label: "Inspector Mode",    icon: <Eye size={16} />,            shortcut: "" } },
+    { flag: "copilot",            item: { mode: "copilot",           label: "AI Copilot",        icon: <Bot size={16} />,            shortcut: "" } },
+    { flag: "dpdp",               item: { mode: "dpdp",              label: "DPDP / DSR",        icon: <ShieldCheck size={16} />,    shortcut: "" } },
+    { flag: "coldChain",          item: { mode: "coldChain",         label: "Cold Chain",        icon: <Snowflake size={16} />,      shortcut: "" } },
+    { flag: "digitalTwin",        item: { mode: "digitalTwin",       label: "Digital Twin",      icon: <Sparkles size={16} />,       shortcut: "" } },
+    { flag: "arShelf",            item: { mode: "arShelf",           label: "AR Shelf",          icon: <ScanLine size={16} />,       shortcut: "" } },
+    { flag: "familyVault",        item: { mode: "familyVault",       label: "Family Vault",      icon: <HeartHandshake size={16} />, shortcut: "" } },
+    { flag: "pluginMarketplace",  item: { mode: "pluginMarketplace", label: "Plugins",           icon: <Puzzle size={16} />,         shortcut: "" } },
+    { flag: "reorder",            item: { mode: "reorder",           label: "Auto Reorder",      icon: <Truck size={16} />,          shortcut: "" } },
+    { flag: "expiryDiscard",      item: { mode: "expiryDiscard",     label: "Expiry Discard",    icon: <Trash2 size={16} />,         shortcut: "" } },
+    { flag: "prescription",       item: { mode: "prescription",      label: "Rx Capture",        icon: <ScrollText size={16} />,     shortcut: "" } },
+  ];
+  const previewItems = PREVIEW_ITEMS.filter(p => FEATURE_FLAGS[p.flag]).map(p => p.item);
+  const NAV_GROUPS_FINAL = previewItems.length > 0
+    ? [...NAV_GROUPS, { title: "Pharmacy OS · Preview", items: previewItems }]
+    : NAV_GROUPS;
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -134,7 +197,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
             mode="dashboard"
             currentMode={mode}
           />
-          {NAV_GROUPS.map((group) => (
+          {NAV_GROUPS_FINAL.map((group) => (
             <div key={group.title}>
               <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-[0.6px] text-[var(--pc-text-tertiary)]">{group.title}</div>
               <div className="flex flex-col gap-0.5">
@@ -185,7 +248,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} placeholder={t("cmdk.placeholder")}>
         <CommandGroup heading={t("cmdk.sectionScreens")}>
           <CommandItem onSelect={() => { withViewTransition(() => { setMode("dashboard"); setPaletteOpen(false); }); }}><LayoutDashboard size={14} aria-hidden /> <span className="ml-2">{t("nav.dashboard")}</span></CommandItem>
-          {NAV_GROUPS.flatMap((g) => g.items).map((it) => (
+          {NAV_GROUPS_FINAL.flatMap((g) => g.items).map((it) => (
             <CommandItem key={it.mode} onSelect={() => { setMode(it.mode); setPaletteOpen(false); }}>
               {it.icon} <span className="ml-2">{it.label}</span>
               <span className="ml-auto text-[10px] text-[var(--pc-text-tertiary)] font-mono">{it.shortcut}</span>

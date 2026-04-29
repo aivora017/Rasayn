@@ -9,9 +9,7 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
-    },
-    "./tokens.css": "./src/tokens.css",
-    "./tailwind.css": "./src/tailwind.css"
+    }
   },
   "files": [
     "src"

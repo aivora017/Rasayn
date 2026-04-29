@@ -12,6 +12,36 @@ import GmailInboxScreen from "./components/GmailInboxScreen.js";
 import { SettingsScreen } from "./components/SettingsScreen.js";
 import { ProductMasterScreen } from "./components/ProductMasterScreen.js";
 import { ReturnsScreen } from "./components/ReturnsScreen.js";
+
+// MASTER_PLAN_v3 scaffold screens (Sprint 2-6 + Phase 2-3) — gated by FEATURE_FLAGS.
+import CashShiftScreen           from "./components/CashShiftScreen.js";
+import KhataScreen               from "./components/KhataScreen.js";
+import DoctorReportScreen        from "./components/DoctorReportScreen.js";
+import LoyaltyScreen             from "./components/LoyaltyScreen.js";
+import CounselingScreen          from "./components/CounselingScreen.js";
+import RBACScreen                from "./components/RBACScreen.js";
+import StockTransferScreen       from "./components/StockTransferScreen.js";
+import MultiStoreScreen          from "./components/MultiStoreScreen.js";
+import DemandForecastTab         from "./components/DemandForecastTab.js";
+import InspectorModeScreen       from "./components/InspectorModeScreen.js";
+import CopilotPanel              from "./components/CopilotPanel.js";
+import DPDPConsentScreen         from "./components/DPDPConsentScreen.js";
+import ColdChainScreen           from "./components/ColdChainScreen.js";
+import DigitalTwinScreen         from "./components/DigitalTwinScreen.js";
+import ARShelfOverlay            from "./components/ARShelfOverlay.js";
+import FamilyVaultScreen         from "./components/FamilyVaultScreen.js";
+import PluginMarketplaceScreen   from "./components/PluginMarketplaceScreen.js";
+import CAExportScreen           from "./components/CAExportScreen.js";
+import OnboardingWizard         from "./components/OnboardingWizard.js";
+import MigrationImportScreen   from "./components/MigrationImportScreen.js";
+import DataExportScreen        from "./components/DataExportScreen.js";
+import LicenseScreen           from "./components/LicenseScreen.js";
+import UpdateCheckerScreen     from "./components/UpdateCheckerScreen.js";
+import CFDDisplay              from "./components/CFDDisplay.js";
+import { ReorderScreen }         from "./components/ReorderScreen.js";
+import { ExpiryDiscardScreen }   from "./components/ExpiryDiscardScreen.js";
+import { PrescriptionScreen }    from "./components/PrescriptionScreen.js";
+
 import {
   healthCheckRpc,
   dbVersionRpc,
@@ -19,6 +49,7 @@ import {
   type Shop,
 } from "./lib/ipc.js";
 import type { Mode } from "./mode.js";
+import { FEATURE_FLAGS } from "./featureFlags.js";
 
 // Alt+digit keyboard nav (ADR-0009 + ADR-0015 addendum). Now also Alt+` (backtick) → dashboard.
 const NAV_BY_DIGIT: Record<string, Mode> = {
@@ -106,6 +137,7 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         isFirstRun={isFirstRun}
         health={health}
       >
+        {/* ── Original (v0.1.0) screens ───────────────────────────────── */}
         {mode === "dashboard" && (
           <DashboardScreen
             shop={shop}
@@ -126,6 +158,35 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         {mode === "settings" && <SettingsScreen />}
         {mode === "masters" && <ProductMasterScreen />}
         {mode === "returns" && <ReturnsScreen />}
+
+        {/* ── MASTER_PLAN_v3 scaffold screens (gated) ─────────────────── */}
+        {mode === "cashShift"          && FEATURE_FLAGS.cashShift          && <CashShiftScreen />}
+        {mode === "khata"              && FEATURE_FLAGS.khata              && <KhataScreen />}
+        {mode === "doctorReport"       && FEATURE_FLAGS.doctorReport       && <DoctorReportScreen />}
+        {mode === "loyalty"            && FEATURE_FLAGS.loyalty            && <LoyaltyScreen />}
+        {mode === "counseling"         && FEATURE_FLAGS.counseling         && <CounselingScreen />}
+        {mode === "rbac"               && FEATURE_FLAGS.rbac               && <RBACScreen />}
+        {mode === "stockTransfer"      && FEATURE_FLAGS.stockTransfer      && <StockTransferScreen />}
+        {mode === "multiStore"         && FEATURE_FLAGS.multiStore         && <MultiStoreScreen />}
+        {mode === "demandForecast"     && FEATURE_FLAGS.demandForecast     && <DemandForecastTab />}
+        {mode === "inspectorMode"      && FEATURE_FLAGS.inspectorMode      && <InspectorModeScreen />}
+        {mode === "copilot"            && FEATURE_FLAGS.copilot            && <CopilotPanel />}
+        {mode === "dpdp"               && FEATURE_FLAGS.dpdp               && <DPDPConsentScreen />}
+        {mode === "coldChain"          && FEATURE_FLAGS.coldChain          && <ColdChainScreen />}
+        {mode === "digitalTwin"        && FEATURE_FLAGS.digitalTwin        && <DigitalTwinScreen />}
+        {mode === "arShelf"            && FEATURE_FLAGS.arShelf            && <ARShelfOverlay />}
+        {mode === "familyVault"        && FEATURE_FLAGS.familyVault        && <FamilyVaultScreen />}
+        {mode === "pluginMarketplace"  && FEATURE_FLAGS.pluginMarketplace  && <PluginMarketplaceScreen />}
+        {mode === "caExport"           && FEATURE_FLAGS.caExport           && <CAExportScreen />}
+        {mode === "onboarding"         && FEATURE_FLAGS.onboarding         && <OnboardingWizard />}
+        {mode === "migrationImport"    && FEATURE_FLAGS.migrationImport    && <MigrationImportScreen />}
+        {mode === "dataExport"         && FEATURE_FLAGS.dataExport         && <DataExportScreen />}
+        {mode === "license"            && FEATURE_FLAGS.license            && <LicenseScreen />}
+        {mode === "updateChecker"      && FEATURE_FLAGS.updateChecker      && <UpdateCheckerScreen />}
+        {mode === "cfdDisplay"         && FEATURE_FLAGS.cfdDisplay         && <CFDDisplay />}
+        {mode === "reorder"            && FEATURE_FLAGS.reorder            && <ReorderScreen />}
+        {mode === "expiryDiscard"      && FEATURE_FLAGS.expiryDiscard      && <ExpiryDiscardScreen />}
+        {mode === "prescription"       && FEATURE_FLAGS.prescription       && <PrescriptionScreen />}
         </AppShell>
       </ToasterProvider>
     </ThemeProvider>
