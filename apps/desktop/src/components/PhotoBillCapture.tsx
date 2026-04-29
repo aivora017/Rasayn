@@ -1,4 +1,6 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
+import { photoGrnRunRpc, type PhotoGrnResultDTO } from "../lib/ipc.js";
+import { bytesToBase64 } from "../lib/printer.js";
 import { Camera, Upload, ScanLine, CheckCircle2, AlertCircle } from "lucide-react";
 import { Glass, Badge, Button, Skeleton, Illustration } from "@pharmacare/design-system";
 
@@ -32,21 +34,39 @@ export function PhotoBillCapture({ onCaptured, className }: PhotoBillCaptureProp
   const [hover, setHover] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     const url = URL.createObjectURL(file);
     setState({ file, url, confidence: 0, status: "scanning" });
-    // Simulate scan progress (replace with real photo-grn pipeline)
+    // Animate scan-line while the Tauri photo_grn command runs.
     let pct = 0;
     const tick = setInterval(() => {
-      pct += 12 + Math.random() * 8;
-      if (pct >= 92) {
-        clearInterval(tick);
-        setState((s) => s ? { ...s, confidence: 92 + Math.random() * 6, status: "done" } : null);
-        onCaptured?.(file);
-      } else {
-        setState((s) => s ? { ...s, confidence: pct } : null);
-      }
-    }, 220);
+      pct = Math.min(85, pct + 8 + Math.random() * 4);
+      setState((s) => s ? { ...s, confidence: pct } : null);
+    }, 180);
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      const b64 = bytesToBase64(new Uint8Array(arrayBuf));
+      const result: PhotoGrnResultDTO = await photoGrnRunRpc({
+        photoBytesB64: b64,
+        reportedMime: file.type || "image/jpeg",
+        shopId: "shop_local",
+      });
+      clearInterval(tick);
+      const conf = result.bill.header.confidence * 100;
+      setState((s) => s ? {
+        ...s,
+        confidence: conf > 0 ? conf : (result.requiresOperatorReview ? 50 : 92),
+        status: "done",
+      } : null);
+      onCaptured?.(file);
+      // eslint-disable-next-line no-console
+      console.info("photo-grn result:", result.winningTier, result.modelVersion, result.photoSha256.slice(0, 12));
+    } catch (e) {
+      clearInterval(tick);
+      setState((s) => s ? { ...s, status: "error" } : null);
+      // eslint-disable-next-line no-console
+      console.warn("photo-grn run failed:", String(e));
+    }
   };
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {

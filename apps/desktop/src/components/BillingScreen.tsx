@@ -384,6 +384,33 @@ export function BillingScreen() {
   }, [canSave, lines, customer, rxId]);
 
 
+
+  // S14.2 · Share-via-WhatsApp — surfaces after a bill is saved. Uses bill_share template.
+  const shareBillViaWhatsApp = useCallback(async () => {
+    if (!lastSavedBillId) {
+      setToast({ kind: "err", msg: "No bill to share — save one first (F10)" });
+      return;
+    }
+    if (!customer || !customer.phone || !/^\+\d{10,15}$/.test(customer.phone)) {
+      setToast({ kind: "err", msg: "Customer phone must be E.164 (+91...) to share via WhatsApp" });
+      return;
+    }
+    try {
+      const bill = await getBillFullRpc(lastSavedBillId);
+      const total = (bill.bill.grandTotalPaise / 100).toFixed(2);
+      const result = await queueAndShare({
+        templateKey: "bill_share",
+        toPhone: customer.phone,
+        locale: "en_IN",
+        values: [customer.name, bill.bill.billNo, total, "https://rasayn.in/b/"+lastSavedBillId.slice(-8)],
+      });
+      openWaMe(result.waMeUrl);
+      setToast({ kind: "ok", msg: `WhatsApp queued · ${result.outbox.id.slice(0,12)}…` });
+    } catch (e) {
+      setToast({ kind: "err", msg: `WhatsApp share failed: ${String(e)}` });
+    }
+  }, [lastSavedBillId, customer]);
+
   // A12 (ADR 0017) · Submit bill to e-invoice IRP, or retry a failed submission.
   const submitIrn = useCallback(async () => {
     if (!lastSavedBillId) {
@@ -769,6 +796,27 @@ export function BillingScreen() {
                 </>
               );
             })()}
+          </div>
+        )}
+
+        {lastSavedBillId && customer?.phone && (
+          <div style={{
+            display: "flex", justifyContent: "flex-end", marginBottom: 10,
+          }}>
+            <button
+              data-testid="bill-share-whatsapp"
+              onClick={() => void shareBillViaWhatsApp()}
+              style={{
+                padding: "6px 12px",
+                border: "1px solid var(--pc-state-success)",
+                background: "var(--pc-state-success-bg)",
+                color: "var(--pc-state-success)",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: "pointer",
+                borderRadius: 4,
+              }}
+            >Share via WhatsApp</button>
           </div>
         )}
 

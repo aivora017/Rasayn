@@ -32,6 +32,7 @@ import {
   Truck,
   Trash2,
   ScrollText,
+  Printer,
   Building2,
   Upload,
   FileDown,
@@ -134,6 +135,7 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
     { flag: "pluginMarketplace",  item: { mode: "pluginMarketplace", label: "Plugins",           icon: <Puzzle size={16} />,         shortcut: "" } },
     { flag: "reorder",            item: { mode: "reorder",           label: "Auto Reorder",      icon: <Truck size={16} />,          shortcut: "" } },
     { flag: "expiryDiscard",      item: { mode: "expiryDiscard",     label: "Expiry Discard",    icon: <Trash2 size={16} />,         shortcut: "" } },
+    { flag: "printerSettings",      item: { mode: "printerSettings",   label: "Printers",          icon: <Printer size={16} />,        shortcut: "" } },
     { flag: "prescription",       item: { mode: "prescription",      label: "Rx Capture",        icon: <ScrollText size={16} />,     shortcut: "" } },
   ];
   const previewItems = PREVIEW_ITEMS.filter(p => FEATURE_FLAGS[p.flag]).map(p => p.item);

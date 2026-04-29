@@ -14,6 +14,7 @@ mod images;
 mod khata;
 mod oauth;
 mod phash;
+mod photo_grn;
 mod printer;
 mod products;
 #[cfg(test)]
@@ -135,12 +136,9 @@ fn main() {
             printer::printer_list,
             printer::printer_write_bytes,
             printer::printer_test,
+            photo_grn::photo_grn_run,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,
             whatsapp::whatsapp_mark_failed,
-            whatsapp::whatsapp_mark_delivered,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+            whatsa

@@ -41,6 +41,7 @@ import CFDDisplay              from "./components/CFDDisplay.js";
 import { ReorderScreen }         from "./components/ReorderScreen.js";
 import { ExpiryDiscardScreen }   from "./components/ExpiryDiscardScreen.js";
 import { PrescriptionScreen }    from "./components/PrescriptionScreen.js";
+import PrinterSettingsScreen     from "./components/PrinterSettingsScreen.js";
 
 import {
   healthCheckRpc,
@@ -187,6 +188,7 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         {mode === "reorder"            && FEATURE_FLAGS.reorder            && <ReorderScreen />}
         {mode === "expiryDiscard"      && FEATURE_FLAGS.expiryDiscard      && <ExpiryDiscardScreen />}
         {mode === "prescription"       && FEATURE_FLAGS.prescription       && <PrescriptionScreen />}
+        {mode === "printerSettings"    && FEATURE_FLAGS.printerSettings    && <PrinterSettingsScreen />}
         </AppShell>
       </ToasterProvider>
     </ThemeProvider>
