@@ -37,6 +37,7 @@ import { ShiftHandoverPreview } from "./ShiftHandoverPreview.js";
 import type { ShiftHandoverInput, ShiftHandoverNote } from "@pharmacare/shift-handover";
 import { printOnThermal } from "../lib/printer.js";
 import { queueAndShare, openWaMe } from "../lib/whatsapp.js";
+import { buildSimplePdf, downloadPdf } from "../lib/pdf.js";
 
 // Helpers: RPC returns plain numbers; the local CashShift / ZReport types are
 // `Paise`-branded. These small functions reattach the brand.
@@ -403,13 +404,8 @@ export default function CashShiftScreen(): React.ReactElement {
             }
           }}
           onSavePdf={(note: ShiftHandoverNote) => {
-            const blob = new Blob([note.body], { type: "text/plain;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `shift-handover-${handoverInput.shiftId}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
+            const pdf = buildSimplePdf(`Shift Handover · ${note.headline}`, note.body);
+            downloadPdf(`shift-handover-${handoverInput.shiftId}.pdf`, pdf);
           }}
         />
       )}

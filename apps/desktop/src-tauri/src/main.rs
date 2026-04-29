@@ -14,6 +14,7 @@ mod images;
 mod khata;
 mod oauth;
 mod phash;
+mod photo_grn;
 mod printer;
 mod products;
 #[cfg(test)]
@@ -26,8 +27,6 @@ mod whatsapp;
 use crate::db::{apply_migrations, default_db_path, open_local, DbState};
 
 fn main() {
-    // F6: LAN-only tracing sinks (stderr + local rolling file).
-    // Cloud egress (Sentry) stays off unless opt-in + DSN are both set.
     let log_dir = telemetry::default_log_dir();
     if let Err(e) = telemetry::init(&log_dir) {
         eprintln!("telemetry init failed: {e}; falling back to stderr");
@@ -40,8 +39,6 @@ fn main() {
     let conn = open_local(&path).expect("open db");
     apply_migrations(&conn).expect("apply migrations");
 
-    // Wrap the connection in Arc<Mutex<>> so the auto-backup loop can borrow
-    // it alongside Tauri's command-handler State.
     let shared = std::sync::Arc::new(std::sync::Mutex::new(conn));
     let _backup_handle = backup_scheduler::start_auto_backup_loop(shared.clone());
 
@@ -135,6 +132,7 @@ fn main() {
             printer::printer_list,
             printer::printer_write_bytes,
             printer::printer_test,
+            photo_grn::photo_grn_run,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,

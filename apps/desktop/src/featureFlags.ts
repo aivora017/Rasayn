@@ -48,6 +48,7 @@ export interface FeatureFlags {
   readonly reorder:             boolean;
   readonly expiryDiscard:       boolean;
   readonly prescription:        boolean;
+  readonly printerSettings:     boolean;
 }
 
 const DEFAULT: FeatureFlags = {
@@ -58,7 +59,7 @@ const DEFAULT: FeatureFlags = {
   ocrRx: false, cfdDisplay: false, copilot: false, demandForecast: false, fraudAlerts: false, inspectorMode: false,
   multiStore: false, coldChain: false,
   digitalTwin: false, arShelf: false, familyVault: false, pluginMarketplace: false,
-  reorder: true, expiryDiscard: true, prescription: true,
+  reorder: true, expiryDiscard: true, prescription: true, printerSettings: true,
 };
 
 const DEV_OVERRIDE: Partial<FeatureFlags> =

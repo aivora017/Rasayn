@@ -190,6 +190,36 @@ export interface PermissionOverrideDTO {
   readonly grantedAt: string;
 }
 
+
+
+// ─── Photo-GRN (X3) DTOs (S14.3) ─────────────────────────────────────────
+export interface PhotoGrnInputDTO {
+  readonly photoBytesB64: string;
+  readonly reportedMime: string;
+  readonly shopId: string;
+}
+
+export interface PhotoGrnResultDTO {
+  readonly bill: {
+    readonly tier: "A" | "B" | "C";
+    readonly header: {
+      readonly invoiceNo: string | null;
+      readonly invoiceDate: string | null;
+      readonly totalPaise: number | null;
+      readonly supplierHint: string | null;
+      readonly confidence: number;
+    };
+    readonly lines: readonly unknown[];
+  };
+  readonly winningTier: "A" | "B" | "C";
+  readonly tiersAttempted: readonly ("A" | "B" | "C")[];
+  readonly modelVersion: string;
+  readonly requiresOperatorReview: boolean;
+  readonly costPaise: number;
+  readonly photoSha256: string;
+  readonly bytesLen: number;
+}
+
 // ─── Printer / WhatsApp DTOs (S13 wiring) ────────────────────────────────
 export interface DiscoveredPrinterDTO {
   readonly name: string;
@@ -325,7 +355,8 @@ export type IpcCall =
   | { cmd: "whatsapp_list"; args: { status?: string; limit?: number } }
   | { cmd: "whatsapp_mark_sent"; args: { id: string; providerMessageId: string } }
   | { cmd: "whatsapp_mark_failed"; args: { id: string; errorReason: string; nextAttemptAt?: string } }
-  | { cmd: "whatsapp_mark_delivered"; args: { id: string } };
+  | { cmd: "whatsapp_mark_delivered"; args: { id: string } }
+  | { cmd: "photo_grn_run"; args: { input: PhotoGrnInputDTO } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1698,4 +1729,9 @@ export async function whatsappMarkFailedRpc(id: string, errorReason: string, nex
 }
 export async function whatsappMarkDeliveredRpc(id: string): Promise<void> {
   await handler({ cmd: "whatsapp_mark_delivered", args: { id } });
+}
+
+// ─── Photo-GRN (X3) RPC (S14.3) ──────────────────────────────────────────
+export async function photoGrnRunRpc(input: PhotoGrnInputDTO): Promise<PhotoGrnResultDTO> {
+  return (await handler({ cmd: "photo_grn_run", args: { input } })) as PhotoGrnResultDTO;
 }

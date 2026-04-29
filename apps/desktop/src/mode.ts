@@ -54,4 +54,5 @@ export type Mode =
   // S12 — Operational depth
   | "reorder"
   | "expiryDiscard"
-  | "prescription";
+  | "prescription"
+  | "printerSettings";
