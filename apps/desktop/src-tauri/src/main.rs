@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod abdm;
 mod backup_scheduler;
 mod cash_shift;
 mod cleartax;
@@ -24,6 +25,7 @@ mod products_perf;
 mod rbac;
 mod returns;
 mod stock_transfer;
+mod system_info;
 mod telemetry;
 mod whatsapp;
 
@@ -148,6 +150,12 @@ fn main() {
             license::license_save,
             license::license_get,
             license::license_clear,
+            system_info::system_info_fingerprint,
+            abdm::abdm_upsert_profile,
+            abdm::abdm_get_profile,
+            abdm::abdm_revoke_consent,
+            abdm::abdm_log_dispensation,
+            abdm::abdm_list_dispensations,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,

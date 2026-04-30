@@ -230,6 +230,57 @@ export interface LicenseSaveInputDTO {
   readonly fingerprint: string;
 }
 
+
+
+// ─── System fingerprint + ABDM (S17) ─────────────────────────────────────
+export interface SystemFingerprintDTO {
+  readonly fullHash: string;
+  readonly shortHash: string;
+  readonly cpuToken: string;
+  readonly macToken: string;
+  readonly diskToken: string;
+}
+
+export interface AbhaProfileDTO {
+  readonly customerId: string;
+  readonly abhaNumber: string;
+  readonly name: string;
+  readonly dob?: string;
+  readonly gender?: string;
+  readonly mobileE164?: string;
+  readonly verifiedAt: string;
+  readonly consentTokenEncrypted?: string;
+}
+
+export interface AbhaProfileUpsertInputDTO {
+  readonly customerId: string;
+  readonly abhaNumber: string;
+  readonly name: string;
+  readonly dob?: string;
+  readonly gender?: string;
+  readonly mobileE164?: string;
+  readonly consentTokenEncrypted?: string;
+}
+
+export interface AbdmDispensationDTO {
+  readonly billId: string;
+  readonly abhaNumber: string;
+  readonly fhirPayloadJson: string;
+  readonly uhiEventId?: string;
+  readonly pushedAt: string;
+  readonly status: "pending" | "ok" | "failed";
+  readonly error?: string;
+}
+
+export interface AbdmDispensationLogInputDTO {
+  readonly billId: string;
+  readonly abhaNumber: string;
+  readonly fhirPayloadJson: string;
+  readonly uhiEventId?: string;
+  readonly status: "pending" | "ok" | "failed";
+  readonly error?: string;
+}
+
 // ─── Stock Transfer (S15.3) ──────────────────────────────────────────────
 export interface StockTransferDTO {
   readonly id: string;
@@ -457,7 +508,13 @@ export type IpcCall =
   | { cmd: "product_ingredients_delete"; args: { productId: string; ingredientId: string } }
   | { cmd: "license_save"; args: { input: LicenseSaveInputDTO } }
   | { cmd: "license_get"; args: Record<string, never> }
-  | { cmd: "license_clear"; args: Record<string, never> };
+  | { cmd: "license_clear"; args: Record<string, never> }
+  | { cmd: "system_info_fingerprint"; args: Record<string, never> }
+  | { cmd: "abdm_upsert_profile"; args: { input: AbhaProfileUpsertInputDTO } }
+  | { cmd: "abdm_get_profile"; args: { customerId: string } }
+  | { cmd: "abdm_revoke_consent"; args: { customerId: string } }
+  | { cmd: "abdm_log_dispensation"; args: { input: AbdmDispensationLogInputDTO } }
+  | { cmd: "abdm_list_dispensations"; args: { abhaNumber?: string; limit?: number } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1877,4 +1934,24 @@ export async function licenseGetRpc(): Promise<AppLicenseDTO | null> {
 }
 export async function licenseClearRpc(): Promise<number> {
   return (await handler({ cmd: "license_clear", args: {} })) as number;
+}
+
+// ─── System fingerprint + ABDM RPCs (S17) ────────────────────────────────
+export async function systemInfoFingerprintRpc(): Promise<SystemFingerprintDTO> {
+  return (await handler({ cmd: "system_info_fingerprint", args: {} })) as SystemFingerprintDTO;
+}
+export async function abdmUpsertProfileRpc(input: AbhaProfileUpsertInputDTO): Promise<AbhaProfileDTO> {
+  return (await handler({ cmd: "abdm_upsert_profile", args: { input } })) as AbhaProfileDTO;
+}
+export async function abdmGetProfileRpc(customerId: string): Promise<AbhaProfileDTO | null> {
+  return (await handler({ cmd: "abdm_get_profile", args: { customerId } })) as AbhaProfileDTO | null;
+}
+export async function abdmRevokeConsentRpc(customerId: string): Promise<number> {
+  return (await handler({ cmd: "abdm_revoke_consent", args: { customerId } })) as number;
+}
+export async function abdmLogDispensationRpc(input: AbdmDispensationLogInputDTO): Promise<AbdmDispensationDTO> {
+  return (await handler({ cmd: "abdm_log_dispensation", args: { input } })) as AbdmDispensationDTO;
+}
+export async function abdmListDispensationsRpc(args: { abhaNumber?: string; limit?: number } = {}): Promise<readonly AbdmDispensationDTO[]> {
+  return (await handler({ cmd: "abdm_list_dispensations", args })) as readonly AbdmDispensationDTO[];
 }
