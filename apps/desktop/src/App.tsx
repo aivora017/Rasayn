@@ -42,6 +42,7 @@ import { ReorderScreen }         from "./components/ReorderScreen.js";
 import { ExpiryDiscardScreen }   from "./components/ExpiryDiscardScreen.js";
 import { PrescriptionScreen }    from "./components/PrescriptionScreen.js";
 import PrinterSettingsScreen     from "./components/PrinterSettingsScreen.js";
+import ABDMConsentScreen         from "./components/ABDMConsentScreen.js";
 
 import {
   healthCheckRpc,
@@ -189,6 +190,7 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         {mode === "expiryDiscard"      && FEATURE_FLAGS.expiryDiscard      && <ExpiryDiscardScreen />}
         {mode === "prescription"       && FEATURE_FLAGS.prescription       && <PrescriptionScreen />}
         {mode === "printerSettings"    && FEATURE_FLAGS.printerSettings    && <PrinterSettingsScreen />}
+        {mode === "abdmConsents"       && FEATURE_FLAGS.abdmConsents       && <ABDMConsentScreen />}
         </AppShell>
       </ToasterProvider>
     </ThemeProvider>

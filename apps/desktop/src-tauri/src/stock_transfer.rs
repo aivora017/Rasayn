@@ -347,3 +347,115 @@ fn fetch_one(c: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<Stoc
         }
     ).optional()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+    use crate::db::apply_migrations;
+
+    fn seed_two_shops(c: &Connection) {
+        c.execute_batch(
+            "INSERT INTO shops (id, name, gstin, state_code, retail_license, address, created_at)
+               VALUES ('shop_a', 'A', '27AAAAA0000A1Z5', '27', 'MH-1', 'Kalyan', '2026-01-01');
+             INSERT INTO shops (id, name, gstin, state_code, retail_license, address, created_at)
+               VALUES ('shop_b', 'B', '27AAAAB0000B2Z5', '27', 'MH-2', 'Pune',   '2026-01-01');
+             INSERT INTO users (id, shop_id, name, role, pin_hash, is_active, created_at)
+               VALUES ('u1', 'shop_a', 'Sourav', 'owner', 'h', 1, '2026-01-01');
+             INSERT INTO products (id, name, hsn, gst_rate, schedule, mrp_paise, created_at, is_active)
+               VALUES ('p1', 'Paracetamol 500mg', '30049011', 12, 'OTC', 200, '2026-01-01', 1);
+             INSERT INTO batches (id, product_id, batch_no, expiry_date, qty_on_hand, mrp_paise, created_at)
+               VALUES ('b1', 'p1', 'B-001', '2027-12-31', 1000, 200, '2026-01-01');"
+        ).unwrap();
+    }
+
+    #[test]
+    fn migration_0040_adds_stock_transfer_tables() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        let count: i64 = c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='stock_transfers'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count, 1);
+        let count_lines: i64 = c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='stock_transfer_lines'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count_lines, 1);
+    }
+
+    #[test]
+    fn create_then_dispatch_writes_transfer_out_movement() {
+        let mut c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        seed_two_shops(&c);
+
+        // Create
+        c.execute(
+            "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
+             VALUES ('xfer1', 'shop_a', 'shop_b', 'open', 'u1', '2026-04-29T10:00:00Z')",
+            [],
+        ).unwrap();
+        c.execute(
+            "INSERT INTO stock_transfer_lines (id, transfer_id, product_id, batch_id, qty_dispatched) \
+             VALUES ('xfer1_l0', 'xfer1', 'p1', 'b1', 50)",
+            [],
+        ).unwrap();
+
+        // Simulate dispatch: update status + write transfer_out
+        let tx = c.transaction().unwrap();
+        tx.execute("UPDATE stock_transfers SET status='in_transit', dispatched_at='2026-04-29T11:00:00Z' WHERE id='xfer1' AND status='open'", []).unwrap();
+        tx.execute(
+            "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, created_at) \
+             VALUES ('mv_xfer1_l0_out', 'b1', 'p1', -50, 'transfer_out', 'stock_transfer_lines', 'xfer1_l0', '2026-04-29T11:00:00Z')",
+            [],
+        ).unwrap();
+        tx.commit().unwrap();
+
+        let mv_count: i64 = c.query_row(
+            "SELECT count(*) FROM stock_movements WHERE ref_table='stock_transfer_lines' AND movement_type='transfer_out'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(mv_count, 1);
+        let qty: f64 = c.query_row(
+            "SELECT qty_delta FROM stock_movements WHERE ref_id='xfer1_l0' AND movement_type='transfer_out'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(qty, -50.0);
+    }
+
+    #[test]
+    fn unique_index_blocks_double_dispatch() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        seed_two_shops(&c);
+        c.execute("INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) VALUES ('x2', 'shop_a', 'shop_b', 'in_transit', 'u1', '2026-04-29T10:00:00Z')", []).unwrap();
+        c.execute("INSERT INTO stock_transfer_lines (id, transfer_id, product_id, batch_id, qty_dispatched) VALUES ('x2_l0', 'x2', 'p1', 'b1', 10)", []).unwrap();
+        c.execute(
+            "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, created_at) \
+             VALUES ('mv1', 'b1', 'p1', -10, 'transfer_out', 'stock_transfer_lines', 'x2_l0', '2026-04-29T11:00:00Z')",
+            [],
+        ).unwrap();
+        // Second insert should violate the partial UNIQUE on (movement_type, ref_table, ref_id)
+        let res = c.execute(
+            "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, created_at) \
+             VALUES ('mv2', 'b1', 'p1', -10, 'transfer_out', 'stock_transfer_lines', 'x2_l0', '2026-04-29T11:01:00Z')",
+            [],
+        );
+        assert!(res.is_err(), "second transfer_out for same line should violate UNIQUE");
+    }
+
+    #[test]
+    fn reject_self_transfer_via_check_constraint() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        seed_two_shops(&c);
+        let r = c.execute(
+            "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
+             VALUES ('xs', 'shop_a', 'shop_a', 'open', 'u1', '2026-04-29T10:00:00Z')",
+            [],
+        );
+        assert!(r.is_err(), "self-transfer should violate CHECK (from_shop_id <> to_shop_id)");
+    }
+}
