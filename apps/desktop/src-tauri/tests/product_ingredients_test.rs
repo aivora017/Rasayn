@@ -22,9 +22,9 @@ fn seed_two_products(c: &Connection) {
          VALUES ('p_para', 'Paracetamol 500mg', 'GSK', '30049011', 12, 'OTC', 'tab', 10, 200, '2026-01-01', 1);
          INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, pack_form, pack_size, mrp_paise, image_sha256, created_at, is_active) \
          VALUES ('p_amox', 'Amoxicillin 500mg', 'Cipla', '30041010', 12, 'H', 'cap', 10, 380, 'aa', '2026-01-01', 1);
-         INSERT INTO formulary_ingredients (id, name) VALUES ('paracetamol', 'Paracetamol');
-         INSERT INTO formulary_ingredients (id, name) VALUES ('amoxicillin', 'Amoxicillin');
-         INSERT INTO formulary_ingredients (id, name) VALUES ('penicillin', 'Penicillin');"
+         INSERT INTO formulary_ingredients (id, inn) VALUES ('paracetamol', 'Paracetamol');
+         INSERT INTO formulary_ingredients (id, inn) VALUES ('amoxicillin', 'Amoxicillin');
+         INSERT INTO formulary_ingredients (id, inn) VALUES ('penicillin', 'Penicillin');"
     ).unwrap();
 }
 
@@ -32,7 +32,7 @@ fn seed_two_products(c: &Connection) {
 fn migration_0042_adds_dose_columns() {
     let c = Connection::open_in_memory().unwrap();
     apply_migrations_from_dir(&c);
-    // info on the table — check that per_dose_mg column exists
+    // info on the table â€” check that per_dose_mg column exists
     let cols: Vec<String> = c.prepare("PRAGMA table_info(product_ingredients)")
         .unwrap()
         .query_map([], |r| r.get::<_, String>(1))
