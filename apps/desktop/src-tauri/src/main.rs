@@ -12,10 +12,12 @@ mod db;
 mod idempotency;
 mod images;
 mod khata;
+mod license;
 mod oauth;
 mod phash;
 mod photo_grn;
 mod printer;
+mod product_ingredients;
 mod products;
 #[cfg(test)]
 mod products_perf;
@@ -140,6 +142,12 @@ fn main() {
             stock_transfer::stock_transfer_receive,
             stock_transfer::stock_transfer_cancel,
             stock_transfer::stock_transfer_list_lines,
+            product_ingredients::product_ingredients_list_for_products,
+            product_ingredients::product_ingredients_upsert,
+            product_ingredients::product_ingredients_delete,
+            license::license_save,
+            license::license_get,
+            license::license_clear,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,
