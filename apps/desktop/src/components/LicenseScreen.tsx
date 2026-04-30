@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Sparkles, AlertTriangle, CheckCircle2, Clock, Cpu, Copy } from "lucide-react";
 import { Glass, Badge, Button, Input } from "@pharmacare/design-system";
-import { licenseSaveRpc, licenseGetRpc, licenseClearRpc } from "../lib/ipc.js";
+import { licenseSaveRpc, licenseGetRpc, licenseClearRpc, systemInfoFingerprintRpc, type SystemFingerprintDTO } from "../lib/ipc.js";
 import {
   parseKey, validateLicense, issueLicense, trialStateFrom,
   EDITION_FLAGS, PRESET_BUNDLES,
@@ -11,19 +11,35 @@ import {
 
 const DEMO_FP = { fullHash: "deadbeef".repeat(8), shortHash: "deadbe" };
 
+function fpToObject(f: SystemFingerprintDTO | null): { fullHash: string; shortHash: string } {
+  if (f) return { fullHash: f.fullHash, shortHash: f.shortHash };
+  return DEMO_FP;
+}
+
 export default function LicenseScreen(): React.ReactElement {
   const [inputKey, setInputKey] = useState("");
   const [licenseKey, setLicenseKey] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [fingerprint, setFingerprint] = useState<SystemFingerprintDTO | null>(null);
 
-  // S16.3 — boot from persisted license on mount.
+  // S16.3 + S17.1 — fetch hardware fingerprint + persisted license on mount.
   useEffect(() => {
     void (async () => {
       try {
+        const fp = await systemInfoFingerprintRpc();
+        setFingerprint(fp);
+      } catch {
+        // hardware-fingerprint commands aren't stubbed in tests — fall back to DEMO_FP.
+      }
+      try {
         const persisted = await licenseGetRpc();
         if (!persisted) return;
-        const v = validateLicense({ licenseKey: persisted.keyText, shopFingerprint: DEMO_FP });
+        const fpForVerify = await systemInfoFingerprintRpc().catch(() => null);
+        const v = validateLicense({
+          licenseKey: persisted.keyText,
+          shopFingerprint: fpToObject(fpForVerify),
+        });
         setValidation(v);
         if (v.valid) {
           setLicenseKey(persisted.keyText);
@@ -39,7 +55,7 @@ export default function LicenseScreen(): React.ReactElement {
     setErr(null);
     try {
       const parts = parseKey(inputKey.trim());     // throws if malformed
-      const v = validateLicense({ licenseKey: inputKey.trim(), shopFingerprint: DEMO_FP });
+      const v = validateLicense({ licenseKey: inputKey.trim(), shopFingerprint: fpToObject(fingerprint) });
       setValidation(v);
       if (v.valid) {
         setLicenseKey(inputKey.trim());
@@ -49,7 +65,7 @@ export default function LicenseScreen(): React.ReactElement {
             keyText: inputKey.trim(),
             editionFlags: parts.editionFlags,
             expiryIso: new Date(parts.expiryDate + "T00:00:00.000Z").toISOString(),
-            fingerprint: DEMO_FP.fullHash,
+            fingerprint: fingerprint?.fullHash ?? DEMO_FP.fullHash,
           });
         } catch {
           // Persistence failure is non-fatal — license is still valid in-memory.
@@ -75,8 +91,8 @@ export default function LicenseScreen(): React.ReactElement {
   }, []);
 
   const startTrial = useCallback(() => {
-    const k = issueLicense({ preset: "free", shopFingerprintShort: DEMO_FP.shortHash, validForDays: 30 });
-    const v = validateLicense({ licenseKey: k.raw, shopFingerprint: DEMO_FP });
+    const k = issueLicense({ preset: "free", shopFingerprintShort: fingerprint?.shortHash ?? DEMO_FP.shortHash, validForDays: 30 });
+    const v = validateLicense({ licenseKey: k.raw, shopFingerprint: fpToObject(fingerprint) });
     setLicenseKey(k.raw); setValidation(v); setErr(null);
   }, []);
 
