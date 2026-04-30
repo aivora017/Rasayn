@@ -9,7 +9,7 @@
 //      onSaveBlockedChange={setSaveBlocked}
 //   />
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Leaf, ShieldCheck } from "lucide-react";
 import { Glass, Badge } from "@pharmacare/design-system";
 import { paise, formatINR, type Paise } from "@pharmacare/shared-types";
@@ -64,9 +64,12 @@ export default function BillingClinicalGuard({
     return out;
   }, [basket]);
 
-  // Bubble blocked state
+  // Bubble blocked state — must run as an effect so we don't trigger a parent
+  // setState during render of this child.
   const blocked = hasBlocker && !overridden;
-  if (onSaveBlockedChange) onSaveBlockedChange(blocked);
+  useEffect(() => {
+    onSaveBlockedChange?.(blocked);
+  }, [blocked, onSaveBlockedChange]);
 
   if (alerts.length === 0 && suggestions.length === 0) return null;
 

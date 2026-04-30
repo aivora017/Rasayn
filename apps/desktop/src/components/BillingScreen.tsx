@@ -16,6 +16,7 @@ import {
   type IrnRecordDTO,
 } from "../lib/ipc.js";
 import { renderInvoiceHtml, resolveLayout } from "@pharmacare/invoice-print";
+import BillingClinicalGuard, { type ClinicalBasketLine } from "./BillingClinicalGuard.js";
 import { buildReceipt, type ReceiptInput, type ReceiptLine } from "@pharmacare/printer-escpos";
 import { printOnThermal } from "../lib/printer.js";
 import { queueAndShare, openWaMe } from "../lib/whatsapp.js";
@@ -85,6 +86,7 @@ function genBillNo(): string {
 export function BillingScreen() {
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
+  const [clinicalBlocked, setClinicalBlocked] = useState(false);
   // A9 (ADR 0014) · F9 re-prints the most recently saved bill. Reset on F1.
   const [lastSavedBillId, setLastSavedBillId] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
@@ -281,6 +283,7 @@ export function BillingScreen() {
   }, [lines]);
 
   const canSave = !saving
+    && !clinicalBlocked
     && lines.some((l) => l.productId && l.batch && l.qty > 0)
     && (!rxRequired || (customer !== null && rxId !== null));
 
@@ -1046,6 +1049,16 @@ export function BillingScreen() {
         <div className="row"><span>Round-off</span><span>{formatINR(computed.totals.roundOffPaise as Paise)}</span></div>
         <div className="row grand"><span>Grand Total</span><span data-testid="grand-total">{formatINR(computed.totals.grandTotalPaise)}</span></div>
         <div style={{ flex: 1 }} />
+        {/* S15.1 — Clinical guard: DDI / allergy / dose / generic-suggest */}
+        <BillingClinicalGuard
+          basket={lines.filter((l) => l.productId).map<ClinicalBasketLine>((l) => ({
+            productId: l.productId!,
+            ingredientIds: [],
+            productName: l.name,
+          }))}
+          {...(customer ? { customer: { id: customer.id } } : {})}
+          onSaveBlockedChange={setClinicalBlocked}
+        />
         <button
           onClick={() => void doSave()}
           disabled={!canSave}

@@ -192,6 +192,59 @@ export interface PermissionOverrideDTO {
 
 
 
+
+
+// ─── Stock Transfer (S15.3) ──────────────────────────────────────────────
+export interface StockTransferDTO {
+  readonly id: string;
+  readonly fromShopId: string;
+  readonly toShopId: string;
+  readonly status: "open" | "in_transit" | "received" | "cancelled";
+  readonly createdBy: string;
+  readonly createdAt: string;
+  readonly dispatchedAt?: string;
+  readonly receivedAt?: string;
+  readonly receivedBy?: string;
+  readonly notes?: string;
+}
+
+export interface StockTransferLineDTO {
+  readonly id: string;
+  readonly transferId: string;
+  readonly productId: string;
+  readonly batchId: string;
+  readonly qtyDispatched: number;
+  readonly qtyReceived?: number;
+  readonly varianceNote?: string;
+}
+
+export interface CreateTransferLineInputDTO {
+  readonly productId: string;
+  readonly batchId: string;
+  readonly qtyDispatched: number;
+}
+
+export interface CreateTransferInputDTO {
+  readonly id: string;
+  readonly fromShopId: string;
+  readonly toShopId: string;
+  readonly createdBy: string;
+  readonly notes?: string;
+  readonly lines: readonly CreateTransferLineInputDTO[];
+}
+
+export interface ReceiveTransferLineInputDTO {
+  readonly lineId: string;
+  readonly qtyReceived: number;
+  readonly varianceNote?: string;
+}
+
+export interface ReceiveTransferInputDTO {
+  readonly transferId: string;
+  readonly receivedBy: string;
+  readonly lines: readonly ReceiveTransferLineInputDTO[];
+}
+
 // ─── Photo-GRN (X3) DTOs (S14.3) ─────────────────────────────────────────
 export interface PhotoGrnInputDTO {
   readonly photoBytesB64: string;
@@ -356,7 +409,13 @@ export type IpcCall =
   | { cmd: "whatsapp_mark_sent"; args: { id: string; providerMessageId: string } }
   | { cmd: "whatsapp_mark_failed"; args: { id: string; errorReason: string; nextAttemptAt?: string } }
   | { cmd: "whatsapp_mark_delivered"; args: { id: string } }
-  | { cmd: "photo_grn_run"; args: { input: PhotoGrnInputDTO } };
+  | { cmd: "photo_grn_run"; args: { input: PhotoGrnInputDTO } }
+  | { cmd: "stock_transfer_list"; args: { shopId?: string; status?: string; limit?: number } }
+  | { cmd: "stock_transfer_create"; args: { input: CreateTransferInputDTO } }
+  | { cmd: "stock_transfer_dispatch"; args: { transferId: string } }
+  | { cmd: "stock_transfer_receive"; args: { input: ReceiveTransferInputDTO } }
+  | { cmd: "stock_transfer_cancel"; args: { transferId: string } }
+  | { cmd: "stock_transfer_list_lines"; args: { transferId: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1734,4 +1793,24 @@ export async function whatsappMarkDeliveredRpc(id: string): Promise<void> {
 // ─── Photo-GRN (X3) RPC (S14.3) ──────────────────────────────────────────
 export async function photoGrnRunRpc(input: PhotoGrnInputDTO): Promise<PhotoGrnResultDTO> {
   return (await handler({ cmd: "photo_grn_run", args: { input } })) as PhotoGrnResultDTO;
+}
+
+// ─── Stock Transfer RPCs (S15.3) ─────────────────────────────────────────
+export async function stockTransferListRpc(args: { shopId?: string; status?: string; limit?: number } = {}): Promise<readonly StockTransferDTO[]> {
+  return (await handler({ cmd: "stock_transfer_list", args })) as readonly StockTransferDTO[];
+}
+export async function stockTransferCreateRpc(input: CreateTransferInputDTO): Promise<StockTransferDTO> {
+  return (await handler({ cmd: "stock_transfer_create", args: { input } })) as StockTransferDTO;
+}
+export async function stockTransferDispatchRpc(transferId: string): Promise<StockTransferDTO> {
+  return (await handler({ cmd: "stock_transfer_dispatch", args: { transferId } })) as StockTransferDTO;
+}
+export async function stockTransferReceiveRpc(input: ReceiveTransferInputDTO): Promise<StockTransferDTO> {
+  return (await handler({ cmd: "stock_transfer_receive", args: { input } })) as StockTransferDTO;
+}
+export async function stockTransferCancelRpc(transferId: string): Promise<StockTransferDTO> {
+  return (await handler({ cmd: "stock_transfer_cancel", args: { transferId } })) as StockTransferDTO;
+}
+export async function stockTransferListLinesRpc(transferId: string): Promise<readonly StockTransferLineDTO[]> {
+  return (await handler({ cmd: "stock_transfer_list_lines", args: { transferId } })) as readonly StockTransferLineDTO[];
 }
