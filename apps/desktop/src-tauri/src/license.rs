@@ -40,8 +40,6 @@ pub fn license_save(input: SaveLicenseInput, state: State<'_, DbState>) -> Resul
             last_validated = datetime('now')",
         params![input.key_text, input.edition_flags, input.expiry_iso, input.fingerprint],
     ).map_err(|e| e.to_string())?;
-    // Inline fetch using the same lock guard — avoids the borrow conflict that
-    // would arise from re-entering license_get(state) while `c` is still alive.
     c.query_row(
         "SELECT key_text, edition_flags, expiry_iso, fingerprint, issued_at, last_validated \
          FROM app_license WHERE id = 'singleton'",
@@ -107,7 +105,6 @@ mod tests {
              VALUES ('singleton', 'PCPR-2026-AAAA-AAAA-AAAA-AAAA-AAAA-FFFF', 7, '2027-04-29T00:00:00Z', 'feedface')",
             [],
         ).unwrap();
-        // Upsert with a new key
         c.execute(
             "INSERT INTO app_license (id, key_text, edition_flags, expiry_iso, fingerprint, last_validated) \
              VALUES ('singleton', 'PCPR-2027-BBBB-BBBB-BBBB-BBBB-BBBB-EEEE', 15, '2028-04-29T00:00:00Z', 'feedface', datetime('now')) \
@@ -152,4 +149,7 @@ mod tests {
         let n_before: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
         assert_eq!(n_before, 1);
         c.execute("DELETE FROM app_license WHERE id = 'singleton'", []).unwrap();
-        let n_after: i64 = c.query_row("SELECT count(*) FROM
+        let n_after: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
+        assert_eq!(n_after, 0);
+    }
+}
