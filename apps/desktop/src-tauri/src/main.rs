@@ -5,11 +5,13 @@ mod cash_shift;
 mod cleartax;
 #[cfg(feature = "cleartax-live")]
 mod cleartax_wire;
+mod cold_chain;
 mod commands;
 mod cygnet;
 #[cfg(feature = "cygnet-live")]
 mod cygnet_wire;
 mod db;
+mod dpdp;
 mod idempotency;
 mod images;
 mod khata;
@@ -156,6 +158,16 @@ fn main() {
             abdm::abdm_revoke_consent,
             abdm::abdm_log_dispensation,
             abdm::abdm_list_dispensations,
+            cold_chain::cold_chain_upsert_sensor,
+            cold_chain::cold_chain_list_sensors,
+            cold_chain::cold_chain_log_reading,
+            cold_chain::cold_chain_list_excursions,
+            cold_chain::cold_chain_close_excursion,
+            dpdp::dpdp_upsert_consent,
+            dpdp::dpdp_list_consents,
+            dpdp::dpdp_open_dsr,
+            dpdp::dpdp_update_dsr_status,
+            dpdp::dpdp_list_dsr,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,

@@ -232,6 +232,80 @@ export interface LicenseSaveInputDTO {
 
 
 
+
+
+// ─── Cold Chain + DPDP (S18) ─────────────────────────────────────────────
+export interface ColdChainSensorDTO {
+  readonly id: string;
+  readonly shopId: string;
+  readonly bleMac: string;
+  readonly label: string;
+  readonly minSafeC: number;
+  readonly maxSafeC: number;
+  readonly installedAt: string;
+}
+export interface ColdChainSensorUpsertInputDTO {
+  readonly id: string;
+  readonly shopId: string;
+  readonly bleMac: string;
+  readonly label: string;
+  readonly minSafeC?: number;
+  readonly maxSafeC?: number;
+}
+export interface ColdChainLogReadingInputDTO {
+  readonly sensorId: string;
+  readonly tempC: number;
+  readonly recordedAt?: string;
+}
+export interface ColdChainExcursionDTO {
+  readonly id: number;
+  readonly sensorId: string;
+  readonly batchId?: string;
+  readonly excursionStart: string;
+  readonly excursionEnd?: string;
+  readonly minTempC?: number;
+  readonly maxTempC?: number;
+  readonly minutesOutside: number;
+  readonly aefiFiled: number;
+  readonly notes?: string;
+}
+
+export interface DpdpConsentDTO {
+  readonly customerId: string;
+  readonly purpose: string;
+  readonly granted: number;
+  readonly grantedAt?: string;
+  readonly withdrawnAt?: string;
+  readonly evidence: string;
+}
+export interface DpdpConsentUpsertInputDTO {
+  readonly customerId: string;
+  readonly purpose: string;
+  readonly granted: boolean;
+  readonly evidence: string;
+}
+export interface DpdpDsrRequestDTO {
+  readonly id: string;
+  readonly customerId: string;
+  readonly kind: "access" | "erasure" | "correction" | "portability";
+  readonly receivedAt: string;
+  readonly status: "received" | "verifying" | "in-progress" | "fulfilled" | "rejected";
+  readonly fulfilledAt?: string;
+  readonly responsePayloadPath?: string;
+  readonly handledByUserId?: string;
+}
+export interface DpdpOpenDsrInputDTO {
+  readonly id: string;
+  readonly customerId: string;
+  readonly kind: "access" | "erasure" | "correction" | "portability";
+}
+export interface DpdpUpdateDsrStatusInputDTO {
+  readonly id: string;
+  readonly status: "received" | "verifying" | "in-progress" | "fulfilled" | "rejected";
+  readonly responsePayloadPath?: string;
+  readonly handledByUserId?: string;
+}
+
 // ─── System fingerprint + ABDM (S17) ─────────────────────────────────────
 export interface SystemFingerprintDTO {
   readonly fullHash: string;
@@ -514,7 +588,17 @@ export type IpcCall =
   | { cmd: "abdm_get_profile"; args: { customerId: string } }
   | { cmd: "abdm_revoke_consent"; args: { customerId: string } }
   | { cmd: "abdm_log_dispensation"; args: { input: AbdmDispensationLogInputDTO } }
-  | { cmd: "abdm_list_dispensations"; args: { abhaNumber?: string; limit?: number } };
+  | { cmd: "abdm_list_dispensations"; args: { abhaNumber?: string; limit?: number } }
+  | { cmd: "cold_chain_upsert_sensor"; args: { input: ColdChainSensorUpsertInputDTO } }
+  | { cmd: "cold_chain_list_sensors"; args: { shopId: string } }
+  | { cmd: "cold_chain_log_reading"; args: { input: ColdChainLogReadingInputDTO } }
+  | { cmd: "cold_chain_list_excursions"; args: { sensorId?: string; openOnly?: boolean; limit?: number } }
+  | { cmd: "cold_chain_close_excursion"; args: { excursionId: number; notes?: string; aefiFiled?: boolean } }
+  | { cmd: "dpdp_upsert_consent"; args: { input: DpdpConsentUpsertInputDTO } }
+  | { cmd: "dpdp_list_consents"; args: { customerId: string } }
+  | { cmd: "dpdp_open_dsr"; args: { input: DpdpOpenDsrInputDTO } }
+  | { cmd: "dpdp_update_dsr_status"; args: { input: DpdpUpdateDsrStatusInputDTO } }
+  | { cmd: "dpdp_list_dsr"; args: { openOnly?: boolean; limit?: number } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1954,4 +2038,37 @@ export async function abdmLogDispensationRpc(input: AbdmDispensationLogInputDTO)
 }
 export async function abdmListDispensationsRpc(args: { abhaNumber?: string; limit?: number } = {}): Promise<readonly AbdmDispensationDTO[]> {
   return (await handler({ cmd: "abdm_list_dispensations", args })) as readonly AbdmDispensationDTO[];
+}
+
+// ─── Cold Chain + DPDP RPCs (S18) ────────────────────────────────────────
+export async function coldChainUpsertSensorRpc(input: ColdChainSensorUpsertInputDTO): Promise<ColdChainSensorDTO> {
+  return (await handler({ cmd: "cold_chain_upsert_sensor", args: { input } })) as ColdChainSensorDTO;
+}
+export async function coldChainListSensorsRpc(shopId: string): Promise<readonly ColdChainSensorDTO[]> {
+  return (await handler({ cmd: "cold_chain_list_sensors", args: { shopId } })) as readonly ColdChainSensorDTO[];
+}
+export async function coldChainLogReadingRpc(input: ColdChainLogReadingInputDTO): Promise<number> {
+  return (await handler({ cmd: "cold_chain_log_reading", args: { input } })) as number;
+}
+export async function coldChainListExcursionsRpc(args: { sensorId?: string; openOnly?: boolean; limit?: number } = {}): Promise<readonly ColdChainExcursionDTO[]> {
+  return (await handler({ cmd: "cold_chain_list_excursions", args })) as readonly ColdChainExcursionDTO[];
+}
+export async function coldChainCloseExcursionRpc(args: { excursionId: number; notes?: string; aefiFiled?: boolean }): Promise<ColdChainExcursionDTO | null> {
+  return (await handler({ cmd: "cold_chain_close_excursion", args })) as ColdChainExcursionDTO | null;
+}
+
+export async function dpdpUpsertConsentRpc(input: DpdpConsentUpsertInputDTO): Promise<DpdpConsentDTO> {
+  return (await handler({ cmd: "dpdp_upsert_consent", args: { input } })) as DpdpConsentDTO;
+}
+export async function dpdpListConsentsRpc(customerId: string): Promise<readonly DpdpConsentDTO[]> {
+  return (await handler({ cmd: "dpdp_list_consents", args: { customerId } })) as readonly DpdpConsentDTO[];
+}
+export async function dpdpOpenDsrRpc(input: DpdpOpenDsrInputDTO): Promise<DpdpDsrRequestDTO> {
+  return (await handler({ cmd: "dpdp_open_dsr", args: { input } })) as DpdpDsrRequestDTO;
+}
+export async function dpdpUpdateDsrStatusRpc(input: DpdpUpdateDsrStatusInputDTO): Promise<DpdpDsrRequestDTO | null> {
+  return (await handler({ cmd: "dpdp_update_dsr_status", args: { input } })) as DpdpDsrRequestDTO | null;
+}
+export async function dpdpListDsrRpc(args: { openOnly?: boolean; limit?: number } = {}): Promise<readonly DpdpDsrRequestDTO[]> {
+  return (await handler({ cmd: "dpdp_list_dsr", args })) as readonly DpdpDsrRequestDTO[];
 }
