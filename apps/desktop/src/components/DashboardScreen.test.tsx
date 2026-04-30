@@ -44,7 +44,7 @@ describe("DashboardScreen", () => {
         <DashboardScreen shop={SHOP} {...noopProps} />
       </ToasterProvider>,
     );
-    expect(screen.getByText("Jagannath Pharmacy")).toBeInTheDocument();
+    expect(await screen.findByText("Jagannath Pharmacy")).toBeInTheDocument();
   });
 
   it("renders all four KPI cards with testids", async () => {

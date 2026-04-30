@@ -40,7 +40,21 @@ pub fn license_save(input: SaveLicenseInput, state: State<'_, DbState>) -> Resul
             last_validated = datetime('now')",
         params![input.key_text, input.edition_flags, input.expiry_iso, input.fingerprint],
     ).map_err(|e| e.to_string())?;
-    license_get(state).and_then(|opt| opt.ok_or_else(|| "INSERT_LOST".into()))
+    // Inline fetch using the same lock guard — avoids the borrow conflict that
+    // would arise from re-entering license_get(state) while `c` is still alive.
+    c.query_row(
+        "SELECT key_text, edition_flags, expiry_iso, fingerprint, issued_at, last_validated \
+         FROM app_license WHERE id = 'singleton'",
+        [],
+        |r| Ok(AppLicense {
+            key_text: r.get(0)?,
+            edition_flags: r.get(1)?,
+            expiry_iso: r.get(2)?,
+            fingerprint: r.get(3)?,
+            issued_at: r.get(4)?,
+            last_validated: r.get(5)?,
+        }),
+    ).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
