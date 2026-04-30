@@ -196,20 +196,22 @@ export interface PermissionOverrideDTO {
 
 
 
-// ─── Product Ingredients (S16.2) + License (S16.3) ───────────────────────
+// ─── Product Ingredients (S16.2 + S18 hotfix) + License (S16.3) ──────────
+// Composite PK on (product_id, ingredient_id) — no surrogate id column.
+// Schema lives in migration 0026; dose columns added by 0042.
 export interface ProductIngredientRowDTO {
-  readonly id: string;
   readonly productId: string;
   readonly ingredientId: string;
+  readonly strengthMg?: number;
   readonly perDoseMg?: number;
   readonly dailyMg?: number;
-  readonly createdAt: string;
+  readonly createdAt?: string;
 }
 
 export interface ProductIngredientUpsertInputDTO {
-  readonly id: string;
   readonly productId: string;
   readonly ingredientId: string;
+  readonly strengthMg?: number;
   readonly perDoseMg?: number;
   readonly dailyMg?: number;
 }

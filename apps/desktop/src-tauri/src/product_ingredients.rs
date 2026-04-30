@@ -1,11 +1,8 @@
-// product_ingredients.rs — read/write helpers for the M2M table introduced
-// in migration 0042. BillingClinicalGuard fetches `list_for_products` to
-// feed real ingredient ids into the formulary DDI engine.
-//
-// Cargo tests are deliberately omitted: the Windows-mount truncation bug
-// keeps eating the trailing test module. Tests will be re-added in a
-// dedicated `tests/product_ingredients_test.rs` integration-test file in
-// a follow-up sprint.
+// product_ingredients.rs — read/write helpers for the M2M table created in
+// migration 0026 (composite PK on product_id+ingredient_id). Migration 0042
+// added per_dose_mg / daily_mg / created_at columns. BillingClinicalGuard
+// fetches `list_for_products` to feed real ingredient ids into the
+// formulary DDI engine.
 
 use crate::db::DbState;
 use rusqlite::params;
@@ -15,22 +12,24 @@ use tauri::State;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductIngredientRow {
-    pub id: String,
     pub product_id: String,
     pub ingredient_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strength_mg: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub per_dose_mg: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub daily_mg: Option<f64>,
-    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpsertProductIngredientInput {
-    pub id: String,
     pub product_id: String,
     pub ingredient_id: String,
+    pub strength_mg: Option<f64>,
     pub per_dose_mg: Option<f64>,
     pub daily_mg: Option<f64>,
 }
@@ -47,16 +46,16 @@ pub fn product_ingredients_list_for_products(
     let cap = product_ids.len().min(200);
     let placeholders = (1..=cap).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
     let sql = format!(
-        "SELECT id, product_id, ingredient_id, per_dose_mg, daily_mg, created_at \
+        "SELECT product_id, ingredient_id, strength_mg, per_dose_mg, daily_mg, created_at \
          FROM product_ingredients WHERE product_id IN ({placeholders})"
     );
     let mut stmt = c.prepare(&sql).map_err(|e| e.to_string())?;
     let bind: Vec<&dyn rusqlite::ToSql> = product_ids.iter().take(cap).map(|s| s as &dyn rusqlite::ToSql).collect();
     let rows = stmt.query_map(rusqlite::params_from_iter(bind), |r| {
         Ok(ProductIngredientRow {
-            id: r.get(0)?,
-            product_id: r.get(1)?,
-            ingredient_id: r.get(2)?,
+            product_id: r.get(0)?,
+            ingredient_id: r.get(1)?,
+            strength_mg: r.get(2)?,
             per_dose_mg: r.get(3)?,
             daily_mg: r.get(4)?,
             created_at: r.get(5)?,
@@ -74,21 +73,22 @@ pub fn product_ingredients_upsert(
 ) -> Result<ProductIngredientRow, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
     c.execute(
-        "INSERT INTO product_ingredients (id, product_id, ingredient_id, per_dose_mg, daily_mg) \
+        "INSERT INTO product_ingredients (product_id, ingredient_id, strength_mg, per_dose_mg, daily_mg) \
          VALUES (?1, ?2, ?3, ?4, ?5) \
          ON CONFLICT(product_id, ingredient_id) DO UPDATE SET \
+            strength_mg = excluded.strength_mg, \
             per_dose_mg = excluded.per_dose_mg, \
             daily_mg = excluded.daily_mg",
-        params![input.id, input.product_id, input.ingredient_id, input.per_dose_mg, input.daily_mg],
+        params![input.product_id, input.ingredient_id, input.strength_mg, input.per_dose_mg, input.daily_mg],
     ).map_err(|e| e.to_string())?;
     c.query_row(
-        "SELECT id, product_id, ingredient_id, per_dose_mg, daily_mg, created_at \
+        "SELECT product_id, ingredient_id, strength_mg, per_dose_mg, daily_mg, created_at \
          FROM product_ingredients WHERE product_id = ?1 AND ingredient_id = ?2",
         params![input.product_id, input.ingredient_id],
         |r| Ok(ProductIngredientRow {
-            id: r.get(0)?,
-            product_id: r.get(1)?,
-            ingredient_id: r.get(2)?,
+            product_id: r.get(0)?,
+            ingredient_id: r.get(1)?,
+            strength_mg: r.get(2)?,
             per_dose_mg: r.get(3)?,
             daily_mg: r.get(4)?,
             created_at: r.get(5)?,
