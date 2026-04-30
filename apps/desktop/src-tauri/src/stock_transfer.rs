@@ -350,7 +350,6 @@ fn fetch_one(c: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<Stoc
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rusqlite::Connection;
     use crate::db::apply_migrations;
 
@@ -451,11 +450,4 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         apply_migrations(&c).unwrap();
         seed_two_shops(&c);
-        let r = c.execute(
-            "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
-             VALUES ('xs', 'shop_a', 'shop_a', 'open', 'u1', '2026-04-29T10:00:00Z')",
-            [],
-        );
-        assert!(r.is_err(), "self-transfer should violate CHECK (from_shop_id <> to_shop_id)");
-    }
-}
+  

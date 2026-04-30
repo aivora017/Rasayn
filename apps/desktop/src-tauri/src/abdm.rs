@@ -179,15 +179,21 @@ pub fn abdm_list_dispensations(
             "SELECT bill_id, abha_number, fhir_payload_json, uhi_event_id, pushed_at, status, error \
              FROM abdm_dispensations WHERE abha_number = ?1 ORDER BY pushed_at DESC LIMIT ?2"
         ).map_err(|e| e.to_string())?;
-        stmt.query_map(params![a, lim], map).map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
+        let collected = stmt.query_map(params![a, lim], map)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        collected
     } else {
         let mut stmt = c.prepare(
             "SELECT bill_id, abha_number, fhir_payload_json, uhi_event_id, pushed_at, status, error \
              FROM abdm_dispensations ORDER BY pushed_at DESC LIMIT ?1"
         ).map_err(|e| e.to_string())?;
-        stmt.query_map(params![lim], map).map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
+        let collected = stmt.query_map(params![lim], map)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        collected
     };
     Ok(rows)
 }

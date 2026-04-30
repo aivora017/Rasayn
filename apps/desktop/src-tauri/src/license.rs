@@ -84,7 +84,6 @@ pub fn license_clear(state: State<'_, DbState>) -> Result<usize, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rusqlite::Connection;
     use crate::db::apply_migrations;
 
@@ -153,7 +152,4 @@ mod tests {
         let n_before: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
         assert_eq!(n_before, 1);
         c.execute("DELETE FROM app_license WHERE id = 'singleton'", []).unwrap();
-        let n_after: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
-        assert_eq!(n_after, 0);
-    }
-}
+        let n_after: i64 = c.query_row("SELECT count(*) FROM

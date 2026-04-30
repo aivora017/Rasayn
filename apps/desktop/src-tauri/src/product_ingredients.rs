@@ -112,7 +112,6 @@ pub fn product_ingredients_delete(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rusqlite::Connection;
     use crate::db::apply_migrations;
 
@@ -191,7 +190,4 @@ mod tests {
         c.execute("INSERT INTO product_ingredients (id, product_id, ingredient_id) VALUES ('pi1', 'p_para', 'paracetamol')", []).unwrap();
         // Soft-delete on products table (is_active=0) doesn't cascade; verify row still present
         c.execute("UPDATE products SET is_active = 0 WHERE id = 'p_para'", []).unwrap();
-        let n: i64 = c.query_row("SELECT count(*) FROM product_ingredients WHERE product_id = 'p_para'", [], |r| r.get(0)).unwrap();
-        assert_eq!(n, 1, "soft-delete of product preserves ingredient mapping");
-    }
-}
+        let n: i64 = c.query_row("SELECT count(*) FROM product_ingredients WHERE product_id = 'p_para'", [], |r
