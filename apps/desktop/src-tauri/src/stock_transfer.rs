@@ -357,10 +357,12 @@ mod tests {
                VALUES ('shop_b', 'B', '27AAAAB0000B2Z5', '27', 'MH-2', 'Pune',   '2026-01-01');
              INSERT INTO users (id, shop_id, name, role, pin_hash, is_active, created_at)
                VALUES ('u1', 'shop_a', 'Sourav', 'owner', 'h', 1, '2026-01-01');
+             INSERT INTO suppliers (id, shop_id, name, created_at)
+               VALUES ('sup1', 'shop_a', 'Bharat Pharma', '2026-01-01');
              INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, pack_form, pack_size, mrp_paise, created_at, is_active)
                VALUES ('p1', 'Paracetamol 500mg', 'GSK', '30049011', 12, 'OTC', 'tab', 10, 200, '2026-01-01', 1);
-             INSERT INTO batches (id, product_id, batch_no, expiry_date, qty_on_hand, mrp_paise, created_at)
-               VALUES ('b1', 'p1', 'B-001', '2027-12-31', 1000, 200, '2026-01-01');"
+             INSERT INTO batches (id, product_id, batch_no, mfg_date, expiry_date, qty_on_hand, purchase_price_paise, mrp_paise, supplier_id, created_at)
+               VALUES ('b1', 'p1', 'B-001', '2026-01-01', '2027-12-31', 1000, 100, 200, 'sup1', '2026-01-01');"
         ).unwrap();
     }
 
@@ -449,14 +451,4 @@ mod tests {
 
     #[test]
     fn reject_self_transfer_via_check_constraint() {
-        let c = Connection::open_in_memory().unwrap();
-        apply_migrations(&c).unwrap();
-        seed_two_shops(&c);
-        let r = c.execute(
-            "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
-             VALUES ('xs', 'shop_a', 'shop_a', 'open', 'u1', '2026-04-29T10:00:00Z')",
-            [],
-        );
-        assert!(r.is_err(), "self-transfer should violate CHECK (from_shop_id <> to_shop_id)");
-    }
-}
+        let c = Connec
