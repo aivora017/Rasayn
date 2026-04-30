@@ -1,5 +1,7 @@
 // stock_transfer.rs — Tauri commands for inter-store stock transfers.
-// Migration 0040. Phase-1: list / create (open) / dispatch / receive / cancel.
+// Migration 0040 + 0041. Phase-1: list / create (open) / dispatch (writes
+// transfer_out movement) / receive (writes transfer_in movement) / cancel
+// (writes reversal) / list_lines.
 
 use crate::db::DbState;
 use rusqlite::{params, OptionalExtension};
@@ -100,18 +102,16 @@ pub fn stock_transfer_list(
     };
 
     let mut stmt = c.prepare(&sql).map_err(|e| e.to_string())?;
-    let rows = match (&shop_id, &status) {
+    let collected: Vec<StockTransferRow> = match (&shop_id, &status) {
         (Some(s1), Some(s2)) => stmt.query_map(params![s1, s2, lim], map),
         (Some(s1), None)     => stmt.query_map(params![s1, lim], map),
         (None,     Some(s2)) => stmt.query_map(params![s2, lim], map),
         (None,     None)     => stmt.query_map(params![lim], map),
-    }.map_err(|e| e.to_string())?;
+    }.map_err(|e| e.to_string())?
+     .collect::<Result<Vec<_>, _>>()
+     .map_err(|e| e.to_string())?;
 
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r.map_err(|e| e.to_string())?);
-    }
-    Ok(out)
+    Ok(collected)
 }
 
 #[tauri::command]
@@ -158,7 +158,6 @@ pub fn stock_transfer_dispatch(
         return Err("TRANSFER_NOT_OPEN_OR_NOT_FOUND".into());
     }
 
-    // S16.1 reconciliation — write one transfer_out row per line.
     {
         let mut stmt = tx.prepare(
             "SELECT id, product_id, batch_id, qty_dispatched FROM stock_transfer_lines \
@@ -225,12 +224,10 @@ pub fn stock_transfer_receive(
         params![now, input.received_by, input.transfer_id],
     ).map_err(|e| format!("UPDATE_HEADER: {e}"))?;
 
-    // S16.1 reconciliation — write one transfer_in row per line.
     for ln in &input.lines {
         if ln.qty_received <= 0.0 {
             continue;
         }
-        // Look up product_id / batch_id for the line.
         let row: Option<(String, String)> = tx.query_row(
             "SELECT product_id, batch_id FROM stock_transfer_lines WHERE id = ?1 AND transfer_id = ?2",
             params![ln.line_id, input.transfer_id],
@@ -260,7 +257,6 @@ pub fn stock_transfer_cancel(
     let now = now_iso();
     let tx = c.transaction().map_err(|e| e.to_string())?;
 
-    // If it was in_transit, reverse the transfer_out movements before cancelling.
     let was_in_transit: bool = tx.query_row(
         "SELECT status FROM stock_transfers WHERE id = ?1",
         params![transfer_id],
@@ -309,7 +305,7 @@ pub fn stock_transfer_list_lines(
         "SELECT id, transfer_id, product_id, batch_id, qty_dispatched, qty_received, variance_note \
          FROM stock_transfer_lines WHERE transfer_id = ?1 ORDER BY id ASC"
     ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map(params![transfer_id], |r| {
+    let collected: Vec<StockTransferLine> = stmt.query_map(params![transfer_id], |r| {
         Ok(StockTransferLine {
             id: r.get(0)?,
             transfer_id: r.get(1)?,
@@ -319,10 +315,10 @@ pub fn stock_transfer_list_lines(
             qty_received: r.get(5)?,
             variance_note: r.get(6)?,
         })
-    }).map_err(|e| e.to_string())?;
-    let mut out = Vec::new();
-    for r in rows { out.push(r.map_err(|e| e.to_string())?); }
-    Ok(out)
+    }).map_err(|e| e.to_string())?
+       .collect::<Result<Vec<_>, _>>()
+       .map_err(|e| e.to_string())?;
+    Ok(collected)
 }
 
 fn fetch_one(c: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<StockTransferRow>> {
@@ -361,8 +357,8 @@ mod tests {
                VALUES ('shop_b', 'B', '27AAAAB0000B2Z5', '27', 'MH-2', 'Pune',   '2026-01-01');
              INSERT INTO users (id, shop_id, name, role, pin_hash, is_active, created_at)
                VALUES ('u1', 'shop_a', 'Sourav', 'owner', 'h', 1, '2026-01-01');
-             INSERT INTO products (id, name, hsn, gst_rate, schedule, mrp_paise, created_at, is_active)
-               VALUES ('p1', 'Paracetamol 500mg', '30049011', 12, 'OTC', 200, '2026-01-01', 1);
+             INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, pack_form, pack_size, mrp_paise, created_at, is_active)
+               VALUES ('p1', 'Paracetamol 500mg', 'GSK', '30049011', 12, 'OTC', 'tab', 10, 200, '2026-01-01', 1);
              INSERT INTO batches (id, product_id, batch_no, expiry_date, qty_on_hand, mrp_paise, created_at)
                VALUES ('b1', 'p1', 'B-001', '2027-12-31', 1000, 200, '2026-01-01');"
         ).unwrap();
@@ -386,11 +382,10 @@ mod tests {
 
     #[test]
     fn create_then_dispatch_writes_transfer_out_movement() {
-        let mut c = Connection::open_in_memory().unwrap();
+        let c = Connection::open_in_memory().unwrap();
         apply_migrations(&c).unwrap();
         seed_two_shops(&c);
 
-        // Create
         c.execute(
             "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
              VALUES ('xfer1', 'shop_a', 'shop_b', 'open', 'u1', '2026-04-29T10:00:00Z')",
@@ -402,15 +397,15 @@ mod tests {
             [],
         ).unwrap();
 
-        // Simulate dispatch: update status + write transfer_out
-        let tx = c.transaction().unwrap();
-        tx.execute("UPDATE stock_transfers SET status='in_transit', dispatched_at='2026-04-29T11:00:00Z' WHERE id='xfer1' AND status='open'", []).unwrap();
-        tx.execute(
+        c.execute(
+            "UPDATE stock_transfers SET status='in_transit', dispatched_at='2026-04-29T11:00:00Z' WHERE id='xfer1' AND status='open'",
+            [],
+        ).unwrap();
+        c.execute(
             "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, created_at) \
              VALUES ('mv_xfer1_l0_out', 'b1', 'p1', -50, 'transfer_out', 'stock_transfer_lines', 'xfer1_l0', '2026-04-29T11:00:00Z')",
             [],
         ).unwrap();
-        tx.commit().unwrap();
 
         let mv_count: i64 = c.query_row(
             "SELECT count(*) FROM stock_movements WHERE ref_table='stock_transfer_lines' AND movement_type='transfer_out'",
@@ -429,14 +424,21 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         apply_migrations(&c).unwrap();
         seed_two_shops(&c);
-        c.execute("INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) VALUES ('x2', 'shop_a', 'shop_b', 'in_transit', 'u1', '2026-04-29T10:00:00Z')", []).unwrap();
-        c.execute("INSERT INTO stock_transfer_lines (id, transfer_id, product_id, batch_id, qty_dispatched) VALUES ('x2_l0', 'x2', 'p1', 'b1', 10)", []).unwrap();
+        c.execute(
+            "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
+             VALUES ('x2', 'shop_a', 'shop_b', 'in_transit', 'u1', '2026-04-29T10:00:00Z')",
+            [],
+        ).unwrap();
+        c.execute(
+            "INSERT INTO stock_transfer_lines (id, transfer_id, product_id, batch_id, qty_dispatched) \
+             VALUES ('x2_l0', 'x2', 'p1', 'b1', 10)",
+            [],
+        ).unwrap();
         c.execute(
             "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, created_at) \
              VALUES ('mv1', 'b1', 'p1', -10, 'transfer_out', 'stock_transfer_lines', 'x2_l0', '2026-04-29T11:00:00Z')",
             [],
         ).unwrap();
-        // Second insert should violate the partial UNIQUE on (movement_type, ref_table, ref_id)
         let res = c.execute(
             "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, created_at) \
              VALUES ('mv2', 'b1', 'p1', -10, 'transfer_out', 'stock_transfer_lines', 'x2_l0', '2026-04-29T11:01:00Z')",
@@ -450,4 +452,11 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         apply_migrations(&c).unwrap();
         seed_two_shops(&c);
-  
+        let r = c.execute(
+            "INSERT INTO stock_transfers (id, from_shop_id, to_shop_id, status, created_by, created_at) \
+             VALUES ('xs', 'shop_a', 'shop_a', 'open', 'u1', '2026-04-29T10:00:00Z')",
+            [],
+        );
+        assert!(r.is_err(), "self-transfer should violate CHECK (from_shop_id <> to_shop_id)");
+    }
+}
