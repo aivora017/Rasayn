@@ -194,6 +194,42 @@ export interface PermissionOverrideDTO {
 
 
 
+
+
+// ─── Product Ingredients (S16.2) + License (S16.3) ───────────────────────
+export interface ProductIngredientRowDTO {
+  readonly id: string;
+  readonly productId: string;
+  readonly ingredientId: string;
+  readonly perDoseMg?: number;
+  readonly dailyMg?: number;
+  readonly createdAt: string;
+}
+
+export interface ProductIngredientUpsertInputDTO {
+  readonly id: string;
+  readonly productId: string;
+  readonly ingredientId: string;
+  readonly perDoseMg?: number;
+  readonly dailyMg?: number;
+}
+
+export interface AppLicenseDTO {
+  readonly keyText: string;
+  readonly editionFlags: number;
+  readonly expiryIso: string;
+  readonly fingerprint: string;
+  readonly issuedAt: string;
+  readonly lastValidated: string;
+}
+
+export interface LicenseSaveInputDTO {
+  readonly keyText: string;
+  readonly editionFlags: number;
+  readonly expiryIso: string;
+  readonly fingerprint: string;
+}
+
 // ─── Stock Transfer (S15.3) ──────────────────────────────────────────────
 export interface StockTransferDTO {
   readonly id: string;
@@ -415,7 +451,13 @@ export type IpcCall =
   | { cmd: "stock_transfer_dispatch"; args: { transferId: string } }
   | { cmd: "stock_transfer_receive"; args: { input: ReceiveTransferInputDTO } }
   | { cmd: "stock_transfer_cancel"; args: { transferId: string } }
-  | { cmd: "stock_transfer_list_lines"; args: { transferId: string } };
+  | { cmd: "stock_transfer_list_lines"; args: { transferId: string } }
+  | { cmd: "product_ingredients_list_for_products"; args: { productIds: readonly string[] } }
+  | { cmd: "product_ingredients_upsert"; args: { input: ProductIngredientUpsertInputDTO } }
+  | { cmd: "product_ingredients_delete"; args: { productId: string; ingredientId: string } }
+  | { cmd: "license_save"; args: { input: LicenseSaveInputDTO } }
+  | { cmd: "license_get"; args: Record<string, never> }
+  | { cmd: "license_clear"; args: Record<string, never> };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1813,4 +1855,26 @@ export async function stockTransferCancelRpc(transferId: string): Promise<StockT
 }
 export async function stockTransferListLinesRpc(transferId: string): Promise<readonly StockTransferLineDTO[]> {
   return (await handler({ cmd: "stock_transfer_list_lines", args: { transferId } })) as readonly StockTransferLineDTO[];
+}
+
+// ─── Product Ingredients RPCs (S16.2) ────────────────────────────────────
+export async function productIngredientsListForProductsRpc(productIds: readonly string[]): Promise<readonly ProductIngredientRowDTO[]> {
+  return (await handler({ cmd: "product_ingredients_list_for_products", args: { productIds } })) as readonly ProductIngredientRowDTO[];
+}
+export async function productIngredientsUpsertRpc(input: ProductIngredientUpsertInputDTO): Promise<ProductIngredientRowDTO> {
+  return (await handler({ cmd: "product_ingredients_upsert", args: { input } })) as ProductIngredientRowDTO;
+}
+export async function productIngredientsDeleteRpc(productId: string, ingredientId: string): Promise<number> {
+  return (await handler({ cmd: "product_ingredients_delete", args: { productId, ingredientId } })) as number;
+}
+
+// ─── License RPCs (S16.3) ────────────────────────────────────────────────
+export async function licenseSaveRpc(input: LicenseSaveInputDTO): Promise<AppLicenseDTO> {
+  return (await handler({ cmd: "license_save", args: { input } })) as AppLicenseDTO;
+}
+export async function licenseGetRpc(): Promise<AppLicenseDTO | null> {
+  return (await handler({ cmd: "license_get", args: {} })) as AppLicenseDTO | null;
+}
+export async function licenseClearRpc(): Promise<number> {
+  return (await handler({ cmd: "license_clear", args: {} })) as number;
 }

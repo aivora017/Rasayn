@@ -44,28 +44,28 @@ describe("DashboardScreen", () => {
         <DashboardScreen shop={SHOP} {...noopProps} />
       </ToasterProvider>,
     );
-    expect(screen.getByText("Jagannath Pharmacy")).toBeInTheDocument();
+    expect(await screen.findByText("Jagannath Pharmacy")).toBeInTheDocument();
   });
 
-  it("renders all four KPI cards with testids", () => {
+  it("renders all four KPI cards with testids", async () => {
     render(
       <ToasterProvider>
         <DashboardScreen shop={SHOP} {...noopProps} />
       </ToasterProvider>,
     );
-    expect(screen.getByTestId("kpi-sales")).toBeInTheDocument();
+    expect(await screen.findByTestId("kpi-sales")).toBeInTheDocument();
     expect(screen.getByTestId("kpi-bills")).toBeInTheDocument();
     expect(screen.getByTestId("kpi-margin")).toBeInTheDocument();
     expect(screen.getByTestId("kpi-cash")).toBeInTheDocument();
   });
 
-  it("renders three moat panels (X1/X2/X3)", () => {
+  it("renders three moat panels (X1/X2/X3)", async () => {
     render(
       <ToasterProvider>
         <DashboardScreen shop={SHOP} {...noopProps} />
       </ToasterProvider>,
     );
-    expect(screen.getByTestId("moat-x1")).toBeInTheDocument();
+    expect(await screen.findByTestId("moat-x1")).toBeInTheDocument();
     expect(screen.getByTestId("moat-x2")).toBeInTheDocument();
     expect(screen.getByTestId("moat-x3")).toBeInTheDocument();
   });
@@ -99,7 +99,7 @@ describe("DashboardScreen", () => {
     });
   });
 
-  it("flags missing-license compliance row when shop has placeholder GSTIN", () => {
+  it("flags missing-license compliance row when shop has placeholder GSTIN", async () => {
     const fresh: Shop = { ...SHOP, gstin: "00AAAAA0000A0Z0" };
     render(
       <ToasterProvider>
@@ -108,6 +108,6 @@ describe("DashboardScreen", () => {
     );
     // New compliance label is "Shop GSTIN" with an AlertCircle when not OK.
     // Verify the row exists and that it's in the not-ok branch by finding the label.
-    expect(screen.getByText("Shop GSTIN")).toBeInTheDocument();
+    expect(await screen.findByText("Shop GSTIN")).toBeInTheDocument();
   });
 });

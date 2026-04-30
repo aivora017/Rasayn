@@ -1,7 +1,8 @@
 // LicenseScreen — view + paste + activate licence keys.
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Sparkles, AlertTriangle, CheckCircle2, Clock, Cpu, Copy } from "lucide-react";
 import { Glass, Badge, Button, Input } from "@pharmacare/design-system";
+import { licenseSaveRpc, licenseGetRpc, licenseClearRpc } from "../lib/ipc.js";
 import {
   parseKey, validateLicense, issueLicense, trialStateFrom,
   EDITION_FLAGS, PRESET_BUNDLES,
@@ -16,18 +17,62 @@ export default function LicenseScreen(): React.ReactElement {
   const [err, setErr] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
 
-  const onActivate = useCallback(() => {
+  // S16.3 — boot from persisted license on mount.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const persisted = await licenseGetRpc();
+        if (!persisted) return;
+        const v = validateLicense({ licenseKey: persisted.keyText, shopFingerprint: DEMO_FP });
+        setValidation(v);
+        if (v.valid) {
+          setLicenseKey(persisted.keyText);
+          setInputKey(persisted.keyText);
+        }
+      } catch {
+        // no-op — first run
+      }
+    })();
+  }, []);
+
+  const onActivate = useCallback(async () => {
     setErr(null);
     try {
-      parseKey(inputKey.trim());                   // throws if malformed
+      const parts = parseKey(inputKey.trim());     // throws if malformed
       const v = validateLicense({ licenseKey: inputKey.trim(), shopFingerprint: DEMO_FP });
       setValidation(v);
-      if (v.valid) setLicenseKey(inputKey.trim());
-      else setErr(v.reason ?? "Invalid licence");
+      if (v.valid) {
+        setLicenseKey(inputKey.trim());
+        // Persist the license to the singleton row.
+        try {
+          await licenseSaveRpc({
+            keyText: inputKey.trim(),
+            editionFlags: parts.editionFlags,
+            expiryIso: new Date(parts.expiryDate + "T00:00:00.000Z").toISOString(),
+            fingerprint: DEMO_FP.fullHash,
+          });
+        } catch {
+          // Persistence failure is non-fatal — license is still valid in-memory.
+        }
+      } else {
+        setErr(v.reason ?? "Invalid licence");
+      }
     } catch (e) {
       setErr((e as Error).message);
     }
   }, [inputKey]);
+
+  const onClearLicense = useCallback(async () => {
+    try {
+      await licenseClearRpc();
+      setLicenseKey(null);
+      setValidation(null);
+      setInputKey("");
+      setErr(null);
+    } catch (e) {
+      setErr(`Failed to clear license: ${String(e)}`);
+    }
+  }, []);
 
   const startTrial = useCallback(() => {
     const k = issueLicense({ preset: "free", shopFingerprintShort: DEMO_FP.shortHash, validForDays: 30 });

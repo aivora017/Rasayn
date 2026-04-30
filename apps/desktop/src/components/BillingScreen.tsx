@@ -14,6 +14,7 @@ import {
   type Customer, type Prescription, type Tender, type UserDTO,
   type ExpiryOverrideResultDTO,
   type IrnRecordDTO,
+  productIngredientsListForProductsRpc,
 } from "../lib/ipc.js";
 import { renderInvoiceHtml, resolveLayout } from "@pharmacare/invoice-print";
 import BillingClinicalGuard, { type ClinicalBasketLine } from "./BillingClinicalGuard.js";
@@ -87,6 +88,7 @@ export function BillingScreen() {
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
   const [clinicalBlocked, setClinicalBlocked] = useState(false);
+  const [ingredientByProduct, setIngredientByProduct] = useState<Record<string, readonly string[]>>({});
   // A9 (ADR 0014) · F9 re-prints the most recently saved bill. Reset on F1.
   const [lastSavedBillId, setLastSavedBillId] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
@@ -280,6 +282,29 @@ export function BillingScreen() {
         mrpPaise: l.mrpPaise, qty: l.qty, gstRate: l.gstRate, discountPct: l.discountPct,
       }, treatment));
     return { taxed, totals: computeInvoice(taxed) };
+  }, [lines]);
+
+
+  // S16.2 — fetch product → ingredient mappings whenever the basket changes.
+  useEffect(() => {
+    const productIds = Array.from(new Set(lines.map((l) => l.productId).filter(Boolean) as string[]));
+    if (productIds.length === 0) { setIngredientByProduct({}); return; }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await productIngredientsListForProductsRpc(productIds);
+        if (cancelled) return;
+        const map: Record<string, string[]> = {};
+        for (const r of rows) {
+          if (!map[r.productId]) map[r.productId] = [];
+          map[r.productId]!.push(r.ingredientId);
+        }
+        setIngredientByProduct(map);
+      } catch {
+        // silent fall-through; guard will render with empty arrays
+      }
+    })();
+    return () => { cancelled = true; };
   }, [lines]);
 
   const canSave = !saving

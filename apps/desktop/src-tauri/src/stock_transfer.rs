@@ -146,13 +146,42 @@ pub fn stock_transfer_dispatch(
     transfer_id: String,
     state: State<'_, DbState>,
 ) -> Result<StockTransferRow, String> {
-    let c = state.0.lock().map_err(|e| e.to_string())?;
+    let mut c = state.0.lock().map_err(|e| e.to_string())?;
     let now = now_iso();
-    c.execute(
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let updated = tx.execute(
         "UPDATE stock_transfers SET status = 'in_transit', dispatched_at = ?1 \
          WHERE id = ?2 AND status = 'open'",
         params![now, transfer_id],
     ).map_err(|e| e.to_string())?;
+    if updated == 0 {
+        return Err("TRANSFER_NOT_OPEN_OR_NOT_FOUND".into());
+    }
+
+    // S16.1 reconciliation — write one transfer_out row per line.
+    {
+        let mut stmt = tx.prepare(
+            "SELECT id, product_id, batch_id, qty_dispatched FROM stock_transfer_lines \
+             WHERE transfer_id = ?1"
+        ).map_err(|e| e.to_string())?;
+        let rows: Vec<(String, String, String, f64)> = stmt
+            .query_map(params![transfer_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        drop(stmt);
+        for (line_id, product_id, batch_id, qty) in rows {
+            let mv_id = format!("mv_{line_id}_out");
+            tx.execute(
+                "INSERT OR IGNORE INTO stock_movements \
+                   (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, reason, created_at) \
+                 VALUES (?1, ?2, ?3, ?4, 'transfer_out', 'stock_transfer_lines', ?5, 'transfer dispatched', ?6)",
+                params![mv_id, batch_id, product_id, -qty, line_id, now],
+            ).map_err(|e| format!("INSERT_MOVEMENT: {e}"))?;
+        }
+    }
+
+    tx.commit().map_err(|e| format!("TX_COMMIT: {e}"))?;
     fetch_one(&c, &transfer_id).map_err(|e| e.to_string())?
         .ok_or_else(|| "TRANSFER_NOT_FOUND".into())
 }
@@ -181,6 +210,7 @@ pub fn stock_transfer_receive(
     let mut c = state.0.lock().map_err(|e| e.to_string())?;
     let now = now_iso();
     let tx = c.transaction().map_err(|e| e.to_string())?;
+
     for ln in &input.lines {
         tx.execute(
             "UPDATE stock_transfer_lines SET qty_received = ?1, variance_note = ?2 \
@@ -188,11 +218,34 @@ pub fn stock_transfer_receive(
             params![ln.qty_received, ln.variance_note, ln.line_id, input.transfer_id],
         ).map_err(|e| format!("UPDATE_LINE: {e}"))?;
     }
+
     tx.execute(
         "UPDATE stock_transfers SET status = 'received', received_at = ?1, received_by = ?2 \
          WHERE id = ?3 AND status IN ('open','in_transit')",
         params![now, input.received_by, input.transfer_id],
     ).map_err(|e| format!("UPDATE_HEADER: {e}"))?;
+
+    // S16.1 reconciliation — write one transfer_in row per line.
+    for ln in &input.lines {
+        if ln.qty_received <= 0.0 {
+            continue;
+        }
+        // Look up product_id / batch_id for the line.
+        let row: Option<(String, String)> = tx.query_row(
+            "SELECT product_id, batch_id FROM stock_transfer_lines WHERE id = ?1 AND transfer_id = ?2",
+            params![ln.line_id, input.transfer_id],
+            |r| Ok((r.get(0)?, r.get(1)?))
+        ).ok();
+        let Some((product_id, batch_id)) = row else { continue };
+        let mv_id = format!("mv_{}_in", ln.line_id);
+        tx.execute(
+            "INSERT OR IGNORE INTO stock_movements \
+               (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, reason, created_at) \
+             VALUES (?1, ?2, ?3, ?4, 'transfer_in', 'stock_transfer_lines', ?5, 'transfer received', ?6)",
+            params![mv_id, batch_id, product_id, ln.qty_received, ln.line_id, now],
+        ).map_err(|e| format!("INSERT_MOVEMENT: {e}"))?;
+    }
+
     tx.commit().map_err(|e| format!("TX_COMMIT: {e}"))?;
     fetch_one(&c, &input.transfer_id).map_err(|e| e.to_string())?
         .ok_or_else(|| "TRANSFER_NOT_FOUND".into())
@@ -203,12 +256,45 @@ pub fn stock_transfer_cancel(
     transfer_id: String,
     state: State<'_, DbState>,
 ) -> Result<StockTransferRow, String> {
-    let c = state.0.lock().map_err(|e| e.to_string())?;
-    c.execute(
+    let mut c = state.0.lock().map_err(|e| e.to_string())?;
+    let now = now_iso();
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+
+    // If it was in_transit, reverse the transfer_out movements before cancelling.
+    let was_in_transit: bool = tx.query_row(
+        "SELECT status FROM stock_transfers WHERE id = ?1",
+        params![transfer_id],
+        |r| Ok(r.get::<_, String>(0)? == "in_transit"),
+    ).unwrap_or(false);
+
+    if was_in_transit {
+        let mut stmt = tx.prepare(
+            "SELECT id, product_id, batch_id, qty_dispatched FROM stock_transfer_lines WHERE transfer_id = ?1"
+        ).map_err(|e| e.to_string())?;
+        let rows: Vec<(String, String, String, f64)> = stmt
+            .query_map(params![transfer_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        drop(stmt);
+        for (line_id, product_id, batch_id, qty) in rows {
+            let mv_id = format!("mv_{line_id}_cancel_in");
+            tx.execute(
+                "INSERT OR IGNORE INTO stock_movements \
+                   (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id, reason, created_at) \
+                 VALUES (?1, ?2, ?3, ?4, 'transfer_in', 'stock_transfer_lines', ?5, 'transfer cancelled', ?6)",
+                params![mv_id, batch_id, product_id, qty, line_id, now],
+            ).map_err(|e| format!("INSERT_REVERSAL: {e}"))?;
+        }
+    }
+
+    tx.execute(
         "UPDATE stock_transfers SET status = 'cancelled' \
          WHERE id = ?1 AND status IN ('open','in_transit')",
         params![transfer_id],
     ).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| format!("TX_COMMIT: {e}"))?;
     fetch_one(&c, &transfer_id).map_err(|e| e.to_string())?
         .ok_or_else(|| "TRANSFER_NOT_FOUND".into())
 }
