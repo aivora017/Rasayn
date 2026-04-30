@@ -115,14 +115,14 @@ mod tests {
     use crate::db::apply_migrations;
 
     fn seed_product(c: &Connection) {
-        // products.manufacturer is NOT NULL per migration 0001 — must be supplied.
-        // Schedule-H needs an image_sha256 (trigger trg_products_schedule_img_ins),
-        // so we set p_amox image to a dummy hash to satisfy that.
+        // products schema (migration 0001) requires:
+        //   name, manufacturer, hsn, gst_rate, schedule, pack_form, pack_size, mrp_paise (all NOT NULL).
+        // Schedule-H also needs image_sha256 (trigger trg_products_schedule_img_ins).
         c.execute_batch(
-            "INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, mrp_paise, created_at, is_active) \
-             VALUES ('p_para', 'Paracetamol 500mg', 'GSK', '30049011', 12, 'OTC', 200, '2026-01-01', 1);
-             INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, mrp_paise, image_sha256, created_at, is_active) \
-             VALUES ('p_amox', 'Amoxicillin 500mg', 'Cipla', '30041010', 12, 'H', 380, 'aa', '2026-01-01', 1);"
+            "INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, pack_form, pack_size, mrp_paise, created_at, is_active) \
+             VALUES ('p_para', 'Paracetamol 500mg', 'GSK', '30049011', 12, 'OTC', 'tab', 10, 200, '2026-01-01', 1);
+             INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, pack_form, pack_size, mrp_paise, image_sha256, created_at, is_active) \
+             VALUES ('p_amox', 'Amoxicillin 500mg', 'Cipla', '30041010', 12, 'H', 'cap', 10, 380, 'aa', '2026-01-01', 1);"
         ).unwrap();
     }
 
@@ -195,8 +195,4 @@ mod tests {
         c.execute("UPDATE products SET is_active = 0 WHERE id = 'p_para'", []).unwrap();
         let n: i64 = c.query_row(
             "SELECT count(*) FROM product_ingredients WHERE product_id = 'p_para'",
-            [], |r| r.get(0),
-        ).unwrap();
-        assert_eq!(n, 1, "soft-delete of product preserves ingredient mapping");
-    }
-}
+            [], |
