@@ -40,7 +40,6 @@ pub fn product_ingredients_list_for_products(
     }
     let c = state.0.lock().map_err(|e| e.to_string())?;
 
-    // Build a SQL IN clause with placeholders. Cap at 200 to keep SQLite happy.
     let cap = product_ids.len().min(200);
     let placeholders = (1..=cap).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
     let sql = format!(
@@ -108,4 +107,96 @@ pub fn product_ingredients_delete(
         "DELETE FROM product_ingredients WHERE product_id = ?1 AND ingredient_id = ?2",
         params![product_id, ingredient_id],
     ).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::Connection;
+    use crate::db::apply_migrations;
+
+    fn seed_product(c: &Connection) {
+        // products.manufacturer is NOT NULL per migration 0001 — must be supplied.
+        // Schedule-H needs an image_sha256 (trigger trg_products_schedule_img_ins),
+        // so we set p_amox image to a dummy hash to satisfy that.
+        c.execute_batch(
+            "INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, mrp_paise, created_at, is_active) \
+             VALUES ('p_para', 'Paracetamol 500mg', 'GSK', '30049011', 12, 'OTC', 200, '2026-01-01', 1);
+             INSERT INTO products (id, name, manufacturer, hsn, gst_rate, schedule, mrp_paise, image_sha256, created_at, is_active) \
+             VALUES ('p_amox', 'Amoxicillin 500mg', 'Cipla', '30041010', 12, 'H', 380, 'aa', '2026-01-01', 1);"
+        ).unwrap();
+    }
+
+    #[test]
+    fn migration_0042_creates_product_ingredients_table() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        let count: i64 = c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='product_ingredients'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn upsert_then_overwrite_via_on_conflict() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        seed_product(&c);
+        c.execute(
+            "INSERT INTO product_ingredients (id, product_id, ingredient_id, per_dose_mg, daily_mg) \
+             VALUES ('pi1', 'p_para', 'paracetamol', 500.0, 4000.0) \
+             ON CONFLICT(product_id, ingredient_id) DO UPDATE SET per_dose_mg = excluded.per_dose_mg",
+            [],
+        ).unwrap();
+        c.execute(
+            "INSERT INTO product_ingredients (id, product_id, ingredient_id, per_dose_mg, daily_mg) \
+             VALUES ('pi2', 'p_para', 'paracetamol', 650.0, 4000.0) \
+             ON CONFLICT(product_id, ingredient_id) DO UPDATE SET per_dose_mg = excluded.per_dose_mg",
+            [],
+        ).unwrap();
+        let dose: f64 = c.query_row(
+            "SELECT per_dose_mg FROM product_ingredients WHERE product_id='p_para' AND ingredient_id='paracetamol'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(dose, 650.0);
+        let row_count: i64 = c.query_row(
+            "SELECT count(*) FROM product_ingredients WHERE product_id='p_para'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(row_count, 1, "ON CONFLICT update must keep row count at 1");
+    }
+
+    #[test]
+    fn list_for_products_returns_only_matching() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        seed_product(&c);
+        c.execute_batch(
+            "INSERT INTO product_ingredients (id, product_id, ingredient_id) VALUES ('pi_p1', 'p_para', 'paracetamol');
+             INSERT INTO product_ingredients (id, product_id, ingredient_id) VALUES ('pi_a1', 'p_amox', 'amoxicillin');
+             INSERT INTO product_ingredients (id, product_id, ingredient_id) VALUES ('pi_a2', 'p_amox', 'penicillin');"
+        ).unwrap();
+        let n: i64 = c.query_row(
+            "SELECT count(*) FROM product_ingredients WHERE product_id = 'p_amox'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(n, 2);
+    }
+
+    #[test]
+    fn cascade_delete_when_product_removed() {
+        let c = Connection::open_in_memory().unwrap();
+        apply_migrations(&c).unwrap();
+        seed_product(&c);
+        c.execute(
+            "INSERT INTO product_ingredients (id, product_id, ingredient_id) VALUES ('pi1', 'p_para', 'paracetamol')",
+            [],
+        ).unwrap();
+        c.execute("UPDATE products SET is_active = 0 WHERE id = 'p_para'", []).unwrap();
+        let n: i64 = c.query_row(
+            "SELECT count(*) FROM product_ingredients WHERE product_id = 'p_para'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(n, 1, "soft-delete of product preserves ingredient mapping");
+    }
 }
