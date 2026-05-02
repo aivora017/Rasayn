@@ -1,14 +1,35 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import DPDPConsentScreen from "./DPDPConsentScreen";
 
+vi.mock("../lib/ipc.js", () => ({
+  dpdpListDsrRpc: vi.fn(async () => [
+    { id: "r1", customerId: "c1", kind: "access" as const, receivedAt: "2026-04-25T10:00:00Z", status: "received" as const },
+  ]),
+  dpdpListConsentsRpc: vi.fn(async () => []),
+  dpdpUpsertConsentRpc: vi.fn(async () => ({})),
+  dpdpOpenDsrRpc: vi.fn(async () => ({})),
+  dpdpUpdateDsrStatusRpc: vi.fn(async () => null),
+}));
+
 describe("DPDPConsentScreen", () => {
-  it("renders the scaffold header", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("renders the header", () => {
     render(<DPDPConsentScreen />);
-    expect(screen.getByRole("heading")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /DPDP Act/i })).toBeInTheDocument();
   });
 
-  it.skip("loads data from backing package once implemented", () => {
-    // implemented per ADR
+  it("loads open DSR requests on mount", async () => {
+    render(<DPDPConsentScreen />);
+    await waitFor(() => {
+      expect(screen.getByText("c1")).toBeInTheDocument();
+      expect(screen.getByText("access")).toBeInTheDocument();
+    });
+  });
+
+  it("shows the open-DSR form on the DSR tab", () => {
+    render(<DPDPConsentScreen />);
+    expect(screen.getByText(/Open new DSR/i)).toBeInTheDocument();
   });
 });

@@ -56,9 +56,9 @@ const DEFAULT: FeatureFlags = {
   cashShift: false, caExport: true, onboarding: true, migrationImport: true, dataExport: true,
   license: true, updateChecker: true, khata: false, doctorReport: false, loyalty: false, multiStateGstRoute: false,
   rbac: false, ddiAlerts: false, counseling: false, stockTransfer: false,
-  gst3bAndRecon: false, thermalEscPos: false, gs1DataMatrix: false, dpdp: false, abdm: false, pmbjp: false,
+  gst3bAndRecon: false, thermalEscPos: false, gs1DataMatrix: false, dpdp: true, abdm: false, pmbjp: false,
   ocrRx: false, cfdDisplay: false, copilot: false, demandForecast: false, fraudAlerts: false, inspectorMode: false,
-  multiStore: false, coldChain: false,
+  multiStore: false, coldChain: true,
   digitalTwin: false, arShelf: false, familyVault: false, pluginMarketplace: false,
   reorder: true, expiryDiscard: true, prescription: true, printerSettings: true, abdmConsents: true,
 };
