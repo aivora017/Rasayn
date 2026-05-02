@@ -8,7 +8,7 @@
   backup. Verifies SHA-256 if a sidecar .sha256 file is present.
 
 .PARAMETER Source
-  Path to the backup .sqlite file (or .sqlite.zst — auto-detected).
+  Path to the backup .sqlite file (or .sqlite.zst -- auto-detected).
 
 .PARAMETER Target
   Path where the restored DB should land. Existing target is moved
@@ -47,7 +47,7 @@ if (Test-Path $sidecar) {
   }
   Write-Host "[ok] SHA-256 verified."
 } else {
-  Write-Warning "No sidecar .sha256 found — proceeding without verification."
+  Write-Warning "No sidecar .sha256 found -- proceeding without verification."
 }
 
 $timestamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
