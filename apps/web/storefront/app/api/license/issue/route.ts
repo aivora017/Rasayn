@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { issueLicense, type SignedLicenseKey } from "@pharmacare/license";
+import { getLicenseStore, type IssuedLicenseRecord } from "../../../../lib/license-store";
 
 interface IssueRequest {
   readonly razorpay_payment_id: string;
@@ -39,8 +40,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     validForDays,
   });
 
-  // 3. TODO: persist (license_key, email, shopName, payment_id) to your DB
-  // 4. TODO: email the licence key to body.email
+  // 3. Persist the issued record (idempotent on razorpay_payment_id).
+  const issuedAt = new Date().toISOString();
+  const validUntil = new Date(Date.now() + validForDays * 86400_000).toISOString();
+  const record: IssuedLicenseRecord = {
+    licenseKey: license.raw,
+    tier: body.tier,
+    email: body.email,
+    shopName: body.shopName,
+    shopFingerprintShort: fp,
+    issuedAt,
+    validUntil,
+    razorpayOrderId: body.razorpay_order_id,
+    razorpayPaymentId: body.razorpay_payment_id,
+  };
+  try {
+    await getLicenseStore().append(record);
+  } catch (e) {
+    // Don't block the customer's purchase on persistence failure — log it
+    // and let the admin reconcile from Razorpay later. The license has
+    // already been signed and is valid offline.
+    console.error("[license/issue] persistence failed:", e);
+  }
+
+  // 4. TODO: email the licence key to body.email (S22).
 
   return NextResponse.json({ licenseKey: license.raw, parts: license.parts });
 }
