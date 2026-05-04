@@ -19,9 +19,9 @@ vi.mock("../lib/ipc.js", () => ({
 describe("MultiStoreScreen", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders the header", () => {
+  it("renders the header", async () => {
     render(<MultiStoreScreen />);
-    expect(screen.getByRole("heading", { name: /Multi-Store Inventory/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Multi-Store Inventory/i })).toBeInTheDocument();
   });
 
   it("loads shop summary on mount and rolls up totals", async () => {

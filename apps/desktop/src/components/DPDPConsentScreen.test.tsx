@@ -15,9 +15,9 @@ vi.mock("../lib/ipc.js", () => ({
 describe("DPDPConsentScreen", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders the header", () => {
+  it("renders the header", async () => {
     render(<DPDPConsentScreen />);
-    expect(screen.getByRole("heading", { name: /DPDP Act/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /DPDP Act/i })).toBeInTheDocument();
   });
 
   it("loads open DSR requests on mount", async () => {
@@ -28,8 +28,8 @@ describe("DPDPConsentScreen", () => {
     });
   });
 
-  it("shows the open-DSR form on the DSR tab", () => {
+  it("shows the open-DSR form on the DSR tab", async () => {
     render(<DPDPConsentScreen />);
-    expect(screen.getByText(/Open new DSR/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Open new DSR/i)).toBeInTheDocument();
   });
 });

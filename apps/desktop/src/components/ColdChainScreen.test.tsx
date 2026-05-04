@@ -15,9 +15,9 @@ vi.mock("../lib/ipc.js", () => ({
 describe("ColdChainScreen", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders the header", () => {
+  it("renders the header", async () => {
     render(<ColdChainScreen />);
-    expect(screen.getByRole("heading", { name: /Cold-Chain/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Cold-Chain/i })).toBeInTheDocument();
   });
 
   it("loads paired sensors on mount", async () => {
