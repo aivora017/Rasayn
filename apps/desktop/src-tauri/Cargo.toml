@@ -43,3 +43,17 @@ custom-protocol = ["tauri/custom-protocol"]
 # vendor contract closes. Build via: cargo build --features cygnet-live
 cygnet-live = []
 cleartax-live = []
+
+# --- Perf harness (ADR 0067) ---------------------------------------------
+# criterion drives the cold_start + bill_save benches under benches/.
+# Kept in [dev-dependencies] so it never reaches the shipped binary.
+[dev-dependencies.criterion]
+version = "0.5"
+
+[[bench]]
+name = "cold_start"
+harness = false
+
+[[bench]]
+name = "bill_save"
+harness = false
