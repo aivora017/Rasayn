@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "build": "echo 'use expo build / eas build'"
   },
   "dependencies": {

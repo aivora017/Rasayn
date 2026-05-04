@@ -1,4 +1,5 @@
-// cold_chain.rs — BLE-temp sensor logging + excursion alerts.
+#![allow(dead_code)] // S25 will wire ColdChainReading into BLE event stream
+// cold_chain.rs â€” BLE-temp sensor logging + excursion alerts.
 // Migration 0030. Pairs with @pharmacare/cold-chain (alert state machine).
 
 use crate::db::DbState;
