@@ -1,12 +1,13 @@
-//! photo_grn_tiers.rs — pluggable A→B→C orchestrator for X3 photo-of-paper-bill → GRN.
+#![allow(dead_code)] // orchestrator stays private until S25 model bundle wires Tier-B/C
+//! photo_grn_tiers.rs â€” pluggable Aâ†’Bâ†’C orchestrator for X3 photo-of-paper-bill â†’ GRN.
 //!
 //! ADR-0068 (extends ADR-0024). This module defines the stable trait + result
 //! shape that survives from S23a forward. Real model wiring is deferred:
-//!   - Tier-A (regex) — stub here in S23a; bridges to `photo_grn` in S24.
-//!   - Tier-B (LayoutLMv3 / Donut) — stub; real impl in S25.
-//!   - Tier-C (vision-LLM fallback) — stub; real impl in S25.
+//!   - Tier-A (regex) â€” stub here in S23a; bridges to `photo_grn` in S24.
+//!   - Tier-B (LayoutLMv3 / Donut) â€” stub; real impl in S25.
+//!   - Tier-C (vision-LLM fallback) â€” stub; real impl in S25.
 //!
-//! Per playbook §12 hard rule: every AI feature must have a non-AI fallback.
+//! Per playbook Â§12 hard rule: every AI feature must have a non-AI fallback.
 //! The orchestrator therefore *never* panics and always returns an
 //! `ExtractionResult`, even one with `tier_used = "none"` and empty `lines`.
 
@@ -31,13 +32,13 @@ pub struct ExtractionResult {
 }
 
 /// Stable extractor trait. Each tier implements this; the orchestrator
-/// composes them in fixed A→B→C order.
+/// composes them in fixed Aâ†’Bâ†’C order.
 pub trait PhotoGrnTier {
     fn name(&self) -> &'static str;
     fn extract(&self, image_path: &str) -> Result<Vec<ExtractedLine>, String>;
 }
 
-// ---------------- Tier A — on-device regex (existing photo_grn module) -----
+// ---------------- Tier A â€” on-device regex (existing photo_grn module) -----
 
 pub struct TierAExtractor;
 
@@ -54,7 +55,7 @@ impl PhotoGrnTier for TierAExtractor {
     }
 }
 
-// ---------------- Tier B — layout-aware OCR (LayoutLMv3 / Donut) -----------
+// ---------------- Tier B â€” layout-aware OCR (LayoutLMv3 / Donut) -----------
 
 pub struct TierBExtractor;
 
@@ -68,7 +69,7 @@ impl PhotoGrnTier for TierBExtractor {
     }
 }
 
-// ---------------- Tier C — vision-LLM fallback ----------------------------
+// ---------------- Tier C â€” vision-LLM fallback ----------------------------
 
 pub struct TierCExtractor;
 
@@ -84,14 +85,14 @@ impl PhotoGrnTier for TierCExtractor {
 
 // ---------------- Orchestrator --------------------------------------------
 
-/// Run A → B → C until one tier returns at least one usable line.
+/// Run A â†’ B â†’ C until one tier returns at least one usable line.
 ///
-/// Acceptance per ADR-0068 §Decision: a tier "succeeds" when it returns
+/// Acceptance per ADR-0068 Â§Decision: a tier "succeeds" when it returns
 /// `Ok` with `len() >= 1`. Empty `Ok(vec![])` is treated as a soft miss
 /// and we fall through to the next tier (this is what makes the
-/// non-AI fallback robust — Tier-A returning zero hits is not an error).
+/// non-AI fallback robust â€” Tier-A returning zero hits is not an error).
 ///
-/// Confidence thresholding (≥0.6 average) is enforced in S25 once Tier-B/C
+/// Confidence thresholding (â‰¥0.6 average) is enforced in S25 once Tier-B/C
 /// produce real confidence scores; the trait already carries the field so
 /// no signature change is needed.
 pub fn extract_with_fallback(image_path: &str) -> ExtractionResult {
@@ -113,7 +114,7 @@ pub fn extract_with_fallback(image_path: &str) -> ExtractionResult {
                 };
             }
             Ok(_) => {
-                // Soft miss — record nothing, try next tier.
+                // Soft miss â€” record nothing, try next tier.
                 continue;
             }
             Err(e) => {
