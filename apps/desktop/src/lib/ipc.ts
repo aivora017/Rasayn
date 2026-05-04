@@ -473,6 +473,29 @@ export interface WhatsAppOutboxRowDTO {
   readonly updatedAt: string;
 }
 
+// ─── Multi-shop inventory (S22a) ─────────────────────────────────────────
+export interface ShopRowDTO {
+  readonly id: string;
+  readonly name: string;
+}
+export interface ShopStockRowDTO {
+  readonly shopId: string;
+  readonly shopName: string;
+  readonly productId: string;
+  readonly productName: string;
+  readonly batchId: string;
+  readonly batchNo: string;
+  readonly expiryDate: string;
+  readonly qtyOnHand: number;
+}
+export interface ShopSummaryRowDTO {
+  readonly shopId: string;
+  readonly shopName: string;
+  readonly productCount: number;
+  readonly batchCount: number;
+  readonly totalUnits: number;
+}
+
 export type IpcCall =
   | { cmd: "health_check"; args: Record<string, never> }
   | { cmd: "db_version"; args: Record<string, never> }
@@ -600,7 +623,10 @@ export type IpcCall =
   | { cmd: "dpdp_list_consents"; args: { customerId: string } }
   | { cmd: "dpdp_open_dsr"; args: { input: DpdpOpenDsrInputDTO } }
   | { cmd: "dpdp_update_dsr_status"; args: { input: DpdpUpdateDsrStatusInputDTO } }
-  | { cmd: "dpdp_list_dsr"; args: { openOnly?: boolean; limit?: number } };
+  | { cmd: "dpdp_list_dsr"; args: { openOnly?: boolean; limit?: number } }
+  | { cmd: "shops_list"; args: Record<string, never> }
+  | { cmd: "batches_list_by_shop"; args: { shopId: string; limit?: number } }
+  | { cmd: "shops_inventory_summary"; args: Record<string, never> };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -2073,4 +2099,15 @@ export async function dpdpUpdateDsrStatusRpc(input: DpdpUpdateDsrStatusInputDTO)
 }
 export async function dpdpListDsrRpc(args: { openOnly?: boolean; limit?: number } = {}): Promise<readonly DpdpDsrRequestDTO[]> {
   return (await handler({ cmd: "dpdp_list_dsr", args })) as readonly DpdpDsrRequestDTO[];
+}
+
+// ─── Multi-shop inventory RPCs (S22a) ────────────────────────────────────
+export async function shopsListRpc(): Promise<readonly ShopRowDTO[]> {
+  return (await handler({ cmd: "shops_list", args: {} })) as readonly ShopRowDTO[];
+}
+export async function batchesListByShopRpc(args: { shopId: string; limit?: number }): Promise<readonly ShopStockRowDTO[]> {
+  return (await handler({ cmd: "batches_list_by_shop", args })) as readonly ShopStockRowDTO[];
+}
+export async function shopsInventorySummaryRpc(): Promise<readonly ShopSummaryRowDTO[]> {
+  return (await handler({ cmd: "shops_inventory_summary", args: {} })) as readonly ShopSummaryRowDTO[];
 }
