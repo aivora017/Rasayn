@@ -13,6 +13,10 @@
     "./tokens.css": {
       "import": "./src/tokens.css",
       "default": "./src/tokens.css"
+    },
+    "./tailwind.css": {
+      "import": "./src/tailwind.css",
+      "default": "./src/tailwind.css"
     }
   },
   "files": [
