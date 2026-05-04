@@ -13,6 +13,7 @@ interface IssueRequest {
   readonly shopName: string;
   readonly email: string;
   readonly shopFingerprintShort?: string;
+  readonly lang?: "en" | "hi" | "mr";
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         tier: body.tier,
         shopName: body.shopName,
         validUntil,
+        ...(body.lang ? { lang: body.lang } : {}),
       });
       if (!r.ok) console.error("[license/issue] email failed:", r.error);
     } catch (e) {
