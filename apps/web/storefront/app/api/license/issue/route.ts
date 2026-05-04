@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { issueLicense, type SignedLicenseKey } from "@pharmacare/license";
 import { getLicenseStore, type IssuedLicenseRecord } from "../../../../lib/license-store";
+import { sendLicenseKeyEmail } from "../../../../lib/email";
 
 interface IssueRequest {
   readonly razorpay_payment_id: string;
@@ -11,9 +12,6 @@ interface IssueRequest {
   readonly tier: "starter" | "pro";
   readonly shopName: string;
   readonly email: string;
-  /** Optional — caller passes in shop hardware fingerprint at activation
-   *  time. If absent, licence is "unbound" and validates against any FP for
-   *  first 60 days (grace period). */
   readonly shopFingerprintShort?: string;
 }
 
@@ -33,14 +31,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // 2. Issue licence key
   const validForDays = body.tier === "starter" ? 365 : body.tier === "pro" ? 30 : 30;
-  const fp = body.shopFingerprintShort ?? "000000";   // unbound until first activation
+  const fp = body.shopFingerprintShort ?? "000000";
   const license: SignedLicenseKey = issueLicense({
     preset: body.tier,
     shopFingerprintShort: fp,
     validForDays,
   });
 
-  // 3. Persist the issued record (idempotent on razorpay_payment_id).
+  // 3. Persist (idempotent on razorpay_payment_id)
   const issuedAt = new Date().toISOString();
   const validUntil = new Date(Date.now() + validForDays * 86400_000).toISOString();
   const record: IssuedLicenseRecord = {
@@ -57,13 +55,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     await getLicenseStore().append(record);
   } catch (e) {
-    // Don't block the customer's purchase on persistence failure — log it
-    // and let the admin reconcile from Razorpay later. The license has
-    // already been signed and is valid offline.
     console.error("[license/issue] persistence failed:", e);
   }
 
-  // 4. TODO: email the licence key to body.email (S22).
+  // 4. Email the licence key (best-effort, non-blocking).
+  void (async () => {
+    try {
+      const r = await sendLicenseKeyEmail({
+        to: body.email,
+        licenseKey: license.raw,
+        tier: body.tier,
+        shopName: body.shopName,
+        validUntil,
+      });
+      if (!r.ok) console.error("[license/issue] email failed:", r.error);
+    } catch (e) {
+      console.error("[license/issue] email throw:", e);
+    }
+  })();
 
   return NextResponse.json({ licenseKey: license.raw, parts: license.parts });
 }
