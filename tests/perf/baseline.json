@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "captured_at": null,
+  "captured_on_machine": null,
+  "git_sha": null,
+  "metrics": {
+    "cold_start_ms": {
+      "p50": null,
+      "p95": null,
+      "budget_ms": 1500,
+      "sla_origin": "Section 10 GA gate (3000ms total cold-start; migrations get 1500ms, UI gets 1500ms)"
+    },
+    "bill_save_ms": {
+      "p50": null,
+      "p95": null,
+      "budget_ms": 400,
+      "sla_origin": "Section 10 GA gate (p95 bill save under 400ms)"
+    }
+  },
+  "notes": "First real measurement scheduled for S25 on the Lenovo i3-8100 / 4GB RAM reference rig at Jagannath Pharmacy (the Kalyan pilot shop). Run scripts/perf/run-perf.ps1 to populate."
+}
