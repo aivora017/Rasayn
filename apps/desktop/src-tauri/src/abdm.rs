@@ -128,7 +128,8 @@ pub fn abdm_revoke_consent(
     c.execute(
         "UPDATE abha_profiles SET consent_token_encrypted = NULL WHERE customer_id = ?1",
         params![customer_id],
-    ).map_err(|e| e.to_string())
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -146,18 +147,33 @@ pub fn abdm_log_dispensation(
            status = excluded.status, \
            error = excluded.error, \
            pushed_at = datetime('now')",
-        params![input.bill_id, input.abha_number, input.fhir_payload_json,
-                input.uhi_event_id, input.status, input.error],
-    ).map_err(|e| e.to_string())?;
+        params![
+            input.bill_id,
+            input.abha_number,
+            input.fhir_payload_json,
+            input.uhi_event_id,
+            input.status,
+            input.error
+        ],
+    )
+    .map_err(|e| e.to_string())?;
     c.query_row(
         "SELECT bill_id, abha_number, fhir_payload_json, uhi_event_id, pushed_at, status, error \
          FROM abdm_dispensations WHERE bill_id = ?1",
         params![input.bill_id],
-        |r| Ok(AbdmDispensation {
-            bill_id: r.get(0)?, abha_number: r.get(1)?, fhir_payload_json: r.get(2)?,
-            uhi_event_id: r.get(3)?, pushed_at: r.get(4)?, status: r.get(5)?, error: r.get(6)?,
-        }),
-    ).map_err(|e| e.to_string())
+        |r| {
+            Ok(AbdmDispensation {
+                bill_id: r.get(0)?,
+                abha_number: r.get(1)?,
+                fhir_payload_json: r.get(2)?,
+                uhi_event_id: r.get(3)?,
+                pushed_at: r.get(4)?,
+                status: r.get(5)?,
+                error: r.get(6)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -170,8 +186,13 @@ pub fn abdm_list_dispensations(
     let lim = limit.unwrap_or(50).clamp(1, 500);
     let map = |r: &rusqlite::Row<'_>| -> rusqlite::Result<AbdmDispensation> {
         Ok(AbdmDispensation {
-            bill_id: r.get(0)?, abha_number: r.get(1)?, fhir_payload_json: r.get(2)?,
-            uhi_event_id: r.get(3)?, pushed_at: r.get(4)?, status: r.get(5)?, error: r.get(6)?,
+            bill_id: r.get(0)?,
+            abha_number: r.get(1)?,
+            fhir_payload_json: r.get(2)?,
+            uhi_event_id: r.get(3)?,
+            pushed_at: r.get(4)?,
+            status: r.get(5)?,
+            error: r.get(6)?,
         })
     };
     let rows: Vec<AbdmDispensation> = if let Some(a) = abha_number {
@@ -179,7 +200,8 @@ pub fn abdm_list_dispensations(
             "SELECT bill_id, abha_number, fhir_payload_json, uhi_event_id, pushed_at, status, error \
              FROM abdm_dispensations WHERE abha_number = ?1 ORDER BY pushed_at DESC LIMIT ?2"
         ).map_err(|e| e.to_string())?;
-        let collected = stmt.query_map(params![a, lim], map)
+        let collected = stmt
+            .query_map(params![a, lim], map)
             .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?;
@@ -189,7 +211,8 @@ pub fn abdm_list_dispensations(
             "SELECT bill_id, abha_number, fhir_payload_json, uhi_event_id, pushed_at, status, error \
              FROM abdm_dispensations ORDER BY pushed_at DESC LIMIT ?1"
         ).map_err(|e| e.to_string())?;
-        let collected = stmt.query_map(params![lim], map)
+        let collected = stmt
+            .query_map(params![lim], map)
             .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?;
@@ -201,8 +224,8 @@ pub fn abdm_list_dispensations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::Connection;
     use crate::db::apply_migrations;
+    use rusqlite::Connection;
 
     fn seed_customer(c: &Connection) {
         c.execute_batch(
@@ -216,10 +239,13 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         apply_migrations(&c).unwrap();
         for tbl in ["abha_profiles", "abdm_dispensations"] {
-            let n: i64 = c.query_row(
-                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
-                params![tbl], |r| r.get(0),
-            ).unwrap();
+            let n: i64 = c
+                .query_row(
+                    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                    params![tbl],
+                    |r| r.get(0),
+                )
+                .unwrap();
             assert_eq!(n, 1, "table {tbl} missing");
         }
     }
@@ -233,11 +259,15 @@ mod tests {
             "INSERT INTO abha_profiles (customer_id, abha_number, name, verified_at) \
              VALUES ('c1', '12-3456-7890-1234', 'Priya Sharma', '2026-04-29T10:00:00Z')",
             [],
-        ).unwrap();
-        let row: (String, String) = c.query_row(
-            "SELECT abha_number, name FROM abha_profiles WHERE customer_id = 'c1'",
-            [], |r| Ok((r.get(0)?, r.get(1)?)),
-        ).unwrap();
+        )
+        .unwrap();
+        let row: (String, String) = c
+            .query_row(
+                "SELECT abha_number, name FROM abha_profiles WHERE customer_id = 'c1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
         assert_eq!(row.0, "12-3456-7890-1234");
         assert_eq!(row.1, "Priya Sharma");
     }

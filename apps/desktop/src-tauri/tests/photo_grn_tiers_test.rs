@@ -88,4 +88,3 @@ fn extraction_result_carries_tier_used_field() {
     assert_eq!(result.lines[0].mrp_paise, Some(1500));
     assert!((result.lines[0].confidence - 0.92).abs() < 1e-6);
 }
-

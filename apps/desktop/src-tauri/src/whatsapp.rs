@@ -50,7 +50,10 @@ fn now_iso() -> String {
 }
 
 #[tauri::command]
-pub fn whatsapp_enqueue(input: EnqueueInput, state: State<'_, DbState>) -> Result<WhatsAppOutboxRow, String> {
+pub fn whatsapp_enqueue(
+    input: EnqueueInput,
+    state: State<'_, DbState>,
+) -> Result<WhatsAppOutboxRow, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let now = now_iso();
     c.execute(
@@ -63,7 +66,8 @@ pub fn whatsapp_enqueue(input: EnqueueInput, state: State<'_, DbState>) -> Resul
         ],
     ).map_err(|e| e.to_string())?;
 
-    fetch_one(&c, &input.id).map_err(|e| e.to_string())?
+    fetch_one(&c, &input.id)
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| "INSERT_LOST".into())
 }
 
@@ -76,8 +80,14 @@ pub fn whatsapp_list(
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let lim = limit.unwrap_or(50).clamp(1, 500);
     let (sql, used_status) = match status {
-        Some(s) => ("SELECT * FROM whatsapp_outbox WHERE status = ?1 ORDER BY created_at DESC LIMIT ?2", Some(s)),
-        None    => ("SELECT * FROM whatsapp_outbox ORDER BY created_at DESC LIMIT ?2", None),
+        Some(s) => (
+            "SELECT * FROM whatsapp_outbox WHERE status = ?1 ORDER BY created_at DESC LIMIT ?2",
+            Some(s),
+        ),
+        None => (
+            "SELECT * FROM whatsapp_outbox ORDER BY created_at DESC LIMIT ?2",
+            None,
+        ),
     };
     let mut stmt = c.prepare(sql).map_err(|e| e.to_string())?;
     let map = |r: &rusqlite::Row<'_>| -> rusqlite::Result<WhatsAppOutboxRow> {
@@ -99,9 +109,13 @@ pub fn whatsapp_list(
         })
     };
     let rows = if let Some(s) = used_status {
-        stmt.query_map(params![s, lim], map).map_err(|e| e.to_string())?.collect::<Vec<_>>()
+        stmt.query_map(params![s, lim], map)
+            .map_err(|e| e.to_string())?
+            .collect::<Vec<_>>()
     } else {
-        stmt.query_map(params![lim], map).map_err(|e| e.to_string())?.collect::<Vec<_>>()
+        stmt.query_map(params![lim], map)
+            .map_err(|e| e.to_string())?
+            .collect::<Vec<_>>()
     };
     let mut out = Vec::new();
     for r in rows {
@@ -124,7 +138,8 @@ pub fn whatsapp_mark_sent(
             attempts = attempts + 1, last_attempt_at = ?2, updated_at = ?2 \
          WHERE id = ?3",
         params![provider_message_id, now, id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -144,21 +159,20 @@ pub fn whatsapp_mark_failed(
             next_attempt_at = ?3, updated_at = ?2 \
          WHERE id = ?4",
         params![error_reason, now, next_attempt_at, id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn whatsapp_mark_delivered(
-    id: String,
-    state: State<'_, DbState>,
-) -> Result<(), String> {
+pub fn whatsapp_mark_delivered(id: String, state: State<'_, DbState>) -> Result<(), String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let now = now_iso();
     c.execute(
         "UPDATE whatsapp_outbox SET status = 'delivered', updated_at = ?1 WHERE id = ?2",
         params![now, id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -187,5 +201,6 @@ fn fetch_one(c: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<What
                 updated_at: r.get(13)?,
             })
         },
-    ).optional()
+    )
+    .optional()
 }

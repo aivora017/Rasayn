@@ -205,7 +205,10 @@ pub fn khata_set_limit(
         customer_id: customer_id.clone(),
         credit_limit_paise,
         current_due_paise: existing.as_ref().map(|l| l.current_due_paise).unwrap_or(0),
-        default_risk_score: existing.as_ref().map(|l| l.default_risk_score).unwrap_or(0.0),
+        default_risk_score: existing
+            .as_ref()
+            .map(|l| l.default_risk_score)
+            .unwrap_or(0.0),
         updated_at: now_iso(),
     };
     upsert_limit(&c, &new).map_err(|e| e.to_string())?;
@@ -244,7 +247,10 @@ pub fn khata_aging(
     for row in rows {
         let (ca, d, cr) = row.map_err(|e| e.to_string())?;
         if d > 0 {
-            debits.push(Row { created_at: ca, debit: d });
+            debits.push(Row {
+                created_at: ca,
+                debit: d,
+            });
         } else if cr > 0 {
             credit_pool = credit_pool.saturating_add(cr);
         }
@@ -332,7 +338,10 @@ pub fn khata_record_purchase(
     let actor = resolve_actor(&c, &customer_id)?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let limit_opt = fetch_limit(&tx, &customer_id).map_err(|e| e.to_string())?;
-    let limit_paise = limit_opt.as_ref().map(|l| l.credit_limit_paise).unwrap_or(0);
+    let limit_paise = limit_opt
+        .as_ref()
+        .map(|l| l.credit_limit_paise)
+        .unwrap_or(0);
     let current_due = limit_opt.as_ref().map(|l| l.current_due_paise).unwrap_or(0);
     let would_owe = current_due + amount_paise;
     if would_owe > limit_paise {
@@ -372,7 +381,10 @@ pub fn khata_record_purchase(
         customer_id: customer_id.clone(),
         credit_limit_paise: limit_paise,
         current_due_paise: would_owe,
-        default_risk_score: limit_opt.as_ref().map(|l| l.default_risk_score).unwrap_or(0.0),
+        default_risk_score: limit_opt
+            .as_ref()
+            .map(|l| l.default_risk_score)
+            .unwrap_or(0.0),
         updated_at: now_iso(),
     };
     upsert_limit(&tx, &new_lim).map_err(|e| e.to_string())?;
@@ -395,7 +407,10 @@ pub fn khata_record_payment(
     let actor = resolve_actor(&c, &customer_id)?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let limit_opt = fetch_limit(&tx, &customer_id).map_err(|e| e.to_string())?;
-    let limit_paise = limit_opt.as_ref().map(|l| l.credit_limit_paise).unwrap_or(0);
+    let limit_paise = limit_opt
+        .as_ref()
+        .map(|l| l.credit_limit_paise)
+        .unwrap_or(0);
     let current_due = limit_opt.as_ref().map(|l| l.current_due_paise).unwrap_or(0);
     let new_due = (current_due - amount_paise).max(0);
 
@@ -429,7 +444,10 @@ pub fn khata_record_payment(
         customer_id: customer_id.clone(),
         credit_limit_paise: limit_paise,
         current_due_paise: new_due,
-        default_risk_score: limit_opt.as_ref().map(|l| l.default_risk_score).unwrap_or(0.0),
+        default_risk_score: limit_opt
+            .as_ref()
+            .map(|l| l.default_risk_score)
+            .unwrap_or(0.0),
         updated_at: now_iso(),
     };
     upsert_limit(&tx, &new_lim).map_err(|e| e.to_string())?;

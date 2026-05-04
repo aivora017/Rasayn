@@ -86,17 +86,33 @@ pub fn cold_chain_upsert_sensor(
             label = excluded.label, \
             min_safe_c = excluded.min_safe_c, \
             max_safe_c = excluded.max_safe_c",
-        params![input.id, input.shop_id, input.ble_mac, input.label, min_c, max_c],
-    ).map_err(|e| e.to_string())?;
+        params![
+            input.id,
+            input.shop_id,
+            input.ble_mac,
+            input.label,
+            min_c,
+            max_c
+        ],
+    )
+    .map_err(|e| e.to_string())?;
     c.query_row(
         "SELECT id, shop_id, ble_mac, label, min_safe_c, max_safe_c, installed_at \
          FROM cold_chain_sensors WHERE ble_mac = ?1",
         params![input.ble_mac],
-        |r| Ok(ColdChainSensor {
-            id: r.get(0)?, shop_id: r.get(1)?, ble_mac: r.get(2)?, label: r.get(3)?,
-            min_safe_c: r.get(4)?, max_safe_c: r.get(5)?, installed_at: r.get(6)?,
-        }),
-    ).map_err(|e| e.to_string())
+        |r| {
+            Ok(ColdChainSensor {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                ble_mac: r.get(2)?,
+                label: r.get(3)?,
+                min_safe_c: r.get(4)?,
+                max_safe_c: r.get(5)?,
+                installed_at: r.get(6)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -105,17 +121,27 @@ pub fn cold_chain_list_sensors(
     state: State<'_, DbState>,
 ) -> Result<Vec<ColdChainSensor>, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = c.prepare(
-        "SELECT id, shop_id, ble_mac, label, min_safe_c, max_safe_c, installed_at \
-         FROM cold_chain_sensors WHERE shop_id = ?1 ORDER BY installed_at DESC"
-    ).map_err(|e| e.to_string())?;
-    let rows: Vec<ColdChainSensor> = stmt.query_map(params![shop_id], |r| {
-        Ok(ColdChainSensor {
-            id: r.get(0)?, shop_id: r.get(1)?, ble_mac: r.get(2)?, label: r.get(3)?,
-            min_safe_c: r.get(4)?, max_safe_c: r.get(5)?, installed_at: r.get(6)?,
+    let mut stmt = c
+        .prepare(
+            "SELECT id, shop_id, ble_mac, label, min_safe_c, max_safe_c, installed_at \
+         FROM cold_chain_sensors WHERE shop_id = ?1 ORDER BY installed_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<ColdChainSensor> = stmt
+        .query_map(params![shop_id], |r| {
+            Ok(ColdChainSensor {
+                id: r.get(0)?,
+                shop_id: r.get(1)?,
+                ble_mac: r.get(2)?,
+                label: r.get(3)?,
+                min_safe_c: r.get(4)?,
+                max_safe_c: r.get(5)?,
+                installed_at: r.get(6)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-       .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(rows)
 }
 
@@ -129,7 +155,8 @@ pub fn cold_chain_log_reading(
     c.execute(
         "INSERT INTO cold_chain_readings (sensor_id, temp_c, recorded_at) VALUES (?1, ?2, ?3)",
         params![input.sensor_id, input.temp_c, recorded],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(c.last_insert_rowid())
 }
 
@@ -145,10 +172,15 @@ pub fn cold_chain_list_excursions(
     let only_open = open_only.unwrap_or(false);
     let map = |r: &rusqlite::Row<'_>| -> rusqlite::Result<ColdChainExcursion> {
         Ok(ColdChainExcursion {
-            id: r.get(0)?, sensor_id: r.get(1)?, batch_id: r.get(2)?,
-            excursion_start: r.get(3)?, excursion_end: r.get(4)?,
-            min_temp_c: r.get(5)?, max_temp_c: r.get(6)?,
-            minutes_outside: r.get(7)?, aefi_filed: r.get(8)?,
+            id: r.get(0)?,
+            sensor_id: r.get(1)?,
+            batch_id: r.get(2)?,
+            excursion_start: r.get(3)?,
+            excursion_end: r.get(4)?,
+            min_temp_c: r.get(5)?,
+            max_temp_c: r.get(6)?,
+            minutes_outside: r.get(7)?,
+            aefi_filed: r.get(8)?,
             notes: r.get(9)?,
         })
     };
@@ -183,7 +215,11 @@ pub fn cold_chain_close_excursion(
 ) -> Result<Option<ColdChainExcursion>, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let now = now_iso();
-    let aefi = if aefi_filed.unwrap_or(false) { 1i64 } else { 0i64 };
+    let aefi = if aefi_filed.unwrap_or(false) {
+        1i64
+    } else {
+        0i64
+    };
     c.execute(
         "UPDATE cold_chain_excursions SET excursion_end = ?1, notes = COALESCE(?2, notes), aefi_filed = ?3 WHERE id = ?4",
         params![now, notes, aefi, excursion_id],

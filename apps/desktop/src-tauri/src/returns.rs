@@ -162,8 +162,12 @@ pub fn save_partial_return(
     let mut c = state.0.lock().map_err(|e| e.to_string())?;
 
     // ADR-0030 idempotency: check before doing any work.
-    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
-        if let Some(cached) = crate::idempotency::check(&c, token, "save_partial_return", req_hash)? {
+    if let (Some(token), Some(req_hash)) = (
+        input.idempotency_token.as_deref(),
+        input.request_hash.as_deref(),
+    ) {
+        if let Some(cached) = crate::idempotency::check(&c, token, "save_partial_return", req_hash)?
+        {
             let r: SavePartialReturnResult = serde_json::from_str(&cached)
                 .map_err(|e| format!("idempotency replay decode: {e}"))?;
             return Ok(r);
@@ -533,7 +537,10 @@ pub fn save_partial_return_impl(
     };
 
     // ADR-0030 idempotency record inside the same tx.
-    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+    if let (Some(token), Some(req_hash)) = (
+        input.idempotency_token.as_deref(),
+        input.request_hash.as_deref(),
+    ) {
         let response_json = serde_json::to_string(&result)
             .map_err(|e| format!("idempotency record encode: {e}"))?;
         tx.execute(

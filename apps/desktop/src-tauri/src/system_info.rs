@@ -15,8 +15,8 @@ use std::process::Command;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemFingerprint {
-    pub full_hash: String,    // 64-char hex
-    pub short_hash: String,   // 6-char hex (first 24 bits)
+    pub full_hash: String,  // 64-char hex
+    pub short_hash: String, // 6-char hex (first 24 bits)
     pub cpu_token: String,
     pub mac_token: String,
     pub disk_token: String,
@@ -33,9 +33,7 @@ fn run_ps(script: &str) -> String {
 }
 
 fn run_sh(cmd: &str) -> String {
-    let out = Command::new("sh")
-        .args(["-c", cmd])
-        .output();
+    let out = Command::new("sh").args(["-c", cmd]).output();
     match out {
         Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
         Err(_) => String::new(),
@@ -70,9 +68,7 @@ fn mac_token() -> String {
              Select-Object -First 1 -ExpandProperty MacAddress)",
         ))
     } else if cfg!(target_os = "macos") {
-        first_nonempty_line(&run_sh(
-            "ifconfig | awk '/ether/{print $2; exit}'",
-        ))
+        first_nonempty_line(&run_sh("ifconfig | awk '/ether/{print $2; exit}'"))
     } else {
         first_nonempty_line(&run_sh(
             "cat /sys/class/net/*/address 2>/dev/null | grep -v '00:00:00:00:00:00' | head -1",
@@ -91,9 +87,7 @@ fn disk_token() -> String {
             "system_profiler SPSerialATADataType 2>/dev/null | awk '/Serial Number/{print $3; exit}'",
         ))
     } else {
-        first_nonempty_line(&run_sh(
-            "lsblk -d -o SERIAL 2>/dev/null | sed -n '2p'",
-        ))
+        first_nonempty_line(&run_sh("lsblk -d -o SERIAL 2>/dev/null | sed -n '2p'"))
     }
 }
 

@@ -4,15 +4,20 @@
 use rusqlite::{params, Connection};
 
 fn apply_migrations_from_dir(c: &Connection) {
-    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/shared-db/migrations");
-    let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap()
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/shared-db/migrations"
+    );
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|x| x == "sql"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
     for entry in entries {
         let sql = std::fs::read_to_string(entry.path()).unwrap();
-        c.execute_batch(&sql).unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
+        c.execute_batch(&sql)
+            .unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
     }
 }
 
@@ -33,14 +38,25 @@ fn migration_0042_adds_dose_columns() {
     let c = Connection::open_in_memory().unwrap();
     apply_migrations_from_dir(&c);
     // info on the table â€” check that per_dose_mg column exists
-    let cols: Vec<String> = c.prepare("PRAGMA table_info(product_ingredients)")
+    let cols: Vec<String> = c
+        .prepare("PRAGMA table_info(product_ingredients)")
         .unwrap()
         .query_map([], |r| r.get::<_, String>(1))
         .unwrap()
-        .collect::<Result<Vec<_>, _>>().unwrap();
-    assert!(cols.contains(&"per_dose_mg".to_string()), "per_dose_mg col: cols={cols:?}");
-    assert!(cols.contains(&"daily_mg".to_string()),    "daily_mg col: cols={cols:?}");
-    assert!(cols.contains(&"created_at".to_string()),  "created_at col: cols={cols:?}");
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert!(
+        cols.contains(&"per_dose_mg".to_string()),
+        "per_dose_mg col: cols={cols:?}"
+    );
+    assert!(
+        cols.contains(&"daily_mg".to_string()),
+        "daily_mg col: cols={cols:?}"
+    );
+    assert!(
+        cols.contains(&"created_at".to_string()),
+        "created_at col: cols={cols:?}"
+    );
 }
 
 #[test]
@@ -53,19 +69,27 @@ fn upsert_via_on_conflict_keeps_one_row() {
          VALUES (?1, ?2, ?3, ?4) \
          ON CONFLICT(product_id, ingredient_id) DO UPDATE SET per_dose_mg = excluded.per_dose_mg",
         params!["p_para", "paracetamol", 500.0, 4000.0],
-    ).unwrap();
+    )
+    .unwrap();
     c.execute(
         "INSERT INTO product_ingredients (product_id, ingredient_id, per_dose_mg, daily_mg) \
          VALUES (?1, ?2, ?3, ?4) \
          ON CONFLICT(product_id, ingredient_id) DO UPDATE SET per_dose_mg = excluded.per_dose_mg",
         params!["p_para", "paracetamol", 650.0, 4000.0],
-    ).unwrap();
+    )
+    .unwrap();
     let dose: f64 = c.query_row(
         "SELECT per_dose_mg FROM product_ingredients WHERE product_id='p_para' AND ingredient_id='paracetamol'",
         [], |r| r.get(0),
     ).unwrap();
     assert_eq!(dose, 650.0);
-    let n: i64 = c.query_row("SELECT count(*) FROM product_ingredients WHERE product_id='p_para'", [], |r| r.get(0)).unwrap();
+    let n: i64 = c
+        .query_row(
+            "SELECT count(*) FROM product_ingredients WHERE product_id='p_para'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(n, 1);
 }
 
@@ -79,6 +103,12 @@ fn list_filters_by_product_id() {
          INSERT INTO product_ingredients (product_id, ingredient_id) VALUES ('p_amox', 'amoxicillin');
          INSERT INTO product_ingredients (product_id, ingredient_id) VALUES ('p_amox', 'penicillin');"
     ).unwrap();
-    let n_amox: i64 = c.query_row("SELECT count(*) FROM product_ingredients WHERE product_id='p_amox'", [], |r| r.get(0)).unwrap();
+    let n_amox: i64 = c
+        .query_row(
+            "SELECT count(*) FROM product_ingredients WHERE product_id='p_amox'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(n_amox, 2);
 }

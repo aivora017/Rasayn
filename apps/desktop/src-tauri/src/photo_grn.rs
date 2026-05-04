@@ -62,7 +62,10 @@ pub fn photo_grn_run(input: PhotoGrnInput) -> Result<PhotoGrnResultDto, String> 
         return Err("empty photo bytes".into());
     }
     if bytes.len() > 10 * 1024 * 1024 {
-        return Err(format!("photo too large: {} bytes (max 10 MiB)", bytes.len()));
+        return Err(format!(
+            "photo too large: {} bytes (max 10 MiB)",
+            bytes.len()
+        ));
     }
 
     let mut hasher = Sha256::new();

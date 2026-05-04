@@ -27,7 +27,10 @@ pub struct SaveLicenseInput {
 }
 
 #[tauri::command]
-pub fn license_save(input: SaveLicenseInput, state: State<'_, DbState>) -> Result<AppLicense, String> {
+pub fn license_save(
+    input: SaveLicenseInput,
+    state: State<'_, DbState>,
+) -> Result<AppLicense, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
     c.execute(
         "INSERT INTO app_license (id, key_text, edition_flags, expiry_iso, fingerprint, last_validated) \
@@ -44,15 +47,18 @@ pub fn license_save(input: SaveLicenseInput, state: State<'_, DbState>) -> Resul
         "SELECT key_text, edition_flags, expiry_iso, fingerprint, issued_at, last_validated \
          FROM app_license WHERE id = 'singleton'",
         [],
-        |r| Ok(AppLicense {
-            key_text: r.get(0)?,
-            edition_flags: r.get(1)?,
-            expiry_iso: r.get(2)?,
-            fingerprint: r.get(3)?,
-            issued_at: r.get(4)?,
-            last_validated: r.get(5)?,
-        }),
-    ).map_err(|e| e.to_string())
+        |r| {
+            Ok(AppLicense {
+                key_text: r.get(0)?,
+                edition_flags: r.get(1)?,
+                expiry_iso: r.get(2)?,
+                fingerprint: r.get(3)?,
+                issued_at: r.get(4)?,
+                last_validated: r.get(5)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -62,15 +68,19 @@ pub fn license_get(state: State<'_, DbState>) -> Result<Option<AppLicense>, Stri
         "SELECT key_text, edition_flags, expiry_iso, fingerprint, issued_at, last_validated \
          FROM app_license WHERE id = 'singleton'",
         [],
-        |r| Ok(AppLicense {
-            key_text: r.get(0)?,
-            edition_flags: r.get(1)?,
-            expiry_iso: r.get(2)?,
-            fingerprint: r.get(3)?,
-            issued_at: r.get(4)?,
-            last_validated: r.get(5)?,
-        }),
-    ).optional().map_err(|e| e.to_string())
+        |r| {
+            Ok(AppLicense {
+                key_text: r.get(0)?,
+                edition_flags: r.get(1)?,
+                expiry_iso: r.get(2)?,
+                fingerprint: r.get(3)?,
+                issued_at: r.get(4)?,
+                last_validated: r.get(5)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -82,17 +92,20 @@ pub fn license_clear(state: State<'_, DbState>) -> Result<usize, String> {
 
 #[cfg(test)]
 mod tests {
-    use rusqlite::Connection;
     use crate::db::apply_migrations;
+    use rusqlite::Connection;
 
     #[test]
     fn migration_0043_creates_singleton_table() {
         let c = Connection::open_in_memory().unwrap();
         apply_migrations(&c).unwrap();
-        let count: i64 = c.query_row(
-            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='app_license'",
-            [], |r| r.get(0),
-        ).unwrap();
+        let count: i64 = c
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='app_license'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 1);
     }
 
@@ -115,13 +128,18 @@ mod tests {
                last_validated = datetime('now')",
             [],
         ).unwrap();
-        let (key, flags): (String, i64) = c.query_row(
-            "SELECT key_text, edition_flags FROM app_license WHERE id = 'singleton'",
-            [], |r| Ok((r.get(0)?, r.get(1)?)),
-        ).unwrap();
+        let (key, flags): (String, i64) = c
+            .query_row(
+                "SELECT key_text, edition_flags FROM app_license WHERE id = 'singleton'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
         assert!(key.starts_with("PCPR-2027"));
         assert_eq!(flags, 15);
-        let row_count: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
+        let row_count: i64 = c
+            .query_row("SELECT count(*) FROM app_license", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(row_count, 1, "singleton must stay 1 row");
     }
 
@@ -145,11 +163,17 @@ mod tests {
             "INSERT INTO app_license (id, key_text, edition_flags, expiry_iso, fingerprint) \
              VALUES ('singleton', 'PCPR-2026-A-A-A-A-A-FFFF', 7, '2027-04-29T00:00:00Z', 'fp')",
             [],
-        ).unwrap();
-        let n_before: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
+        )
+        .unwrap();
+        let n_before: i64 = c
+            .query_row("SELECT count(*) FROM app_license", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(n_before, 1);
-        c.execute("DELETE FROM app_license WHERE id = 'singleton'", []).unwrap();
-        let n_after: i64 = c.query_row("SELECT count(*) FROM app_license", [], |r| r.get(0)).unwrap();
+        c.execute("DELETE FROM app_license WHERE id = 'singleton'", [])
+            .unwrap();
+        let n_after: i64 = c
+            .query_row("SELECT count(*) FROM app_license", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(n_after, 0);
     }
 }
