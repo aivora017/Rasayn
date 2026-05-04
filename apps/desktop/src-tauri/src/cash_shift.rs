@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tauri::State;
 
-
 // ─── DTOs ────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -135,14 +134,17 @@ pub struct CashShiftCloseInput {
 fn row_to_shift(r: &Row<'_>) -> rusqlite::Result<CashShiftDto> {
     let opening_denoms_json: String = r.get("opening_denominations_json")?;
     let opening_denominations: DenominationCountDto = serde_json::from_str(&opening_denoms_json)
-        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
-    let closing_denominations: Option<DenominationCountDto> =
-        match r.get::<_, Option<String>>("closing_denominations_json")? {
-            Some(s) => Some(serde_json::from_str(&s).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
-            })?),
-            None => None,
-        };
+        .map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+        })?;
+    let closing_denominations: Option<DenominationCountDto> = match r
+        .get::<_, Option<String>>("closing_denominations_json")?
+    {
+        Some(s) => Some(serde_json::from_str(&s).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+        })?),
+        None => None,
+    };
     Ok(CashShiftDto {
         id: r.get("id")?,
         shop_id: r.get("shop_id")?,
@@ -266,14 +268,8 @@ pub fn cash_shift_close(
     let closed_at = now_iso();
 
     // Compute Z-report aggregates in [opened_at, closed_at).
-    let z = compute_z_report(
-        &tx,
-        &shift.id,
-        &shift.shop_id,
-        &shift.opened_at,
-        &closed_at,
-    )
-    .map_err(|e| e.to_string())?;
+    let z = compute_z_report(&tx, &shift.id, &shift.shop_id, &shift.opened_at, &closed_at)
+        .map_err(|e| e.to_string())?;
 
     // Variance = closing actual - expected.
     // expected = opening + cash sales - cash returns - cash refunds (we treat

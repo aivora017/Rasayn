@@ -4,15 +4,20 @@
 use rusqlite::{params, Connection};
 
 fn apply_migrations_from_dir(c: &Connection) {
-    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/shared-db/migrations");
-    let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap()
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/shared-db/migrations"
+    );
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|x| x == "sql"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
     for entry in entries {
         let sql = std::fs::read_to_string(entry.path()).unwrap();
-        c.execute_batch(&sql).unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
+        c.execute_batch(&sql)
+            .unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
     }
 }
 
@@ -63,8 +68,15 @@ fn sha256_index_finds_dupes_fast() {
         "INSERT INTO product_images (product_id, sha256, mime, size_bytes, bytes, uploaded_by) \
          VALUES ('p_para', ?1, 'image/png', 1024, X'00', 'u_owner')",
         params![&sha],
-    ).unwrap();
-    let n: i64 = c.query_row("SELECT count(*) FROM product_images WHERE sha256 = ?1", params![&sha], |r| r.get(0)).unwrap();
+    )
+    .unwrap();
+    let n: i64 = c
+        .query_row(
+            "SELECT count(*) FROM product_images WHERE sha256 = ?1",
+            params![&sha],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(n, 1);
 }
 
@@ -78,5 +90,8 @@ fn audit_log_action_check_blocks_invalid() {
          VALUES ('p_para', 'spank', 'u_owner')",
         [],
     );
-    assert!(bad.is_err(), "action other than attach/replace/delete should be rejected");
+    assert!(
+        bad.is_err(),
+        "action other than attach/replace/delete should be rejected"
+    );
 }

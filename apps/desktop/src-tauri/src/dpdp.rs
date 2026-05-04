@@ -88,11 +88,18 @@ pub fn dpdp_upsert_consent(
         "SELECT customer_id, purpose, granted, granted_at, withdrawn_at, evidence \
          FROM dpdp_consents WHERE customer_id = ?1 AND purpose = ?2",
         params![input.customer_id, input.purpose],
-        |r| Ok(DpdpConsent {
-            customer_id: r.get(0)?, purpose: r.get(1)?, granted: r.get(2)?,
-            granted_at: r.get(3)?, withdrawn_at: r.get(4)?, evidence: r.get(5)?,
-        }),
-    ).map_err(|e| e.to_string())
+        |r| {
+            Ok(DpdpConsent {
+                customer_id: r.get(0)?,
+                purpose: r.get(1)?,
+                granted: r.get(2)?,
+                granted_at: r.get(3)?,
+                withdrawn_at: r.get(4)?,
+                evidence: r.get(5)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -101,17 +108,26 @@ pub fn dpdp_list_consents(
     state: State<'_, DbState>,
 ) -> Result<Vec<DpdpConsent>, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = c.prepare(
-        "SELECT customer_id, purpose, granted, granted_at, withdrawn_at, evidence \
-         FROM dpdp_consents WHERE customer_id = ?1 ORDER BY purpose"
-    ).map_err(|e| e.to_string())?;
-    let rows: Vec<DpdpConsent> = stmt.query_map(params![customer_id], |r| {
-        Ok(DpdpConsent {
-            customer_id: r.get(0)?, purpose: r.get(1)?, granted: r.get(2)?,
-            granted_at: r.get(3)?, withdrawn_at: r.get(4)?, evidence: r.get(5)?,
+    let mut stmt = c
+        .prepare(
+            "SELECT customer_id, purpose, granted, granted_at, withdrawn_at, evidence \
+         FROM dpdp_consents WHERE customer_id = ?1 ORDER BY purpose",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<DpdpConsent> = stmt
+        .query_map(params![customer_id], |r| {
+            Ok(DpdpConsent {
+                customer_id: r.get(0)?,
+                purpose: r.get(1)?,
+                granted: r.get(2)?,
+                granted_at: r.get(3)?,
+                withdrawn_at: r.get(4)?,
+                evidence: r.get(5)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-       .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(rows)
 }
 
@@ -124,7 +140,8 @@ pub fn dpdp_open_dsr(
     c.execute(
         "INSERT INTO dpdp_dsr_requests (id, customer_id, kind) VALUES (?1, ?2, ?3)",
         params![input.id, input.customer_id, input.kind],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     c.query_row(
         "SELECT id, customer_id, kind, received_at, status, fulfilled_at, response_payload_path, handled_by_user_id \
          FROM dpdp_dsr_requests WHERE id = ?1",
@@ -144,7 +161,11 @@ pub fn dpdp_update_dsr_status(
 ) -> Result<Option<DpdpDsrRequest>, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let now = now_iso();
-    let fulfilled_at: Option<String> = if input.status == "fulfilled" { Some(now) } else { None };
+    let fulfilled_at: Option<String> = if input.status == "fulfilled" {
+        Some(now)
+    } else {
+        None
+    };
     c.execute(
         "UPDATE dpdp_dsr_requests SET \
             status = ?1, \
@@ -152,8 +173,15 @@ pub fn dpdp_update_dsr_status(
             response_payload_path = COALESCE(?3, response_payload_path), \
             handled_by_user_id = COALESCE(?4, handled_by_user_id) \
          WHERE id = ?5",
-        params![input.status, fulfilled_at, input.response_payload_path, input.handled_by_user_id, input.id],
-    ).map_err(|e| e.to_string())?;
+        params![
+            input.status,
+            fulfilled_at,
+            input.response_payload_path,
+            input.handled_by_user_id,
+            input.id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
     c.query_row(
         "SELECT id, customer_id, kind, received_at, status, fulfilled_at, response_payload_path, handled_by_user_id \
          FROM dpdp_dsr_requests WHERE id = ?1",
@@ -176,9 +204,14 @@ pub fn dpdp_list_dsr(
     let lim = limit.unwrap_or(100).clamp(1, 500);
     let map = |r: &rusqlite::Row<'_>| -> rusqlite::Result<DpdpDsrRequest> {
         Ok(DpdpDsrRequest {
-            id: r.get(0)?, customer_id: r.get(1)?, kind: r.get(2)?,
-            received_at: r.get(3)?, status: r.get(4)?, fulfilled_at: r.get(5)?,
-            response_payload_path: r.get(6)?, handled_by_user_id: r.get(7)?,
+            id: r.get(0)?,
+            customer_id: r.get(1)?,
+            kind: r.get(2)?,
+            received_at: r.get(3)?,
+            status: r.get(4)?,
+            fulfilled_at: r.get(5)?,
+            response_payload_path: r.get(6)?,
+            handled_by_user_id: r.get(7)?,
         })
     };
     let cols = "id, customer_id, kind, received_at, status, fulfilled_at, response_payload_path, handled_by_user_id";
@@ -188,10 +221,14 @@ pub fn dpdp_list_dsr(
             .query_map(params![lim], map).map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
     } else {
-        c.prepare(&format!("SELECT {cols} FROM dpdp_dsr_requests ORDER BY received_at DESC LIMIT ?1"))
-            .map_err(|e| e.to_string())?
-            .query_map(params![lim], map).map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
+        c.prepare(&format!(
+            "SELECT {cols} FROM dpdp_dsr_requests ORDER BY received_at DESC LIMIT ?1"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(params![lim], map)
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?
     };
     Ok(rows)
 }

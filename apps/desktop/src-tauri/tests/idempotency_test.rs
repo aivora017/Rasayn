@@ -4,15 +4,20 @@
 use rusqlite::{params, Connection};
 
 fn apply_migrations_from_dir(c: &Connection) {
-    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/shared-db/migrations");
-    let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap()
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/shared-db/migrations"
+    );
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|x| x == "sql"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
     for entry in entries {
         let sql = std::fs::read_to_string(entry.path()).unwrap();
-        c.execute_batch(&sql).unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
+        c.execute_batch(&sql)
+            .unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
     }
 }
 
@@ -21,8 +26,9 @@ fn seed(c: &Connection) {
         "INSERT INTO shops (id, name, gstin, state_code, retail_license, address) \
            VALUES ('shop_main', 'Test', '27ABCDE1234F1Z5', '27', 'RL-1', 'Kalyan');
          INSERT INTO users (id, shop_id, name, role, pin_hash) \
-           VALUES ('u_owner', 'shop_main', 'Owner', 'owner', 'h');"
-    ).unwrap();
+           VALUES ('u_owner', 'shop_main', 'Owner', 'owner', 'h');",
+    )
+    .unwrap();
 }
 
 #[test]
@@ -59,10 +65,13 @@ fn gc_query_finds_only_expired() {
     ).unwrap();
 
     let cutoff = "2026-04-30T00:00:00Z";
-    let n: i64 = c.query_row(
-        "SELECT count(*) FROM idempotency_tokens WHERE expires_at < ?1",
-        params![cutoff], |r| r.get(0),
-    ).unwrap();
+    let n: i64 = c
+        .query_row(
+            "SELECT count(*) FROM idempotency_tokens WHERE expires_at < ?1",
+            params![cutoff],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(n, 2);
 }
 

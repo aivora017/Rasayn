@@ -17,13 +17,13 @@ use std::process::{Command, Stdio};
 #[derive(Debug, Serialize)]
 pub struct DiscoveredPrinter {
     pub name: String,
-    pub kind: String,        // "thermal" | "label" | "a4" | "unknown"
+    pub kind: String, // "thermal" | "label" | "a4" | "unknown"
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PrinterWriteInput {
     pub printer_name: String,
-    pub bytes_b64: String,   // base64 of the raw byte stream
+    pub bytes_b64: String, // base64 of the raw byte stream
 }
 
 /// List installed printers via OS-native command. Best-effort — returns a
@@ -45,7 +45,10 @@ pub fn printer_list() -> Result<Vec<DiscoveredPrinter>, String> {
             .lines()
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
-            .map(|s| DiscoveredPrinter { name: s.to_string(), kind: classify(s) })
+            .map(|s| DiscoveredPrinter {
+                name: s.to_string(),
+                kind: classify(s),
+            })
             .collect())
     } else {
         // CUPS: lpstat -p
@@ -74,7 +77,11 @@ fn classify(name: &str) -> String {
     let lower = name.to_lowercase();
     if lower.contains("rp-3230") || lower.contains("thermal") || lower.contains("tm-t") {
         "thermal".into()
-    } else if lower.contains("zebra") || lower.contains("argox") || lower.contains("tsc") || lower.contains("label") {
+    } else if lower.contains("zebra")
+        || lower.contains("argox")
+        || lower.contains("tsc")
+        || lower.contains("label")
+    {
         "label".into()
     } else {
         "unknown".into()
@@ -95,13 +102,18 @@ pub fn printer_write_bytes(input: PrinterWriteInput) -> Result<(), String> {
         let mut child = Command::new("cmd")
             .args([
                 "/C",
-                &format!("copy /B \\\\.\\pipe\\stdin \"\\\\.\\{}\"", input.printer_name),
+                &format!(
+                    "copy /B \\\\.\\pipe\\stdin \"\\\\.\\{}\"",
+                    input.printer_name
+                ),
             ])
             .stdin(Stdio::piped())
             .spawn()
             .map_err(|e| format!("spawn failed: {e}"))?;
         if let Some(stdin) = child.stdin.as_mut() {
-            stdin.write_all(&bytes).map_err(|e| format!("write failed: {e}"))?;
+            stdin
+                .write_all(&bytes)
+                .map_err(|e| format!("write failed: {e}"))?;
         }
         let status = child.wait().map_err(|e| format!("wait failed: {e}"))?;
         if !status.success() {
@@ -115,7 +127,9 @@ pub fn printer_write_bytes(input: PrinterWriteInput) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("spawn lp failed: {e}"))?;
         if let Some(stdin) = child.stdin.as_mut() {
-            stdin.write_all(&bytes).map_err(|e| format!("write failed: {e}"))?;
+            stdin
+                .write_all(&bytes)
+                .map_err(|e| format!("write failed: {e}"))?;
         }
         let status = child.wait().map_err(|e| format!("wait failed: {e}"))?;
         if !status.success() {
@@ -131,5 +145,8 @@ pub fn printer_test(printer_name: String) -> Result<(), String> {
     use base64::Engine;
     let test_bytes = b"\x1b\x40\x1b\x61\x01PharmaCare Pro\nPrinter test OK\n\n\n\x1d\x56\x00";
     let b64 = base64::engine::general_purpose::STANDARD.encode(test_bytes);
-    printer_write_bytes(PrinterWriteInput { printer_name, bytes_b64: b64 })
+    printer_write_bytes(PrinterWriteInput {
+        printer_name,
+        bytes_b64: b64,
+    })
 }

@@ -4,15 +4,20 @@
 use rusqlite::{params, Connection};
 
 fn apply_migrations_from_dir(c: &Connection) {
-    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/shared-db/migrations");
-    let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap()
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/shared-db/migrations"
+    );
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|x| x == "sql"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
     for entry in entries {
         let sql = std::fs::read_to_string(entry.path()).unwrap();
-        c.execute_batch(&sql).unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
+        c.execute_batch(&sql)
+            .unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
     }
 }
 
@@ -38,7 +43,10 @@ fn movement_type_check_blocks_unknown_kind() {
          VALUES ('m_bad', 'b1', 'p_para', 10, 'magic')",
         [],
     );
-    assert!(bad.is_err(), "movement_type 'magic' should be rejected by CHECK");
+    assert!(
+        bad.is_err(),
+        "movement_type 'magic' should be rejected by CHECK"
+    );
 }
 
 #[test]
@@ -63,12 +71,16 @@ fn opening_grn_bill_movements_aggregate_correctly() {
         "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type) VALUES \
             ('m2', 'b1', 'p_para',  50, 'grn'),
             ('m3', 'b1', 'p_para', -10, 'bill'),
-            ('m4', 'b1', 'p_para',  -5, 'waste');"
-    ).unwrap();
-    let net: i64 = c.query_row(
-        "SELECT COALESCE(SUM(qty_delta), 0) FROM stock_movements WHERE batch_id='b1'",
-        [], |r| r.get(0),
-    ).unwrap();
+            ('m4', 'b1', 'p_para',  -5, 'waste');",
+    )
+    .unwrap();
+    let net: i64 = c
+        .query_row(
+            "SELECT COALESCE(SUM(qty_delta), 0) FROM stock_movements WHERE batch_id='b1'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(net, 135);
 }
 
@@ -98,9 +110,12 @@ fn partial_unique_index_blocks_double_transfer_reconcile() {
          VALUES ('m_bill', 'b1', 'p_para', -3, 'bill', 'bill_lines', 'stl_1')",
         [],
     ).unwrap();
-    let n_bill: i64 = c.query_row(
-        "SELECT count(*) FROM stock_movements WHERE ref_table='bill_lines' AND ref_id='stl_1'",
-        params![], |r| r.get(0),
-    ).unwrap();
+    let n_bill: i64 = c
+        .query_row(
+            "SELECT count(*) FROM stock_movements WHERE ref_table='bill_lines' AND ref_id='stl_1'",
+            params![],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(n_bill, 1);
 }

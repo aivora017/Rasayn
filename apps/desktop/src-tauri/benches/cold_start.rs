@@ -21,12 +21,8 @@ fn apply_migrations_from_dir(c: &Connection) {
     entries.sort_by_key(|e| e.file_name());
     for entry in entries {
         let sql = std::fs::read_to_string(entry.path()).unwrap();
-        c.execute_batch(&sql).unwrap_or_else(|e| {
-            panic!(
-                "migration {}: {e}",
-                entry.file_name().to_string_lossy()
-            )
-        });
+        c.execute_batch(&sql)
+            .unwrap_or_else(|e| panic!("migration {}: {e}", entry.file_name().to_string_lossy()));
     }
 }
 

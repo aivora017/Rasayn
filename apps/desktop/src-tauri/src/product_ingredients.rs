@@ -44,25 +44,36 @@ pub fn product_ingredients_list_for_products(
     }
     let c = state.0.lock().map_err(|e| e.to_string())?;
     let cap = product_ids.len().min(200);
-    let placeholders = (1..=cap).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
+    let placeholders = (1..=cap)
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(",");
     let sql = format!(
         "SELECT product_id, ingredient_id, strength_mg, per_dose_mg, daily_mg, created_at \
          FROM product_ingredients WHERE product_id IN ({placeholders})"
     );
     let mut stmt = c.prepare(&sql).map_err(|e| e.to_string())?;
-    let bind: Vec<&dyn rusqlite::ToSql> = product_ids.iter().take(cap).map(|s| s as &dyn rusqlite::ToSql).collect();
-    let rows = stmt.query_map(rusqlite::params_from_iter(bind), |r| {
-        Ok(ProductIngredientRow {
-            product_id: r.get(0)?,
-            ingredient_id: r.get(1)?,
-            strength_mg: r.get(2)?,
-            per_dose_mg: r.get(3)?,
-            daily_mg: r.get(4)?,
-            created_at: r.get(5)?,
+    let bind: Vec<&dyn rusqlite::ToSql> = product_ids
+        .iter()
+        .take(cap)
+        .map(|s| s as &dyn rusqlite::ToSql)
+        .collect();
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(bind), |r| {
+            Ok(ProductIngredientRow {
+                product_id: r.get(0)?,
+                ingredient_id: r.get(1)?,
+                strength_mg: r.get(2)?,
+                per_dose_mg: r.get(3)?,
+                daily_mg: r.get(4)?,
+                created_at: r.get(5)?,
+            })
         })
-    }).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
-    for r in rows { out.push(r.map_err(|e| e.to_string())?); }
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
     Ok(out)
 }
 
@@ -85,15 +96,18 @@ pub fn product_ingredients_upsert(
         "SELECT product_id, ingredient_id, strength_mg, per_dose_mg, daily_mg, created_at \
          FROM product_ingredients WHERE product_id = ?1 AND ingredient_id = ?2",
         params![input.product_id, input.ingredient_id],
-        |r| Ok(ProductIngredientRow {
-            product_id: r.get(0)?,
-            ingredient_id: r.get(1)?,
-            strength_mg: r.get(2)?,
-            per_dose_mg: r.get(3)?,
-            daily_mg: r.get(4)?,
-            created_at: r.get(5)?,
-        }),
-    ).map_err(|e| e.to_string())
+        |r| {
+            Ok(ProductIngredientRow {
+                product_id: r.get(0)?,
+                ingredient_id: r.get(1)?,
+                strength_mg: r.get(2)?,
+                per_dose_mg: r.get(3)?,
+                daily_mg: r.get(4)?,
+                created_at: r.get(5)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -106,5 +120,6 @@ pub fn product_ingredients_delete(
     c.execute(
         "DELETE FROM product_ingredients WHERE product_id = ?1 AND ingredient_id = ?2",
         params![product_id, ingredient_id],
-    ).map_err(|e| e.to_string())
+    )
+    .map_err(|e| e.to_string())
 }

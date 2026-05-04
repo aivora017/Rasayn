@@ -252,7 +252,10 @@ pub fn save_bill(
     // ADR-0030 idempotency. If the caller passed a token, check the table first.
     // Hit + matching hash → replay cached response (deserialize JSON back into
     // SaveBillResult). Hit + mismatch → IDEMPOTENCY_CONFLICT. Miss → proceed.
-    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+    if let (Some(token), Some(req_hash)) = (
+        input.idempotency_token.as_deref(),
+        input.request_hash.as_deref(),
+    ) {
         if let Some(cached) = crate::idempotency::check(&c, token, "save_bill", req_hash)? {
             let r: SaveBillResult = serde_json::from_str(&cached)
                 .map_err(|e| format!("idempotency replay decode: {e}"))?;
@@ -492,7 +495,10 @@ pub fn save_bill(
     };
 
     // ADR-0030 idempotency record (inside the same transaction — atomicity is the whole point).
-    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+    if let (Some(token), Some(req_hash)) = (
+        input.idempotency_token.as_deref(),
+        input.request_hash.as_deref(),
+    ) {
         let actor = input.actor_user_id.as_deref().unwrap_or(&input.cashier_id);
         let response_json = serde_json::to_string(&result)
             .map_err(|e| format!("idempotency record encode: {e}"))?;
@@ -718,7 +724,10 @@ pub fn save_grn(
     };
 
     // ADR-0030 idempotency check before any transaction work.
-    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+    if let (Some(token), Some(req_hash)) = (
+        input.idempotency_token.as_deref(),
+        input.request_hash.as_deref(),
+    ) {
         if let Some(cached) = crate::idempotency::check(&c, token, "save_grn", req_hash)? {
             let r: SaveGrnResult = serde_json::from_str(&cached)
                 .map_err(|e| format!("idempotency replay decode: {e}"))?;
@@ -796,7 +805,10 @@ pub fn save_grn(
     };
 
     // ADR-0030 idempotency record inside the same tx.
-    if let (Some(token), Some(req_hash)) = (input.idempotency_token.as_deref(), input.request_hash.as_deref()) {
+    if let (Some(token), Some(req_hash)) = (
+        input.idempotency_token.as_deref(),
+        input.request_hash.as_deref(),
+    ) {
         let actor = input.actor_user_id.as_deref().unwrap_or("system");
         let response_json = serde_json::to_string(&result)
             .map_err(|e| format!("idempotency record encode: {e}"))?;
