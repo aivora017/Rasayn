@@ -20,6 +20,7 @@ mod license;
 mod oauth;
 mod phash;
 mod photo_grn;
+mod photo_grn_tiers;
 mod printer;
 mod product_ingredients;
 mod products;
