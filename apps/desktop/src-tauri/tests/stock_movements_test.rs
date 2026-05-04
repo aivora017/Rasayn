@@ -93,7 +93,7 @@ fn partial_unique_index_blocks_double_transfer_reconcile() {
     );
     assert!(dup.is_err(), "Partial UNIQUE on (ref_id) WHERE ref_table='stock_transfer_lines' should block double reconcile");
 
-    // But a movement with a different ref_table — say a bill — can reuse the same ref_id.
+    // But a movement with a different ref_table â€” say a bill â€” can reuse the same ref_id.
     c.execute(
         "INSERT INTO stock_movements (id, batch_id, product_id, qty_delta, movement_type, ref_table, ref_id) \
          VALUES ('m_bill', 'b1', 'p_para', -3, 'bill', 'bill_lines', 'stl_1')",
