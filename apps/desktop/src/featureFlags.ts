@@ -58,7 +58,7 @@ const DEFAULT: FeatureFlags = {
   rbac: false, ddiAlerts: false, counseling: false, stockTransfer: false,
   gst3bAndRecon: false, thermalEscPos: false, gs1DataMatrix: false, dpdp: true, abdm: false, pmbjp: false,
   ocrRx: false, cfdDisplay: false, copilot: false, demandForecast: false, fraudAlerts: false, inspectorMode: false,
-  multiStore: false, coldChain: true,
+  multiStore: true, coldChain: true,
   digitalTwin: false, arShelf: false, familyVault: false, pluginMarketplace: false,
   reorder: true, expiryDiscard: true, prescription: true, printerSettings: true, abdmConsents: true,
 };

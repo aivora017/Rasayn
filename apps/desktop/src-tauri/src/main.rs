@@ -15,6 +15,7 @@ mod dpdp;
 mod idempotency;
 mod images;
 mod khata;
+mod multi_shop;
 mod license;
 mod oauth;
 mod phash;
@@ -168,6 +169,9 @@ fn main() {
             dpdp::dpdp_open_dsr,
             dpdp::dpdp_update_dsr_status,
             dpdp::dpdp_list_dsr,
+            multi_shop::shops_list,
+            multi_shop::batches_list_by_shop,
+            multi_shop::shops_inventory_summary,
             whatsapp::whatsapp_enqueue,
             whatsapp::whatsapp_list,
             whatsapp::whatsapp_mark_sent,
