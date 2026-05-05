@@ -1,14 +1,15 @@
-#![allow(dead_code)] // record/gc to be wired into command guards in S24
+#![allow(dead_code)]
+
 // Idempotency token helper (ADR-0030).
 //
-// Closes coverage gap C03 â€” duplicate bill/GRN/refund on network retry.
+// Closes coverage gap C03 Ã¢â‚¬â€ duplicate bill/GRN/refund on network retry.
 //
 // Contract (mirrored in @pharmacare/idempotency TS package):
 //   1. Caller passes (token: UUIDv7, request_hash: SHA-256 hex) alongside the payload.
 //   2. We `SELECT response_json, request_hash FROM idempotency_tokens WHERE token = ?`.
-//      - Hit + matching hash â†’ return cached response_json (no DB writes happened twice).
-//      - Hit + different hash â†’ return Err("IDEMPOTENCY_CONFLICT") â€” caller bug.
-//      - Miss â†’ caller proceeds; on success calls `record(...)` to persist.
+//      - Hit + matching hash Ã¢â€ â€™ return cached response_json (no DB writes happened twice).
+//      - Hit + different hash Ã¢â€ â€™ return Err("IDEMPOTENCY_CONFLICT") Ã¢â‚¬â€ caller bug.
+//      - Miss Ã¢â€ â€™ caller proceeds; on success calls `record(...)` to persist.
 //   3. Nightly GC removes rows where expires_at < now (run from backup_scheduler).
 //
 // Rationale:
@@ -22,10 +23,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 /// Check whether this token has been seen before.
 ///
 /// Returns:
-///   Ok(Some(cached_response_json)) â€” token seen, hashes match â†’ caller MUST replay.
-///   Ok(None)                       â€” token unseen â†’ caller proceeds; must call record() on success.
-///   Err("IDEMPOTENCY_CONFLICT: ...") â€” token seen but request_hash differs.
-///   Err(other)                      â€” DB error.
+///   Ok(Some(cached_response_json)) Ã¢â‚¬â€ token seen, hashes match Ã¢â€ â€™ caller MUST replay.
+///   Ok(None)                       Ã¢â‚¬â€ token unseen Ã¢â€ â€™ caller proceeds; must call record() on success.
+///   Err("IDEMPOTENCY_CONFLICT: ...") Ã¢â‚¬â€ token seen but request_hash differs.
+///   Err(other)                      Ã¢â‚¬â€ DB error.
 pub fn check(
     conn: &Connection,
     token: &str,
@@ -85,7 +86,7 @@ pub fn record(
     Ok(())
 }
 
-/// Nightly GC. Returns number of rows deleted. Cheap â€” index on expires_at.
+/// Nightly GC. Returns number of rows deleted. Cheap Ã¢â‚¬â€ index on expires_at.
 pub fn gc(conn: &Connection) -> Result<usize, String> {
     let n = conn
         .execute(
