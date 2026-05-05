@@ -1,21 +1,32 @@
 {
-  "version": 1,
-  "captured_at": null,
-  "captured_on_machine": null,
+  "captured_at": "2026-05-05T05:25:12Z",
+  "captured_on_machine": "linux-sandbox-synthetic",
   "git_sha": null,
+  "is_pilot_baseline": false,
   "metrics": {
-    "cold_start_ms": {
-      "p50": null,
-      "p95": null,
-      "budget_ms": 1500,
-      "sla_origin": "Section 10 GA gate (3000ms total cold-start; migrations get 1500ms, UI gets 1500ms)"
-    },
     "bill_save_ms": {
+      "budget_ms": 400,
       "p50": null,
       "p95": null,
-      "budget_ms": 400,
+      "samples": 0,
       "sla_origin": "Section 10 GA gate (p95 bill save under 400ms)"
+    },
+    "cold_start_ms": {
+      "budget_ms": 1500,
+      "p50": null,
+      "p95": null,
+      "samples": 0,
+      "sla_origin": "Section 10 GA gate (3000ms total cold-start; migrations get 1500ms, UI gets 1500ms)"
     }
   },
-  "notes": "First real measurement scheduled for S25 on the Lenovo i3-8100 / 4GB RAM reference rig at Jagannath Pharmacy (the Kalyan pilot shop). Run scripts/perf/run-perf.ps1 to populate."
+  "notes": "Synthetic Linux container reference. Replace with Jagannath rig results before GA per docs/runbooks/perf-drill-jagannath.md.",
+  "synthetic_attempt": {
+    "captured_at": "2026-05-05T05:25:12Z",
+    "command": "cargo bench --bench cold_start --bench bill_save -- --output-format bencher",
+    "error": "bash: line 1: cargo: command not found",
+    "exit_code": 127,
+    "outcome": "no synthetic numbers produced; baseline left null pending pilot drill.",
+    "ran_on": "linux-sandbox (no Rust toolchain installed)"
+  },
+  "version": 1
 }

@@ -31,6 +31,7 @@ base64 = "0.22"
 reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
 opener = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+ort = { version = "2", optional = true, default-features = false }
 
 [dev-dependencies]
 tempfile = "3"
@@ -43,6 +44,7 @@ custom-protocol = ["tauri/custom-protocol"]
 # vendor contract closes. Build via: cargo build --features cygnet-live
 cygnet-live = []
 cleartax-live = []
+tier-b-onnx = ["dep:ort"]
 
 # --- Perf harness (ADR 0067) ---------------------------------------------
 # criterion drives the cold_start + bill_save benches under benches/.
