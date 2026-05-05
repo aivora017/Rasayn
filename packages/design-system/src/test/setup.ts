@@ -16,3 +16,12 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     }),
   });
 }
+
+// ResizeObserver stub for recharts ResponsiveContainer in jsdom.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  } as unknown as typeof ResizeObserver;
+}

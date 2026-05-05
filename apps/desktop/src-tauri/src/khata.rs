@@ -1,24 +1,25 @@
-#![allow(dead_code)] // input shapes for future Tauri commands
-// khata.rs â€” Tauri commands for @pharmacare/khata package.
+#![allow(dead_code)]
+
+// khata.rs Ã¢â‚¬â€ Tauri commands for @pharmacare/khata package.
 //
-// Customer credit ledger backed by SQLite (migration 0024 â€” khata_entries +
+// Customer credit ledger backed by SQLite (migration 0024 Ã¢â‚¬â€ khata_entries +
 // khata_customer_limits). Append-only entries; balances + aging buckets
 // are computed at query time. ADR-0040.
 //
 // IPC contract (apps/desktop/src/lib/ipc.ts):
-//   khata_list_entries     {customerId}                       â†’ KhataEntryDTO[]
-//   khata_get_limit        {customerId}                       â†’ KhataLimitDTO | null
-//   khata_set_limit        {customerId, creditLimitPaise}     â†’ KhataLimitDTO
-//   khata_aging            {customerId}                       â†’ KhataAgingDTO
-//   khata_record_purchase  {customerId, billId, amountPaise,note?} â†’ KhataEntryDTO
-//   khata_record_payment   {customerId, amountPaise,note?}    â†’ KhataEntryDTO
+//   khata_list_entries     {customerId}                       Ã¢â€ â€™ KhataEntryDTO[]
+//   khata_get_limit        {customerId}                       Ã¢â€ â€™ KhataLimitDTO | null
+//   khata_set_limit        {customerId, creditLimitPaise}     Ã¢â€ â€™ KhataLimitDTO
+//   khata_aging            {customerId}                       Ã¢â€ â€™ KhataAgingDTO
+//   khata_record_purchase  {customerId, billId, amountPaise,note?} Ã¢â€ â€™ KhataEntryDTO
+//   khata_record_payment   {customerId, amountPaise,note?}    Ã¢â€ â€™ KhataEntryDTO
 
 use crate::db::DbState;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-// â”€â”€â”€ DTOs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ DTOs Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -74,7 +75,7 @@ pub struct PaymentInput {
     pub note: Option<String>,
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 fn now_iso() -> String {
     use chrono::Utc;
@@ -89,7 +90,7 @@ fn rand_id_hex(bytes: usize) -> String {
 }
 
 fn resolve_actor(c: &Connection, customer_id: &str) -> Result<String, String> {
-    // Resolve actor by joining customerâ†’shopâ†’users (owner).
+    // Resolve actor by joining customerÃ¢â€ â€™shopÃ¢â€ â€™users (owner).
     c.query_row(
         "SELECT u.id FROM users u \
          JOIN customers cu ON cu.shop_id = u.shop_id \
@@ -147,7 +148,7 @@ fn upsert_limit(c: &Connection, lim: &KhataLimitDto) -> rusqlite::Result<()> {
     Ok(())
 }
 
-// â”€â”€â”€ Tauri commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Tauri commands Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[tauri::command]
 pub fn khata_list_entries(
@@ -216,7 +217,7 @@ pub fn khata_set_limit(
     Ok(new)
 }
 
-/// Compute aging buckets (0â€“30 / 30â€“60 / 60â€“90 / 90+) on demand. FIFO-matches
+/// Compute aging buckets (0Ã¢â‚¬â€œ30 / 30Ã¢â‚¬â€œ60 / 60Ã¢â‚¬â€œ90 / 90+) on demand. FIFO-matches
 /// credits against oldest debits, then buckets the residuals by age.
 #[tauri::command]
 pub fn khata_aging(
