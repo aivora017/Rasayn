@@ -1,4 +1,4 @@
-// G08 — SupplierTemplateScreen coverage (coverage-gaps 2026-04-18 §G08).
+﻿// G08 — SupplierTemplateScreen coverage (coverage-gaps 2026-04-18 §G08).
 //
 // X1 Tier A template config. The owner authors regex-based parsers that
 // every future Gmail invoice import depends on. A bad regex or a malformed
