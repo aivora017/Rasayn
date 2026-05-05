@@ -1,7 +1,7 @@
 //! Integration tests for migration 0044 (batches.shop_id) and the
 //! shop-scoped query patterns that back multi_shop.rs.
 
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 fn apply_migrations_from_dir(c: &Connection) {
     let dir = concat!(
@@ -73,7 +73,7 @@ fn shop_scoped_query_separates_inventory_per_shop() {
     apply_migrations_from_dir(&c);
     seed(&c);
     // Two shops can't have the same (product_id, batch_no) due to legacy
-    // UNIQUE — different batch numbers per shop.
+    // UNIQUE â€” different batch numbers per shop.
     c.execute_batch(
         "INSERT INTO batches (id, product_id, batch_no, mfg_date, expiry_date, qty_on_hand, purchase_price_paise, mrp_paise, supplier_id, shop_id) VALUES \
             ('b_main',   'p_para', 'PARA-MAIN-1',   '2026-01-01', '2027-12-31', 100, 150, 200, 'sup_1', 'shop_main'),
