@@ -1,4 +1,4 @@
-// Tier-A regex parser ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â extracts a ParsedBill from OCR text using a small
+﻿// Tier-A regex parser ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â extracts a ParsedBill from OCR text using a small
 // set of robust regex patterns derived from typical Indian distributor
 // invoices. Pure function, no I/O. Returns confidence based on how many
 // fields it could fill.
@@ -19,7 +19,7 @@ export const RE_INVOICE_NO = /\b(?:invoice|inv|bill)\s*(?:no\.?|number|#)?\s*[:\
 export const RE_INVOICE_DATE = /\b(?:date|dt|inv\.?\s*date)?\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](?:20)?\d{2})\b/i;
 export const RE_GSTIN = /\b\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]\b/;
 export const RE_SUPPLIER_HEADER = /^[A-Z][A-Z\s&\.\-]{4,40}(?:PHARMA|DISTRIBUTORS?|MEDICOS?|HEALTHCARE|MEDICAL|TRADERS?|AGENCIES?)\b/m;
-export const RE_TOTAL = /\b(?:grand\s*total|total\s*amount|net\s*total|amount\s*payable|invoice\s*total)\s*[:\-]?\s*ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹?\s*([0-9,]+\.?\d{0,2})\b/i;
+export const RE_TOTAL = /\b(?:grand\s*total|total\s*amount|net\s*total|amount\s*payable|invoice\s*total)\s*[:\-]?\s*\u20B9?\s*([0-9,]+\.?\d{0,2})\b/i;
 /** Per-line extractor: name ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ qty ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ rate ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ amount.
  * Tolerant of varied spacing; demands at least 3 numeric tokens at the end. */
 export const RE_LINE = /^([A-Za-z][A-Za-z0-9\s\-\/\.&,()%]{2,60}?)\s{2,}(\d+(?:\.\d+)?)\s+([0-9,]+(?:\.\d{1,2})?)\s+([0-9,]+(?:\.\d{1,2})?)\s*$/;
