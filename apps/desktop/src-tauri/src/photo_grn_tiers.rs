@@ -54,7 +54,31 @@ pub trait PhotoGrnTier {
     fn extract(&self, image_path: &str) -> Result<Vec<ExtractedLine>, String>;
 }
 
-// ---------------- Tier A — on-device regex (existing photo_grn module) -----
+// ---------------- Tier A — JS-side delegate (see ADR-0070) ----------------
+//
+// The real Tier-A regex parser lives in TypeScript at
+// `packages/photo-grn/src/tierA.ts`, not in Rust. ADR-0068 originally
+// claimed Tier-A would ship in `apps/desktop/src-tauri/src/photo_grn.rs`,
+// but that file is a Phase-1 byte-hashing stub and the regex parser was
+// implemented on the JS side instead.
+//
+// Per ADR-0070 (2026-05-05), this is the canonical architecture:
+//
+//   PhotoBillCapture (TSX)
+//     → @pharmacare/photo-grn::photoToGrnFromText(rawOcrText)
+//         → tierA(rawText)                         // TS, regex, <5ms
+//             confidence ≥ 0.6 + ≥1 line  → STOP, return tier_used=tier_a
+//             else escalate via Tauri command:
+//               → photo_grn_run(image_b64) [Rust]
+//                 → extract_with_fallback(image_path)
+//                     TierAExtractor → Ok(vec![])  // skip by design
+//                     TierBExtractor → ONNX        // ADR-0069
+//                     TierCExtractor → vision-LLM  // S25
+//
+// `TierAExtractor::extract` therefore always returns `Ok(vec![])`. This
+// is intentional, not a TODO. The placeholder preserves the trait's
+// A→B→C symmetry so the orchestrator's acceptance ladder code stays
+// uniform; it does NOT mean Tier-A is unimplemented.
 
 pub struct TierAExtractor;
 
@@ -64,19 +88,8 @@ impl PhotoGrnTier for TierAExtractor {
     }
 
     fn extract(&self, _image_path: &str) -> Result<Vec<ExtractedLine>, String> {
-        // TODO(s24.4): bridge to `crate::photo_grn`. Blocker: that module
-        // exposes only `photo_grn_run(PhotoGrnInput) -> PhotoGrnResultDto`,
-        // a Tauri command taking base64-encoded photo bytes + reportedMime
-        // + shopId. There is no `(image_path: &str) -> Vec<ExtractedLine>`
-        // entry point yet. Bridge options:
-        //   1. Lift the internal regex extractor out into a pub helper
-        //      (e.g. `pub fn extract_lines_from_text(&str) -> Vec<...>`)
-        //      and add a small `image_to_text` OCR shim here.
-        //   2. Route through `photo_grn_run` (forces base64 round-trip).
-        // Option (1) is preferred but requires touching `photo_grn.rs`;
-        // out of S24.3 scope. Until then we return Ok(vec![]) — the
-        // orchestrator's soft-miss → Tier-B fall-through is what's
-        // exercised end-to-end here.
+        // Deliberate JS-side delegate per ADR-0070. Do NOT "fix" by porting
+        // the TS regex parser — that's documented as a rejected alternative.
         Ok(vec![])
     }
 }
@@ -190,12 +203,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tier_a_returns_empty_ok_in_s24_3() {
-        // Tier-A bridge still blocked (see TODO in extract); Ok(vec![])
-        // is the documented soft-miss behaviour the orchestrator relies on.
+    fn tier_a_returns_empty_by_design() {
+        // ADR-0070 contract: Tier-A is a JS-side delegate; the Rust
+        // `TierAExtractor` returns Ok(vec![]) intentionally. Do not
+        // "fix" by porting `packages/photo-grn/src/tierA.ts` — that
+        // alternative is documented as rejected in ADR-0070. This test
+        // exists to catch a future agent that tries.
         let r = TierAExtractor.extract("nonexistent.jpg");
-        assert!(r.is_ok());
-        assert!(r.unwrap().is_empty());
+        assert!(r.is_ok(), "Tier-A must be Ok (soft miss), not Err");
+        assert!(
+            r.unwrap().is_empty(),
+            "Tier-A in Rust must return zero lines; the regex parser \
+             lives in TS at packages/photo-grn/src/tierA.ts"
+        );
+    }
+
+    #[test]
+    fn orchestrator_never_returns_tier_a_from_rust() {
+        // ADR-0070 corollary: with Tier-A always returning Ok(vec![]),
+        // the orchestrator's `tier_used` must be one of "tier_b",
+        // "tier_c", or "none" — never "tier_a". JS handles tier_a
+        // upstream and short-circuits before ever calling Rust.
+        let result = extract_with_fallback("/nonexistent/image.jpg");
+        assert_ne!(
+            result.tier_used,
+            "tier_a",
+            "Rust orchestrator must never stamp tier_a; that's TS's job (ADR-0070). \
+             Got result: tier_used={}, lines={}, error={:?}",
+            result.tier_used,
+            result.lines.len(),
+            result.error
+        );
+        assert!(
+            ["tier_b", "tier_c", "none"].contains(&result.tier_used.as_str()),
+            "tier_used must be one of tier_b/tier_c/none from Rust; got {}",
+            result.tier_used
+        );
     }
 
     #[test]
