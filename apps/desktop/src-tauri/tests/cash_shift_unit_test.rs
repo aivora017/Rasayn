@@ -177,7 +177,8 @@ fn seed_bills_and_payments(c: &Connection) {
             ('p1', 'b1', 'cash', 100000),
             ('p2', 'b2', 'upi',  50000),
             ('p_void', 'b_void', 'cash', 99900);",
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -230,7 +231,10 @@ fn z_report_tender_breakdown_groups_payments_by_mode() {
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-    assert_eq!(rows, vec![("cash".to_string(), 100000), ("upi".to_string(), 50000)]);
+    assert_eq!(
+        rows,
+        vec![("cash".to_string(), 100000), ("upi".to_string(), 50000)]
+    );
 }
 
 #[test]
@@ -288,7 +292,10 @@ fn variance_above_approval_threshold_requires_approval() {
         }
         Ok(())
     };
-    assert!(needs_approval(50_000, None).is_ok(), "exactly at threshold = ok");
+    assert!(
+        needs_approval(50_000, None).is_ok(),
+        "exactly at threshold = ok"
+    );
     assert!(
         needs_approval(50_001, None)
             .unwrap_err()

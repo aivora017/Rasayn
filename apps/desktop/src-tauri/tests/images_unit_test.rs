@@ -171,7 +171,10 @@ fn get_product_image_returns_nothing_for_missing_product() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(n, 0, "no image attached yet — get_product_image must yield None");
+    assert_eq!(
+        n, 0,
+        "no image attached yet — get_product_image must yield None"
+    );
 }
 
 #[test]
@@ -187,7 +190,12 @@ fn product_images_pk_blocks_two_rows_per_product() {
         "INSERT INTO product_images \
             (product_id, sha256, mime, size_bytes, bytes, uploaded_by) \
          VALUES (?1, ?2, 'image/png', ?3, ?4, 'u_owner')",
-        params!["p_para", SHA256_OF_ABC, payload.len() as i64, payload.clone()],
+        params![
+            "p_para",
+            SHA256_OF_ABC,
+            payload.len() as i64,
+            payload.clone()
+        ],
     )
     .unwrap();
 

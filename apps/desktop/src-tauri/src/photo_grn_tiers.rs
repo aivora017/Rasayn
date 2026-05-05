@@ -88,8 +88,7 @@ pub struct TierBExtractor;
 /// Path to the Tier-B bundle, relative to the crate root. Kept as a
 /// constant so the absent-bundle Err message can name the exact place
 /// the operator must drop the signed file (per ADR-0069 README).
-const TIER_B_MODEL_PATH: &str =
-    "apps/desktop/src-tauri/models/photo_grn/tier_b/model.onnx";
+const TIER_B_MODEL_PATH: &str = "apps/desktop/src-tauri/models/photo_grn/tier_b/model.onnx";
 
 impl PhotoGrnTier for TierBExtractor {
     fn name(&self) -> &'static str {
@@ -227,10 +226,7 @@ mod tests {
             "Tier-B must Err when bundle absent (Playbook §12 fallback)"
         );
         let msg = r.unwrap_err();
-        assert!(
-            msg.contains("Tier-B"),
-            "Err must name the tier; got: {msg}"
-        );
+        assert!(msg.contains("Tier-B"), "Err must name the tier; got: {msg}");
     }
 
     #[cfg(feature = "tier-b-onnx")]

@@ -152,11 +152,19 @@ describe("SupplierTemplateScreen — G08 X1 Tier A template config", () => {
     installHandler({ calls, suppliers: [SUP_CIPLA, SUP_GSK], templates: [TPL_CIPLA] });
     const user = userEvent.setup();
     render(<SupplierTemplateScreen />);
-    await waitFor(() =>
-      expect(calls.some((c) => c.cmd === "list_suppliers")).toBe(true),
-    );
 
-    await user.selectOptions(screen.getByTestId("tpl-supplier-filter"), "sup_cipla");
+    // Wait for the option element itself to mount — waiting on the IPC call
+    // alone races React's state update + re-render under load (CI flake from
+    // PR #105 reappeared on a636428 because the cargo bench compile slowed
+    // the runner enough to expose it).
+    const filter = (await screen.findByTestId(
+      "tpl-supplier-filter",
+    )) as HTMLSelectElement;
+    await waitFor(() => {
+      expect(filter.querySelector('option[value="sup_cipla"]')).not.toBeNull();
+    });
+
+    await user.selectOptions(filter, "sup_cipla");
 
     await waitFor(() => {
       const filtered = calls.filter(
