@@ -22,10 +22,10 @@ jobs:
     name: typescript + vitest
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
@@ -38,7 +38,7 @@ jobs:
     name: cargo check + clippy + test
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: install tauri system deps
         run: |
           sudo apt-get update
@@ -49,9 +49,9 @@ jobs:
       # tauri.conf.json → frontendDist = "../dist" (apps/desktop/dist). Without a
       # frontend build the macro panics and clippy/check/test all fail with
       # "proc macro panicked: frontendDist ... doesn't exist". Build it.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
@@ -79,8 +79,8 @@ jobs:
     name: sqlite migration dry-run
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - name: apply all migrations in order + smoke-test FKs
         run: |
