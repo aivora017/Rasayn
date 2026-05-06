@@ -1,0 +1,16 @@
+# Parallel-run bill capture template (PharmaCare Pro pilot — §9 gate evidence)
+# Owner fills one row per bill rung up on legacy AND PharmaCare during the
+# 2-week parallel-run period. Save as parallel-run-bills.csv (UTF-8). The
+# tooling matches each row to PharmaCare's bills.bill_no by paper_invoice_no.
+# Lines starting with '#' are ignored by the parser.
+#
+# Columns:
+#   paper_invoice_no    legacy/manual invoice number; must equal PharmaCare bill_no
+#   paper_date_iso      ISO date YYYY-MM-DD of the bill
+#   paper_total_rupees  grand total in rupees (decimal OK; converted to paise)
+#   paper_line_count    number of distinct line items on the paper bill
+#   paper_payment_mode  one of: cash | upi | card | credit | wallet | khata
+#                       (khata maps to credit app-side)
+#   paper_notes         free text — anything odd about this bill (optional)
+paper_invoice_no,paper_date_iso,paper_total_rupees,paper_line_count,paper_payment_mode,paper_notes
+EX-2026-001,2026-04-15,247.50,3,cash,first parallel run bill

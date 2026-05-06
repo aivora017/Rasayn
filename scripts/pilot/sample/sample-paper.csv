@@ -1,0 +1,8 @@
+# Sample owner-filled parallel-run CSV — 5 rows, all expected to PASS.
+# Used by scripts/pilot/measure-30-bills.py smoke test.
+paper_invoice_no,paper_date_iso,paper_total_rupees,paper_line_count,paper_payment_mode,paper_notes
+PILOT-2026-001,2026-04-15,100.00,1,cash,smoke row
+PILOT-2026-002,2026-04-15,250.00,2,upi,smoke row
+PILOT-2026-003,2026-04-16,500.00,3,cash,smoke row
+PILOT-2026-004,2026-04-16,150.00,1,khata,khata maps to credit
+PILOT-2026-005,2026-04-17,75.00,1,upi,smoke row
