@@ -23,6 +23,7 @@ pub const CLEARTAX_SANDBOX_BASE_URL: &str = "https://einvapi-sandbox.cleartax.in
 pub const CLEARTAX_PROD_BASE_URL: &str = "https://einvapi.cleartax.in";
 
 /// OAuth2 token TTL — ClearTax issues 1-hour bearer tokens. Refresh at 50min.
+#[allow(dead_code)] // reserved for future token-refresh path (S26.I auto-IRN scheduler)
 pub const TOKEN_REFRESH_SECONDS: u64 = 50 * 60;
 
 #[derive(Debug, Clone)]
@@ -87,10 +88,13 @@ impl ClearTaxConfig {
 }
 
 /// ClearTax API endpoint paths under the base URL.
+#[allow(dead_code)] // reserved for future token-refresh path
 pub const PATH_AUTH_REFRESH: &str = "/v2/auth/refresh";
 pub const PATH_GENERATE_IRN: &str = "/v2/eInvoice";
 pub const PATH_CANCEL_IRN: &str = "/v2/eInvoice/cancel";
+#[allow(dead_code)] // reserved for future credit-note flow
 pub const PATH_GENERATE_CRN: &str = "/v2/eInvoice/creditNote";
+#[allow(dead_code)] // reserved for future status-poll path
 pub const PATH_GET_IRN_STATUS: &str = "/v2/eInvoice/status";
 
 #[cfg(test)]

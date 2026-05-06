@@ -150,7 +150,7 @@ pub fn submit_irn_live(
                             msg: format!("OK body with non-2xx status {status}"),
                         });
                     }
-                    Err(e) if status.is_server_error() && attempt < cfg.retry.max_attempts => {
+                    Err(_e) if status.is_server_error() && attempt < cfg.retry.max_attempts => {
                         // 5xx with unparseable body — retry.
                         sleep(Duration::from_millis(backoff));
                         backoff = backoff.saturating_mul(2);
@@ -164,7 +164,7 @@ pub fn submit_irn_live(
                     }
                 }
             }
-            Err(e) if attempt < cfg.retry.max_attempts => {
+            Err(_e) if attempt < cfg.retry.max_attempts => {
                 // Network / timeout — retry.
                 sleep(Duration::from_millis(backoff));
                 backoff = backoff.saturating_mul(2);

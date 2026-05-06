@@ -31,6 +31,7 @@ pub const CYGNET_PROD_BASE_URL: &str = "https://einvapi.cygnet.in";
 
 /// Token-lifetime hard ceiling in seconds. Cygnet tokens nominally last 6h
 /// (21600s); we refresh at 5h to avoid race with rolling expiry.
+#[allow(dead_code)] // reserved for future token-refresh path (S26.I auto-IRN scheduler)
 pub const TOKEN_REFRESH_SECONDS: u64 = 5 * 60 * 60;
 
 /// Retry policy for transient network failures.
@@ -55,6 +56,7 @@ pub struct CygnetConfig {
     pub base_url: String,
     pub api_key: String,
     pub username: String,
+    #[allow(dead_code)] // reserved for future username/password auth flow (current uses api_key)
     pub password: String,
     pub gstin: String,
     pub is_sandbox: bool,

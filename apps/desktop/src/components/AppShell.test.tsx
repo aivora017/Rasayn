@@ -12,9 +12,9 @@
 // tests below exercise both via the App.tsx entrypoint so we don't
 // fragment coverage.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
-import { setIpcHandler, type IpcCall } from "../lib/ipc.js";
+import type { IpcCall } from "../lib/ipc.js";
 
 const trivialHandler = async (call: IpcCall) => {
   if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
@@ -25,12 +25,19 @@ const trivialHandler = async (call: IpcCall) => {
   if (call.cmd === "list_supplier_templates") return [];
   if (call.cmd === "search_customers") return [];
   if (call.cmd === "search_doctors") return [];
+  // Catch-all: any unknown cmd (incl. user/auth/print bootstrap calls
+  // BillingScreen makes on mount) returns null so the screen renders.
   return null;
 };
 
-beforeEach(() => {
-  setIpcHandler(trivialHandler);
-});
+// vi.resetModules() inside each test re-imports lib/ipc.js with a fresh
+// (handler-less) state. The setIpcHandler we'd statically import here would
+// target the OLD ipc module — useless. Instead, import setIpcHandler from
+// the freshly-reset module after resetModules() and before App is imported.
+async function installFreshHandler() {
+  const ipc = await import("../lib/ipc.js");
+  ipc.setIpcHandler(trivialHandler);
+}
 
 afterEach(() => {
   vi.resetModules();
@@ -57,6 +64,7 @@ describe("AppShell · S26.G scaffold-only gating", () => {
           (actual.SCAFFOLD_ONLY_MODES as readonly string[]).includes(mode),
       };
     });
+    await installFreshHandler();
     const { App } = await import("../App.js");
     await act(async () => {
       render(<App />);
@@ -85,6 +93,7 @@ describe("AppShell · S26.G scaffold-only gating", () => {
         isScaffoldHidden: (_mode: string): boolean => false,
       };
     });
+    await installFreshHandler();
     const { App } = await import("../App.js");
     await act(async () => {
       render(<App />);
@@ -114,6 +123,7 @@ describe("AppShell · S26.G scaffold-only gating", () => {
           (actual.SCAFFOLD_ONLY_MODES as readonly string[]).includes(mode),
       };
     });
+    await installFreshHandler();
     const { App } = await import("../App.js");
     await act(async () => {
       render(<App initialMode="counseling" />);

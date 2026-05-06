@@ -134,7 +134,7 @@ pub fn submit_irn_live(
                             msg: format!("OK body with non-2xx {status}"),
                         });
                     }
-                    Err(e) if status.is_server_error() && attempt < cfg.retry.max_attempts => {
+                    Err(_e) if status.is_server_error() && attempt < cfg.retry.max_attempts => {
                         sleep(Duration::from_millis(backoff));
                         backoff = backoff.saturating_mul(2);
                         continue;
@@ -147,7 +147,7 @@ pub fn submit_irn_live(
                     }
                 }
             }
-            Err(e) if attempt < cfg.retry.max_attempts => {
+            Err(_e) if attempt < cfg.retry.max_attempts => {
                 sleep(Duration::from_millis(backoff));
                 backoff = backoff.saturating_mul(2);
                 continue;
