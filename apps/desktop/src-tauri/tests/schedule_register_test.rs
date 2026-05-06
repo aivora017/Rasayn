@@ -51,6 +51,7 @@ fn seed_products_and_batches(c: &Connection) {
     .unwrap();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn insert_bill_with_h_line(
     c: &Connection,
     bill_id: &str,

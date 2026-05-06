@@ -76,7 +76,8 @@ function toScheduleRows(rows: readonly ScheduleRegisterRowDTO[]): {
       billId: r.billId, billNo: r.billNo, billedAt: r.billedAt,
       customerName: r.customerName, doctorName: r.doctorName, doctorRegNo: r.doctorRegNo,
       drugName: r.drug, batchNo: r.batchNo, qty: r.qty,
-      rxImagePath: r.rxImage ? `rx/${r.billId}.jpg` : undefined,
+      // exactOptionalPropertyTypes: true — must omit (not set undefined) when no rx image.
+      ...(r.rxImage ? { rxImagePath: `rx/${r.billId}.jpg` } : {}),
     };
     if (r.schedule === "X") {
       schedX.push({ ...base, witnessUserId: "u_witness", witnessName: r.witnessName ?? "(missing)" });

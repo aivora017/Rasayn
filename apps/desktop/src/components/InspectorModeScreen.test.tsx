@@ -22,8 +22,10 @@ function row(o: Partial<ScheduleRegisterRowDTO> & { schedule: ScheduleRegisterRo
     drug: o.drug ?? "Drug",
     batchNo: o.batchNo ?? "BN",
     qty: o.qty ?? 1,
-    rxImage: o.rxImage,
-    witnessName: o.witnessName,
+    // exactOptionalPropertyTypes: true — conditional-spread optional fields,
+    // never set them to literal `undefined`.
+    ...(o.rxImage !== undefined ? { rxImage: o.rxImage } : {}),
+    ...(o.witnessName !== undefined ? { witnessName: o.witnessName } : {}),
   };
 }
 
