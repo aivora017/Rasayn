@@ -3920,7 +3920,7 @@ impl EinvoiceAdapter for CygnetAdapter {
                 Ok(()) => {
                     #[cfg(feature = "cygnet-live")]
                     {
-                        return crate::cygnet_wire::submit_irn_live(&cfg, _payload);
+                        crate::cygnet_wire::submit_irn_live(&cfg, _payload)
                     }
                     #[cfg(not(feature = "cygnet-live"))]
                     {
@@ -3948,7 +3948,7 @@ impl EinvoiceAdapter for CygnetAdapter {
                     })
                 }
             };
-            return crate::cygnet_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks);
+            crate::cygnet_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks)
         }
         #[cfg(not(feature = "cygnet-live"))]
         {
@@ -3981,7 +3981,7 @@ impl EinvoiceAdapter for ClearTaxAdapter {
                 Ok(()) => {
                     #[cfg(feature = "cleartax-live")]
                     {
-                        return crate::cleartax_wire::submit_irn_live(&cfg, _payload);
+                        crate::cleartax_wire::submit_irn_live(&cfg, _payload)
                     }
                     #[cfg(not(feature = "cleartax-live"))]
                     {
@@ -4009,7 +4009,7 @@ impl EinvoiceAdapter for ClearTaxAdapter {
                     })
                 }
             };
-            return crate::cleartax_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks);
+            crate::cleartax_wire::cancel_irn_live(&cfg, _irn, _reason, _remarks)
         }
         #[cfg(not(feature = "cleartax-live"))]
         {

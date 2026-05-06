@@ -103,10 +103,13 @@ impl CygnetConfig {
 }
 
 /// Endpoint paths under the base URL. Mirror Cygnet's documented surface.
+#[allow(dead_code)] // reserved for future token-refresh path
 pub const PATH_AUTH: &str = "/Authentication/Authenticate";
 pub const PATH_GENERATE_IRN: &str = "/eInvoice/GenerateIRN";
 pub const PATH_CANCEL_IRN: &str = "/eInvoice/CancelIRN";
+#[allow(dead_code)] // reserved for future credit-note flow
 pub const PATH_GENERATE_CRN: &str = "/eInvoice/GenerateCreditNote";
+#[allow(dead_code)] // reserved for future status-poll path
 pub const PATH_GET_IRN_STATUS: &str = "/eInvoice/GetIRNStatus";
 
 #[cfg(test)]
