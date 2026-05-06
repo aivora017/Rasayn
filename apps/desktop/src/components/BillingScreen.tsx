@@ -337,12 +337,19 @@ export function BillingScreen() {
       !tenders || tenders.length === 0 ? "cash"
         : tenders.length === 1 ? tenders[0]!.mode
           : "split";
+    // S26.C · Source-of-truth for customerStateCode: derive from customer.gstin
+    // first 2 digits (standard Indian GSTIN pattern). Fall back to SHOP.stateCode
+    // for walk-in / no-GSTIN B2C — engine then computes intra-state correctly.
+    const customerStateCode =
+      customer?.gstin && customer.gstin.length === 15
+        ? customer.gstin.slice(0, 2)
+        : SHOP.stateCode;
     const payload: SaveBillInput = {
       shopId: SHOP.id,
       billNo: genBillNo(),
       cashierId: SHOP.cashierId,
       paymentMode: resolvedMode,
-      customerStateCode: SHOP.stateCode,
+      customerStateCode,
       customerId: customer?.id ?? null,
       rxId: rxId,
       lines: lines

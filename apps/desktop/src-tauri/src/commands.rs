@@ -3869,8 +3869,15 @@ pub struct IrnErrorInner {
     pub msg: String,
 }
 
+// MockAdapter is a fabrication-only adapter — its IRNs are NOT issued by
+// NIC/IRP and cannot be used to claim ITC. It exists for unit + integration
+// tests and for developer ergonomics during a debug build. Release binaries
+// (where `debug_assertions` is off) MUST NOT see this type — silent killer
+// #1 in _research_brain/00_session_state/SILENT_KILLERS.md, S26.A.
+#[cfg(any(test, debug_assertions))]
 pub struct MockAdapter;
 
+#[cfg(any(test, debug_assertions))]
 impl EinvoiceAdapter for MockAdapter {
     fn vendor_name(&self) -> &'static str {
         "mock"
@@ -4017,6 +4024,12 @@ impl EinvoiceAdapter for ClearTaxAdapter {
 
 fn adapter_for(vendor: &str) -> Box<dyn EinvoiceAdapter> {
     match vendor {
+        // MockAdapter only exists in debug/test builds. In a release
+        // binary the "mock" arm cannot construct it; we fall through
+        // to the real Cygnet adapter so the runtime guard in submit_irn
+        // is the authoritative refusal point (returns a structured Err
+        // before any irn_records row is inserted).
+        #[cfg(any(test, debug_assertions))]
         "mock" => Box::new(MockAdapter),
         "cygnet" => Box::new(CygnetAdapter),
         "cleartax" => Box::new(ClearTaxAdapter),
@@ -4256,6 +4269,16 @@ pub fn submit_irn(input: SubmitIrnInput, state: State<DbState>) -> Result<IrnRec
     let payload = drop_and_generate(&mut db, &input.bill_id)?;
 
     let vendor = input.vendor_override.clone().unwrap_or(shop_vendor);
+
+    // S26.A silent-killer #1: MockAdapter fabricates IRN strings that look
+    // valid but are not issued by NIC/IRP. Buyer cannot claim ITC on a
+    // fabricated IRN — GST audit treats this as tax fraud. Refuse the
+    // submission BEFORE writing irn_records so no row, audit, or attempt
+    // counter is recorded under a fake vendor in a release binary.
+    if vendor == "mock" && !cfg!(debug_assertions) {
+        return Err("MOCK_ADAPTER_NOT_ALLOWED_IN_RELEASE".to_string());
+    }
+
     let record_id = gen_id("irn");
     let payload_json = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
     let now = current_iso();

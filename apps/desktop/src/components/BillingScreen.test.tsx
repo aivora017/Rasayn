@@ -723,3 +723,89 @@ describe("BillingScreen · A12 e-invoice IRN chip", () => {
   });
 });
 
+
+// S26.C — customerStateCode pass-through (silent killer #3).
+// Shop is Maharashtra (state_code "27", see SHOP const in BillingScreen).
+// The save_bill payload's customerStateCode must reflect the customer's
+// actual state (derived from GSTIN[0:2]) so gst-engine routes IGST for
+// inter-state B2B and CGST+SGST for intra-state.
+describe("BillingScreen · S26.C customerStateCode pass-through", () => {
+  beforeEach(() => {
+    setIpcHandler(handler());
+    _resetPendingGrnDraftForTests();
+  });
+
+  function s26Handler(custHits: readonly { id: string; name: string; phone: string | null; gstin: string | null; gender: null; consentAbdm: number; consentMarketing: number }[], calls: IpcCall[]) {
+    return async (call: IpcCall) => {
+      calls.push(call);
+      if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
+      if (call.cmd === "db_version") return 2;
+      if (call.cmd === "search_products") {
+        const q = call.args.q.toLowerCase();
+        return FIXTURES.filter((f) => f.name.toLowerCase().includes(q));
+      }
+      if (call.cmd === "pick_fefo_batch") return BATCH;
+      if (call.cmd === "list_fefo_candidates") return [BATCH, BATCH_ALT];
+      if (call.cmd === "save_bill") return { billId: "bill_s26", grandTotalPaise: 11200, linesInserted: 1 };
+      if (call.cmd === "search_customers") return custHits;
+      if (call.cmd === "list_prescriptions") return [];
+      if (call.cmd === "list_stock") return [];
+      return null;
+    };
+  }
+
+  async function pickCustomerInUi(user: ReturnType<typeof userEvent.setup>, custId: string, query = "acme") {
+    await user.click(screen.getByTestId("cust-search"));
+    await user.keyboard(query);
+    const hit = await screen.findByTestId(`cust-hit-${custId}`);
+    fireEvent.mouseDown(hit);
+  }
+
+  it("Maharashtra shop + Gujarat customer (GSTIN 24...) -> save_bill receives stateCode '24' (inter-state, IGST)", async () => {
+    const calls: IpcCall[] = [];
+    const gjCust = { id: "c_gj1", name: "Acme Surat Pvt Ltd", phone: null, gstin: "24ABCDE1234F1Z5", gender: null, consentAbdm: 0, consentMarketing: 0 } as const;
+    setIpcHandler(s26Handler([gjCust], calls));
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await pickCustomerInUi(user, gjCust.id);
+    await waitFor(() => expect(screen.getByTestId("cust-selected")).toBeInTheDocument());
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() => expect(calls.some((c) => c.cmd === "save_bill")).toBe(true));
+    const saveCall = calls.find((c) => c.cmd === "save_bill") as Extract<IpcCall, { cmd: "save_bill" }>;
+    expect(saveCall.args.input.customerStateCode).toBe("24");
+    expect(saveCall.args.input.customerId).toBe("c_gj1");
+  });
+
+  it("Maharashtra shop + Maharashtra customer (GSTIN 27...) -> save_bill receives stateCode '27' (intra-state, CGST+SGST)", async () => {
+    const calls: IpcCall[] = [];
+    const mhCust = { id: "c_mh1", name: "Acme Mumbai Pvt Ltd", phone: null, gstin: "27ABCDE1234F1Z5", gender: null, consentAbdm: 0, consentMarketing: 0 } as const;
+    setIpcHandler(s26Handler([mhCust], calls));
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await pickCustomerInUi(user, mhCust.id);
+    await waitFor(() => expect(screen.getByTestId("cust-selected")).toBeInTheDocument());
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() => expect(calls.some((c) => c.cmd === "save_bill")).toBe(true));
+    const saveCall = calls.find((c) => c.cmd === "save_bill") as Extract<IpcCall, { cmd: "save_bill" }>;
+    expect(saveCall.args.input.customerStateCode).toBe("27");
+    expect(saveCall.args.input.customerId).toBe("c_mh1");
+  });
+
+  it("Walk-in (no customer attached) -> falls back to SHOP.stateCode '27' (intra-state)", async () => {
+    const calls: IpcCall[] = [];
+    setIpcHandler(s26Handler([], calls));
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() => expect(calls.some((c) => c.cmd === "save_bill")).toBe(true));
+    const saveCall = calls.find((c) => c.cmd === "save_bill") as Extract<IpcCall, { cmd: "save_bill" }>;
+    expect(saveCall.args.input.customerStateCode).toBe("27");
+    expect(saveCall.args.input.customerId).toBeNull();
+  });
+});

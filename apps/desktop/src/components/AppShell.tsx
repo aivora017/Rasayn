@@ -40,7 +40,7 @@ import {
   RefreshCw,
   Monitor,
 } from "lucide-react";
-import { FEATURE_FLAGS } from "../featureFlags.js";
+import { FEATURE_FLAGS, isScaffoldHidden } from "../featureFlags.js";
 
 import {
   IconButton,
@@ -139,7 +139,11 @@ export function AppShell({ mode, setMode, shop, isFirstRun, health, children }: 
     { flag: "abdmConsents",         item: { mode: "abdmConsents",      label: "ABDM Consents",     icon: <ShieldCheck size={16} />,    shortcut: "" } },
     { flag: "prescription",       item: { mode: "prescription",      label: "Rx Capture",        icon: <ScrollText size={16} />,     shortcut: "" } },
   ];
-  const previewItems = PREVIEW_ITEMS.filter(p => FEATURE_FLAGS[p.flag]).map(p => p.item);
+  // S26.G · scaffold-only modes hidden in PILOT_BUILD; TODO(S26.K): real CounselingScreen impl (Schedule-H mandate).
+  const previewItems = PREVIEW_ITEMS
+    .filter((p) => FEATURE_FLAGS[p.flag])
+    .filter((p) => !isScaffoldHidden(p.item.mode))
+    .map((p) => p.item);
   const NAV_GROUPS_FINAL = previewItems.length > 0
     ? [...NAV_GROUPS, { title: "Pharmacy OS · Preview", items: previewItems }]
     : NAV_GROUPS;

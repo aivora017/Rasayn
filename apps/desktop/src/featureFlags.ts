@@ -74,3 +74,29 @@ export const FEATURE_FLAGS: FeatureFlags = { ...DEFAULT, ...DEV_OVERRIDE };
 export function anyPharmacyOsFeatureEnabled(): boolean {
   return Object.values(FEATURE_FLAGS).some(Boolean);
 }
+// === S26.G — PILOT_BUILD scaffold-only gate ===
+//
+// Four screens (RxScanModal, ARShelfOverlay, CounselingScreen,
+// ABHAVerifyModal) ship as 1/5 scaffolds rendering literal "coming online"
+// text. In a PILOT_BUILD artifact (Vaidyanath / future paying pilots) we
+// hide them from the sidebar + command palette and render UpcomingFeature
+// instead of the scaffold body for any deep-link arrival. In dev
+// (PILOT_BUILD=false) the scaffolds remain reachable so the team can
+// iterate.
+
+export const PILOT_BUILD: boolean =
+  typeof import.meta !== "undefined" &&
+  (import.meta as { env?: { VITE_PILOT_BUILD?: string } }).env?.VITE_PILOT_BUILD !== "false";
+
+export const SCAFFOLD_ONLY_MODES = [
+  "counseling",
+  "arShelf",
+  "rxScan",
+  "abhaVerify",
+] as const;
+
+export function isScaffoldHidden(mode: string): boolean {
+  if (!PILOT_BUILD) return false;
+  return (SCAFFOLD_ONLY_MODES as readonly string[]).includes(mode);
+}
+

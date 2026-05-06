@@ -51,7 +51,8 @@ import {
   type Shop,
 } from "./lib/ipc.js";
 import type { Mode } from "./mode.js";
-import { FEATURE_FLAGS } from "./featureFlags.js";
+import { UpcomingFeature } from "./components/UpcomingFeature.js";
+import { FEATURE_FLAGS, isScaffoldHidden } from "./featureFlags.js";
 
 // Alt+digit keyboard nav (ADR-0009 + ADR-0015 addendum). Now also Alt+` (backtick) → dashboard.
 const NAV_BY_DIGIT: Record<string, Mode> = {
@@ -166,7 +167,7 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         {mode === "khata"              && FEATURE_FLAGS.khata              && <KhataScreen />}
         {mode === "doctorReport"       && FEATURE_FLAGS.doctorReport       && <DoctorReportScreen />}
         {mode === "loyalty"            && FEATURE_FLAGS.loyalty            && <LoyaltyScreen />}
-        {mode === "counseling"         && FEATURE_FLAGS.counseling         && <CounselingScreen />}
+        {mode === "counseling"         && FEATURE_FLAGS.counseling         && (isScaffoldHidden("counseling") ? <UpcomingFeature name="Patient Counseling Records" note="Schedule-H counseling logs ship in the next release. TODO(S26.K): real impl — Schedule-H mandate." /> : <CounselingScreen />)}
         {mode === "rbac"               && FEATURE_FLAGS.rbac               && <RBACScreen />}
         {mode === "stockTransfer"      && FEATURE_FLAGS.stockTransfer      && <StockTransferScreen />}
         {mode === "multiStore"         && FEATURE_FLAGS.multiStore         && <MultiStoreScreen />}
@@ -176,7 +177,7 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         {mode === "dpdp"               && FEATURE_FLAGS.dpdp               && <DPDPConsentScreen />}
         {mode === "coldChain"          && FEATURE_FLAGS.coldChain          && <ColdChainScreen />}
         {mode === "digitalTwin"        && FEATURE_FLAGS.digitalTwin        && <DigitalTwinScreen />}
-        {mode === "arShelf"            && FEATURE_FLAGS.arShelf            && <ARShelfOverlay />}
+        {mode === "arShelf"            && FEATURE_FLAGS.arShelf            && (isScaffoldHidden("arShelf") ? <UpcomingFeature name="AR Shelf Overlay" note="Shelf-overlay vision pipeline ships in a future release." /> : <ARShelfOverlay />)}
         {mode === "familyVault"        && FEATURE_FLAGS.familyVault        && <FamilyVaultScreen />}
         {mode === "pluginMarketplace"  && FEATURE_FLAGS.pluginMarketplace  && <PluginMarketplaceScreen />}
         {mode === "caExport"           && FEATURE_FLAGS.caExport           && <CAExportScreen />}
