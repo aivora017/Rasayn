@@ -9,9 +9,10 @@
 //      onSaveBlockedChange={setSaveBlocked}
 //   />
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Leaf, ShieldCheck } from "lucide-react";
 import { Glass, Badge } from "@pharmacare/design-system";
+import { listDdiPairsRpc, listCustomerAllergiesRpc, listDoseRangesRpc } from "../lib/ipc.js";
 import { paise, formatINR, type Paise } from "@pharmacare/shared-types";
 import { useDdiCheck, type BasketItem } from "../lib/useDdiCheck.js";
 import DDIAlertModal from "./DDIAlertModal.js";
@@ -39,14 +40,116 @@ export default function BillingClinicalGuard({
   basket, customer, ddiTable, customerAllergies, doseRanges, onSaveBlockedChange,
 }: BillingClinicalGuardProps): React.ReactElement | null {
 
+  // S26.D — Wave 2 Agent C: hydrate formulary tables from IPC.
+  // Caller-supplied props (ddiTable / customerAllergies / doseRanges) take
+  // precedence (used by tests); when omitted we fetch live from Tauri.
+  // DDI pairs are session-cached in a module-scoped ref — they don't change
+  // per-bill. Allergies refetch on customer change. Dose-ranges pre-fetch
+  // per-line as products are added.
+  const [fetchedDdi, setFetchedDdi] = useState<readonly DdiPair[] | undefined>(undefined);
+  const [fetchedAllergies, setFetchedAllergies] = useState<readonly CustomerAllergy[] | undefined>(undefined);
+  const [fetchedDoses, setFetchedDoses] = useState<readonly DoseRange[] | undefined>(undefined);
+  const ddiCacheRef = useRef<readonly DdiPair[] | null>(null);
+  const doseCacheRef = useRef<Map<string, DoseRange | null>>(new Map());
+
+  // DDI pairs — once per session.
+  useEffect(() => {
+    if (ddiTable !== undefined) return; // caller injected (tests) — skip IPC
+    if (ddiCacheRef.current !== null) {
+      setFetchedDdi(ddiCacheRef.current);
+      return;
+    }
+    let cancelled = false;
+    listDdiPairsRpc()
+      .then((rows) => {
+        if (cancelled) return;
+        ddiCacheRef.current = rows;
+        setFetchedDdi(rows);
+      })
+      .catch((err: unknown) => {
+        // Graceful degradation per Playbook §12 — log + empty array.
+        // BillingScreen flow continues; engine no-ops on empty DDI table.
+        console.error("[BillingClinicalGuard] list_ddi_pairs failed:", err);
+        if (!cancelled) {
+          ddiCacheRef.current = [];
+          setFetchedDdi([]);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [ddiTable]);
+
+  // Customer allergies — refetch when customer.id changes.
+  useEffect(() => {
+    if (customerAllergies !== undefined) return; // caller injected
+    if (!customer?.id) {
+      setFetchedAllergies([]);
+      return;
+    }
+    let cancelled = false;
+    listCustomerAllergiesRpc(customer.id)
+      .then((rows) => { if (!cancelled) setFetchedAllergies(rows); })
+      .catch((err: unknown) => {
+        console.error("[BillingClinicalGuard] list_customer_allergies failed:", err);
+        if (!cancelled) setFetchedAllergies([]);
+      });
+    return () => { cancelled = true; };
+  }, [customer?.id, customerAllergies]);
+
+  // Dose ranges — pre-fetch per current basket line. Cache by productId so
+  // re-renders don't refetch. list_dose_ranges returns DoseRange | null per
+  // product (null = no rule recorded).
+  const productIdsKey = basket.map((l) => l.productId).filter(Boolean).join(",");
+  useEffect(() => {
+    if (doseRanges !== undefined) return; // caller injected
+    let cancelled = false;
+    const productIds = productIdsKey ? productIdsKey.split(",") : [];
+    const missing = productIds.filter((pid) => !doseCacheRef.current.has(pid));
+    if (missing.length === 0) {
+      const collected: DoseRange[] = [];
+      for (const pid of productIds) {
+        const r = doseCacheRef.current.get(pid);
+        if (r) collected.push(r);
+      }
+      setFetchedDoses(collected);
+      return;
+    }
+    Promise.all(
+      missing.map((pid) =>
+        listDoseRangesRpc(pid)
+          .then((r) => ({ pid, r }))
+          .catch((err: unknown) => {
+            console.error("[BillingClinicalGuard] list_dose_ranges failed for", pid, err);
+            return { pid, r: null as DoseRange | null };
+          }),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      for (const { pid, r } of results) doseCacheRef.current.set(pid, r);
+      const collected: DoseRange[] = [];
+      for (const pid of productIds) {
+        const r = doseCacheRef.current.get(pid);
+        if (r) collected.push(r);
+      }
+      setFetchedDoses(collected);
+    });
+    return () => { cancelled = true; };
+    // productIdsKey is a stable string projection of basket; that's the right
+    // dep — using `basket` directly would re-fire on every parent re-render.
+  }, [productIdsKey, doseRanges]);
+
+  // Effective tables — caller-supplied wins; otherwise use the IPC-fetched ones.
+  const effectiveDdi = ddiTable ?? fetchedDdi;
+  const effectiveAllergies = customerAllergies ?? fetchedAllergies;
+  const effectiveDoses = doseRanges ?? fetchedDoses;
+
   // DDI / allergy / dose
   const { alerts, hasBlocker } = useDdiCheck({
     basket,
     ...(customer?.id !== undefined ? { customerId: customer.id } : {}),
     ...(customer?.ageYears !== undefined ? { patientAgeYears: customer.ageYears } : {}),
-    ...(ddiTable !== undefined ? { ddiTable } : {}),
-    ...(customerAllergies !== undefined ? { customerAllergies } : {}),
-    ...(doseRanges !== undefined ? { doseRanges } : {}),
+    ...(effectiveDdi !== undefined ? { ddiTable: effectiveDdi } : {}),
+    ...(effectiveAllergies !== undefined ? { customerAllergies: effectiveAllergies } : {}),
+    ...(effectiveDoses !== undefined ? { doseRanges: effectiveDoses } : {}),
   });
 
   const [modalOpen, setModalOpen] = useState(true);

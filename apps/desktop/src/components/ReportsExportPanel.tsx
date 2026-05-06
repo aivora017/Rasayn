@@ -2,9 +2,12 @@
 // Exposes: Tally Prime XML · Zoho Books CSV · QuickBooks IIF
 //          GSTR-3B summary · GSTR-2B reconcile · GSTR-9 annual
 //
-// Each button generates the export client-side via the real packages, then
-// triggers a browser-side download. The Tauri save_file command can be wired
-// in later; for now the in-browser blob+anchor pattern works in dev.
+// S26 Wave 2 Agent B — GSTR-3B button now calls the real
+// `generate_gstr3b_payload` IPC and downloads the returned JSON. The
+// pre-pilot SAMPLE_BILLS / SAMPLE_PURCHASES arrays (lines 22-31) only
+// remain to feed Tally / Zoho / QuickBooks / GSTR-2B / GSTR-9 buttons,
+// which are tracked as separate follow-ups (those exporters need their
+// own RPCs from Agent A).
 
 import { useCallback, useState } from "react";
 import { Download, FileSpreadsheet, Receipt, Shield, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -18,8 +21,11 @@ import {
   buildGstr3b, reconcile2b, buildGstr9,
   type BillRow, type PurchaseRow, type Gstr2bPortalRow, type Gstr3b,
 } from "@pharmacare/gst-extras";
+import { generateGstr3bPayloadRpc } from "../lib/ipc.js";
 
-// Sample data — replace with RPC calls once Tauri commands ship
+// Sample data — still used by Tally / Zoho / QB / GSTR-2B / GSTR-9 paths.
+// Connect to live `/list_bills`, `/list_purchases` RPCs once the Tally
+// accountant signs off on column mapping (separate follow-up sprint).
 const SAMPLE_BILLS: BillRow[] = [
   { billId: "b1", billNo: "B-001", billedAt: "2026-04-15", customerStateCode: "27",
     taxablePaise: paise(100000), cgstPaise: paise(2500), sgstPaise: paise(2500),
@@ -43,17 +49,32 @@ function downloadBlob(filename: string, content: string, mime: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function periodToYyyymm(period: string): string {
+  // Accepts "2026-04" or "2026-04-15"; strips to "2026-04".
+  return /^\d{4}-\d{2}/.test(period) ? period.slice(0, 7) : period;
+}
+
 interface ReportsExportPanelProps {
   shopName?: string;
   period?: string;
+  /** Shop scope. Defaults to "shop_local" (single-tenant pilot). */
+  shopId?: string;
+  /** When true, suppresses the GSTR-9 "Coming next sprint" badge for tests. */
+  gstr9Available?: boolean;
 }
 
-export default function ReportsExportPanel({ shopName = "PharmaCare", period = "2026-04" }: ReportsExportPanelProps = {}): React.ReactElement {
+export default function ReportsExportPanel({
+  shopName = "PharmaCare",
+  period = "2026-04",
+  shopId = "shop_local",
+  gstr9Available = false,
+}: ReportsExportPanelProps = {}): React.ReactElement {
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   const exportTallyXml = useCallback(() => {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
       const vouchers: TallyVoucher[] = SAMPLE_BILLS.filter((b) => !b.isRefund).map((b) =>
         billToSalesVoucher({
@@ -75,7 +96,7 @@ export default function ReportsExportPanel({ shopName = "PharmaCare", period = "
   }, [period, shopName]);
 
   const exportZoho = useCallback(() => {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
       const vouchers: TallyVoucher[] = SAMPLE_BILLS.filter((b) => !b.isRefund).map((b) =>
         billToSalesVoucher({
@@ -93,7 +114,7 @@ export default function ReportsExportPanel({ shopName = "PharmaCare", period = "
   }, [period]);
 
   const exportQbiif = useCallback(() => {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
       const vouchers: TallyVoucher[] = SAMPLE_BILLS.filter((b) => !b.isRefund).map((b) =>
         billToSalesVoucher({
@@ -110,19 +131,22 @@ export default function ReportsExportPanel({ shopName = "PharmaCare", period = "
     } finally { setBusy(false); }
   }, [period]);
 
-  const export3b = useCallback(() => {
-    setBusy(true);
+  // GSTR-3B — real IPC. Returns the canonical Gstr3b payload as JSON which the
+  // user downloads. Replaces the in-browser SAMPLE_BILLS computation.
+  const export3b = useCallback(async () => {
+    setBusy(true); setErr(null);
     try {
-      const r3b: Gstr3b = buildGstr3b({
-        period, shopId: "shop_local", bills: SAMPLE_BILLS, purchases: SAMPLE_PURCHASES,
-      });
-      downloadBlob(`gstr3b_${period}.json`, JSON.stringify(r3b, null, 2), "application/json");
-      setLast(`GSTR-3B JSON · taxable ₹${(r3b.outwardSupplies.taxablePaise as number) / 100}`);
+      const yyyymm = periodToYyyymm(period);
+      const payload = await generateGstr3bPayloadRpc({ periodYyyymm: yyyymm, shopId });
+      downloadBlob(`gstr3b_${yyyymm}.json`, JSON.stringify(payload, null, 2), "application/json");
+      setLast(`GSTR-3B JSON · taxable ₹${payload.outwardSupplies.taxablePaise / 100}`);
+    } catch (e) {
+      setErr(`GSTR-3B generation failed: ${String(e)}`);
     } finally { setBusy(false); }
-  }, [period]);
+  }, [period, shopId]);
 
   const export2bRecon = useCallback(() => {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
       // demo portal data — production caller imports the JSON downloaded from GST portal
       const portal: Gstr2bPortalRow[] = SAMPLE_PURCHASES.map((p) => ({
@@ -138,14 +162,14 @@ export default function ReportsExportPanel({ shopName = "PharmaCare", period = "
   }, [period]);
 
   const export9 = useCallback(() => {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
-      const monthly = buildGstr3b({ period, shopId: "shop_local", bills: SAMPLE_BILLS, purchases: SAMPLE_PURCHASES });
-      const annual = buildGstr9("2026-27", "shop_local", [monthly]);
+      const monthly: Gstr3b = buildGstr3b({ period, shopId, bills: SAMPLE_BILLS, purchases: SAMPLE_PURCHASES });
+      const annual = buildGstr9("2026-27", shopId, [monthly]);
       downloadBlob(`gstr9_2026-27.json`, JSON.stringify(annual, null, 2), "application/json");
       setLast(`GSTR-9 annual export — 1 month aggregated (sample)`);
     } finally { setBusy(false); }
-  }, [period]);
+  }, [period, shopId]);
 
   return (
     <Glass>
@@ -165,19 +189,31 @@ export default function ReportsExportPanel({ shopName = "PharmaCare", period = "
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <Button onClick={export3b}      disabled={busy}><Receipt size={14} /> GSTR-3B summary</Button>
+          <Button onClick={export3b}      disabled={busy} data-testid="export-3b"><Receipt size={14} /> GSTR-3B summary</Button>
           <Button onClick={export2bRecon} disabled={busy}><Shield  size={14} /> GSTR-2B reconcile</Button>
-          <Button onClick={export9}       disabled={busy}><Receipt size={14} /> GSTR-9 annual</Button>
+          {gstr9Available ? (
+            <Button onClick={export9} disabled={busy}><Receipt size={14} /> GSTR-9 annual</Button>
+          ) : (
+            <Button disabled className="opacity-70" data-testid="export-9-disabled">
+              <Receipt size={14} /> GSTR-9 annual
+              <Badge variant="warning">Coming next sprint</Badge>
+            </Button>
+          )}
         </div>
 
-        {last && (
-          <div className="flex items-center gap-2 text-[12px] text-[var(--pc-state-success)] border-t border-[var(--pc-border-subtle)] pt-2">
+        {err && (
+          <div className="flex items-center gap-2 text-[12px] text-[var(--pc-state-danger)] border-t border-[var(--pc-border-subtle)] pt-2" data-testid="export-error">
+            <AlertCircle size={12} /> {err}
+          </div>
+        )}
+        {last && !err && (
+          <div className="flex items-center gap-2 text-[12px] text-[var(--pc-state-success)] border-t border-[var(--pc-border-subtle)] pt-2" data-testid="export-last">
             <CheckCircle2 size={12} /> Last export: {last}
           </div>
         )}
         <div className="flex items-start gap-2 text-[11px] text-[var(--pc-text-tertiary)]">
           <AlertCircle size={12} className="mt-0.5" />
-          Sample data wired today — connect to live `/list_bills`, `/list_purchases` RPCs once the Tally accountant signs off on column mapping.
+          GSTR-3B is wired to live IPC. Tally / Zoho / QB / GSTR-2B / GSTR-9 still consume sample bills until their RPCs land.
         </div>
       </div>
     </Glass>

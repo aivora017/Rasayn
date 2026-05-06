@@ -12,6 +12,7 @@ mod cygnet;
 mod cygnet_wire;
 mod db;
 mod dpdp;
+mod formulary_loader;
 mod idempotency;
 mod images;
 mod khata;
@@ -27,7 +28,10 @@ mod products;
 #[cfg(test)]
 mod products_perf;
 mod rbac;
+mod reorder_export;
+mod reports_export;
 mod returns;
+mod schedule_register;
 mod stock_transfer;
 mod system_info;
 mod telemetry;
@@ -178,6 +182,13 @@ fn main() {
             whatsapp::whatsapp_mark_sent,
             whatsapp::whatsapp_mark_failed,
             whatsapp::whatsapp_mark_delivered,
+            schedule_register::list_schedule_register,
+            schedule_register::schedule_register_pdf_path,
+            formulary_loader::list_ddi_pairs,
+            formulary_loader::list_customer_allergies,
+            formulary_loader::list_dose_ranges,
+            reorder_export::list_reorder_suggestions,
+            reports_export::generate_gstr3b_payload,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

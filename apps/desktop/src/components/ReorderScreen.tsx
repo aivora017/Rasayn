@@ -1,206 +1,252 @@
-// ReorderScreen — Auto-PO suggestions per supplier (S12).
+// ReorderScreen — Auto-PO suggestions per supplier.
 //
-// Consumes @pharmacare/reorder-suggest. Stock + forecasts come from
-// existing IPC; for now we use mocked data so the screen is shippable
-// without a forecasts table migration.
+// S26 Wave 2 Agent B — replaced the S12 mocks (MOCK_STOCK / MOCK_SUPPLIERS /
+// MOCK_FORECASTS) with real `list_reorder_suggestions` IPC reads. The S13
+// "replace with IPC calls" comment is finally resolved.
+//
+// Suggestions are computed Rust-side and grouped by urgency:
+//   high (red) = critical | high  (out-of-stock or below-safety horizon)
+//   med  (amber)= medium            (within safety + lead time)
+//   low  (green)= normal            (healthy, included only for visibility)
 
-import { useMemo, useState, useCallback, useEffect } from "react";
-import { Package, Download, AlertTriangle, RefreshCw, Filter, Boxes } from "lucide-react";
-import { Glass, Badge, Button } from "@pharmacare/design-system";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Package, Download, AlertTriangle, RefreshCw, Filter, Boxes, Send } from "lucide-react";
+import { Glass, Badge, Button, Skeleton, useToast } from "@pharmacare/design-system";
 import {
-  computeSuggestions, groupBySupplier, buildPORows,
-  type StockSnapshot, type SupplierProfile, type DemandForecast,
-} from "@pharmacare/reorder-suggest";
-import { listStockRpc, listSuppliersRpc, topMoversRpc } from "../lib/ipc.js";
+  listReorderSuggestionsRpc,
+  type ReorderSuggestionDTO,
+} from "../lib/ipc.js";
 
-// Mock data for S12 — replace with IPC calls in S13.
-const MOCK_STOCK: StockSnapshot[] = [
-  { productId: "p1", productName: "Paracetamol 500mg", skuCode: "PCM500",
-    preferredSupplierId: "sup1", onHandUnits: 30, avgCostPaise: 120, safetyStockUnits: 50 },
-  { productId: "p2", productName: "Crocin Advance", skuCode: "CRC500",
-    preferredSupplierId: "sup1", onHandUnits: 200, avgCostPaise: 280, safetyStockUnits: 50 },
-  { productId: "p3", productName: "Insulin (NovoMix)", skuCode: "INS-N",
-    preferredSupplierId: "sup2", onHandUnits: 5, avgCostPaise: 45_000, safetyStockUnits: 10 },
-  { productId: "p4", productName: "Amoxicillin 500mg", skuCode: "AMX500",
-    preferredSupplierId: "sup1", onHandUnits: 40, avgCostPaise: 380, safetyStockUnits: 30 },
-];
+type UrgencyBand = "high" | "med" | "low";
 
-const MOCK_SUPPLIERS: SupplierProfile[] = [
-  { supplierId: "sup1", supplierName: "Bharat Pharma Distributors",
-    leadTimeDays: 3, minOrderValuePaise: 50_000_00,
-    moqByProductId: { p1: 100, p4: 50 } },
-  { supplierId: "sup2", supplierName: "Cipla Direct",
-    leadTimeDays: 5, minOrderValuePaise: 10_000_00,
-    moqByProductId: {} },
-];
+function urgencyBand(u: ReorderSuggestionDTO["urgency"]): UrgencyBand {
+  if (u === "critical" || u === "high") return "high";
+  if (u === "normal") return "low";
+  return "med"; // future "medium" tier — keep deterministic
+}
 
-const MOCK_FORECASTS: DemandForecast[] = [
-  { productId: "p1", dailyUnits: Array(30).fill(12) },
-  { productId: "p2", dailyUnits: Array(30).fill(2) },
-  { productId: "p3", dailyUnits: Array(30).fill(1) },
-  { productId: "p4", dailyUnits: Array(30).fill(8) },
-];
+const HORIZON_PRESETS = [7, 14, 30, 60] as const;
 
-type UrgencyFilter = "all" | "critical" | "high";
+interface Props {
+  readonly shopId?: string;
+}
 
-export function ReorderScreen(): JSX.Element {
-  const [safetyDays, setSafetyDays] = useState(7);
-  const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
+export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Element {
+  const { toast } = useToast();
+  const [horizonDays, setHorizonDays] = useState<number>(14);
+  const [rows, setRows] = useState<readonly ReorderSuggestionDTO[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [stocks, setStocks]       = useState<StockSnapshot[]>(MOCK_STOCK);
-  const [suppliers, setSuppliers] = useState<SupplierProfile[]>(MOCK_SUPPLIERS);
-  const [forecasts, setForecasts] = useState<DemandForecast[]>(MOCK_FORECASTS);
-  const [liveErr, setLiveErr]     = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
-        const [stockRows, supRows] = await Promise.all([
-          listStockRpc(),
-          listSuppliersRpc("shop_local"),
-        ]);
-        const liveStocks: StockSnapshot[] = stockRows.map((r) => ({
-          productId: r.productId,
-          productName: r.name,
-          skuCode: r.productId,
-          preferredSupplierId: supRows[0]?.id ?? "sup_unknown",
-          onHandUnits: r.totalQty,
-          avgCostPaise: Math.max(1, Math.round(r.mrpPaise * 0.7)),
-          safetyStockUnits: Math.max(10, Math.ceil(r.totalQty * 0.2)),
-        }));
-        const liveSuppliers: SupplierProfile[] = supRows.map((s) => ({
-          supplierId: s.id, supplierName: s.name,
-          leadTimeDays: 3, minOrderValuePaise: 50_000_00, moqByProductId: {},
-        }));
-        // Demand forecast: 30 days flat from average daily movement (top_movers)
-        let liveForecasts: DemandForecast[] = liveStocks.map((s) => ({
-          productId: s.productId,
-          dailyUnits: Array(30).fill(Math.max(1, Math.round(s.onHandUnits / 14))),
-        }));
-        try {
-          const today = new Date();
-          const from = new Date(today.getTime() - 30 * 86400_000).toISOString().slice(0, 10);
-          const to   = today.toISOString().slice(0, 10);
-          const movers = await topMoversRpc("shop_local", from, to, 200);
-          const moverMap = new Map(movers.map((m) => [m.productId, m.qtySold]));
-          liveForecasts = liveStocks.map((s) => {
-            const sold = moverMap.get(s.productId) ?? 0;
-            const daily = Math.max(1, Math.round(sold / 30));
-            return { productId: s.productId, dailyUnits: Array(30).fill(daily) };
-          });
-        } catch {
-          // top_movers failure is non-fatal — keep flat forecast
+        const r = await listReorderSuggestionsRpc({ shopId, horizonDays });
+        if (!cancelled) {
+          setRows(r);
+          setLoading(false);
         }
-        if (liveStocks.length > 0) setStocks(liveStocks);
-        if (liveSuppliers.length > 0) setSuppliers(liveSuppliers);
-        setForecasts(liveForecasts);
-        setLiveErr(null);
       } catch (e) {
-        setLiveErr(`Live data unavailable; showing demo data. ${String(e)}`);
+        if (!cancelled) {
+          setError(`Failed to load reorder suggestions: ${String(e)}`);
+          setRows([]);
+          setLoading(false);
+        }
       }
     })();
-  }, [refreshKey]);
+    return () => { cancelled = true; };
+  }, [shopId, horizonDays, refreshKey]);
 
-  const suggestions = useMemo(() => {
-    return computeSuggestions({
-      stocks, suppliers, forecasts,
-      safetyDaysExtra: safetyDays,
+  const grouped = useMemo(() => {
+    const high: ReorderSuggestionDTO[] = [];
+    const med: ReorderSuggestionDTO[] = [];
+    const low: ReorderSuggestionDTO[] = [];
+    for (const r of rows ?? []) {
+      const band = urgencyBand(r.urgency);
+      if (band === "high") high.push(r);
+      else if (band === "med") med.push(r);
+      else low.push(r);
+    }
+    return { high, med, low };
+  }, [rows]);
+
+  const totalValue = useMemo(
+    () => (rows ?? []).reduce((acc, r) => acc + r.suggestValuePaise, 0),
+    [rows],
+  );
+
+  const toggleSelect = useCallback((productId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
     });
-  }, [safetyDays, stocks, suppliers, forecasts]);
+  }, []);
 
-  const filtered = useMemo(() => {
-    if (urgencyFilter === "all") return suggestions;
-    return suggestions.filter((s) =>
-      urgencyFilter === "critical" ? s.urgency === "critical"
-        : s.urgency === "critical" || s.urgency === "high",
+  const generatePoDraft = useCallback(() => {
+    const lines = (rows ?? []).filter((r) => selected.has(r.productId));
+    if (lines.length === 0) {
+      toast({ variant: "info", title: "Select rows first", description: "Tick at least one suggestion to draft a PO." });
+      return;
+    }
+    const totalPaise = lines.reduce((acc, l) => acc + l.suggestValuePaise, 0);
+    // Stub: actual PO write is deferred to a follow-up sprint. We emit a toast
+    // showing the would-be draft so the owner sees feedback.
+    toast({
+      variant: "success",
+      title: `PO draft prepared (${lines.length} SKUs)`,
+      description: `Total ₹${(totalPaise / 100).toLocaleString("en-IN")}. Persist-PO follow-up sprint will wire this to save_po.`,
+    });
+  }, [rows, selected, toast]);
+
+  const sectionRowToBadge = (u: UrgencyBand) =>
+    u === "high" ? "danger" : u === "med" ? "warning" : "success";
+
+  const renderSection = (band: UrgencyBand, label: string, list: readonly ReorderSuggestionDTO[]) => {
+    if (list.length === 0) return null;
+    return (
+      <Glass key={band}>
+        <div style={{ padding: 12 }} data-testid={`reorder-section-${band}`}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Badge variant={sectionRowToBadge(band)}>{label}</Badge>
+              <span style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>{list.length} SKUs</span>
+            </div>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--pc-border-subtle)" }}>
+                <th style={{ padding: 6 }}>{/* checkbox */}</th>
+                <th style={{ padding: 6 }}>SKU</th>
+                <th style={{ padding: 6 }}>Product</th>
+                <th style={{ padding: 6 }}>Supplier</th>
+                <th style={{ padding: 6, textAlign: "right" }}>On hand</th>
+                <th style={{ padding: 6, textAlign: "right" }}>Need</th>
+                <th style={{ padding: 6, textAlign: "right" }}>Days left</th>
+                <th style={{ padding: 6, textAlign: "right" }}>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((l) => (
+                <tr
+                  key={l.productId}
+                  data-testid={`reorder-row-${l.productId}`}
+                  data-urgency-band={band}
+                  style={{
+                    borderBottom: "1px solid var(--pc-border-subtle)",
+                    background: band === "high"
+                      ? "color-mix(in srgb, var(--pc-state-danger-bg) 40%, transparent)"
+                      : undefined,
+                  }}
+                >
+                  <td style={{ padding: 6 }}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${l.productName}`}
+                      checked={selected.has(l.productId)}
+                      onChange={() => toggleSelect(l.productId)}
+                    />
+                  </td>
+                  <td style={{ padding: 6, fontFamily: "monospace" }}>{l.skuCode}</td>
+                  <td style={{ padding: 6 }}>{l.productName}</td>
+                  <td style={{ padding: 6 }}>{l.supplierName}</td>
+                  <td style={{ padding: 6, textAlign: "right" }}>{l.onHandUnits}</td>
+                  <td style={{ padding: 6, textAlign: "right", fontWeight: 600 }}>{l.suggestQtyUnits}</td>
+                  <td style={{ padding: 6, textAlign: "right" }}>{l.daysOfStockLeft}</td>
+                  <td style={{ padding: 6, textAlign: "right" }}>₹{(l.suggestValuePaise / 100).toLocaleString("en-IN")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Glass>
     );
-  }, [suggestions, urgencyFilter]);
-
-  const groups = useMemo(() => groupBySupplier(filtered, suppliers), [filtered, suppliers]);
-
-  const exportPoCsv = useCallback((groupId: string) => {
-    const group = groups.find((g) => g.supplierId === groupId);
-    if (!group) return;
-    const rows = buildPORows(group);
-    const csv = [
-      "SKU,Product,Qty,Rate (₹),Amount (₹)",
-      ...rows.map((r) =>
-        `${r.skuCode},"${r.productName.replace(/"/g, '""')}",${r.qty},${r.rateRupees.toFixed(2)},${r.amountRupees.toFixed(2)}`,
-      ),
-      `,,,Total,${(group.totalValuePaise / 100).toFixed(2)}`,
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `PO-${group.supplierName.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [groups]);
-
-  const totalCriticalCount = suggestions.filter((s) => s.urgency === "critical").length;
-  const totalValue = suggestions.reduce((acc, s) => acc + s.suggestValuePaise, 0);
+  };
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }} data-screen="reorder">
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
             <Package size={28} />
             Auto Reorder
           </h1>
-          <p style={{ margin: "4px 0 0", color: "var(--text-muted)" }}>
-            Suggested purchase orders from current stock + 30-day demand forecast.
+          <p style={{ margin: "4px 0 0", color: "var(--pc-text-secondary)" }}>
+            Suggested purchase orders from current stock + demand forecast (next {horizonDays} days).
           </p>
         </div>
-        <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)}>
-          <RefreshCw size={16} /> Refresh
-        </Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)} data-testid="reorder-refresh">
+            <RefreshCw size={16} /> Refresh
+          </Button>
+          <Button onClick={generatePoDraft} data-testid="reorder-generate-po">
+            <Send size={14} /> Generate PO Draft
+          </Button>
+        </div>
       </header>
 
-      {liveErr && (
+      {error && (
         <Glass>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)" }}>
-            <AlertTriangle size={14} /> <span style={{ fontSize: 12 }}>{liveErr}</span>
+          <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--pc-state-danger)" }} data-testid="reorder-error">
+            <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+              <AlertTriangle size={14} /> {error}
+            </span>
+            <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)}>
+              <RefreshCw size={12} /> Retry
+            </Button>
           </div>
         </Glass>
       )}
 
       <Glass>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
+        <div style={{ padding: 12, display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            Safety days:
+            <Filter size={14} /> Horizon (days):
             <input
-              type="number"
-              min={0}
-              max={30}
-              value={safetyDays}
-              onChange={(e) => setSafetyDays(Math.max(0, Math.min(30, Number(e.target.value) || 0)))}
-              style={{ width: 60, padding: 4 }}
+              type="range"
+              min={7}
+              max={60}
+              step={1}
+              value={horizonDays}
+              onChange={(e) => setHorizonDays(Math.max(1, Math.min(120, Number(e.target.value) || 14)))}
+              data-testid="reorder-horizon-slider"
+              aria-label="Horizon days"
+              style={{ width: 160 }}
             />
+            <span style={{ fontFamily: "monospace", minWidth: 24 }} data-testid="reorder-horizon-value">{horizonDays}</span>
+            <span style={{ display: "inline-flex", gap: 4 }}>
+              {HORIZON_PRESETS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setHorizonDays(d)}
+                  data-testid={`reorder-horizon-preset-${d}`}
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 6,
+                    border: horizonDays === d ? "2px solid var(--pc-brand-primary)" : "1px solid var(--pc-border-subtle)",
+                    background: horizonDays === d ? "var(--pc-brand-primary-soft)" : "transparent",
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >{d}</button>
+              ))}
+            </span>
           </label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Filter size={16} />
-            {(["all", "high", "critical"] as UrgencyFilter[]).map((u) => (
-              <button
-                key={u}
-                onClick={() => setUrgencyFilter(u)}
-                style={{
-                  padding: "4px 12px",
-                  borderRadius: 8,
-                  border: urgencyFilter === u ? "2px solid var(--brand-primary)" : "1px solid var(--border)",
-                  background: urgencyFilter === u ? "var(--brand-primary-soft)" : "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                {u}
-              </button>
-            ))}
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 16 }}>
-            <Badge variant={totalCriticalCount > 0 ? "danger" : "neutral"}>
-              {totalCriticalCount} critical
+          <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
+            <Badge variant={grouped.high.length > 0 ? "danger" : "neutral"}>
+              {grouped.high.length} high
             </Badge>
+            <Badge variant={grouped.med.length > 0 ? "warning" : "neutral"}>
+              {grouped.med.length} med
+            </Badge>
+            <Badge variant="success">{grouped.low.length} low</Badge>
             <Badge variant="info">
               ₹{(totalValue / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })} total
             </Badge>
@@ -208,66 +254,43 @@ export function ReorderScreen(): JSX.Element {
         </div>
       </Glass>
 
-      {groups.length === 0 ? (
+      {loading ? (
         <Glass>
-          <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
+          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }} data-testid="reorder-loading">
+            <Skeleton width="100%" height={32} />
+            <Skeleton width="100%" height={28} />
+            <Skeleton width="100%" height={28} />
+          </div>
+        </Glass>
+      ) : (rows ?? []).length === 0 && !error ? (
+        <Glass>
+          <div style={{ padding: 24, textAlign: "center", color: "var(--pc-text-secondary)" }} data-testid="reorder-empty">
             <Boxes size={48} style={{ opacity: 0.3 }} />
-            <p>No reorders suggested. Stock levels look healthy for the next {safetyDays + 3} days.</p>
+            <p style={{ marginTop: 8, fontSize: 14, fontWeight: 500 }}>No reorders needed</p>
+            <p style={{ fontSize: 12 }}>
+              Stock levels look healthy across the next {horizonDays} days.
+            </p>
+            <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)} style={{ marginTop: 12 }}>
+              <RefreshCw size={12} /> Re-check
+            </Button>
           </div>
         </Glass>
       ) : (
-        groups.map((g) => (
-          <Glass key={g.supplierId}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div>
-                <h3 style={{ margin: 0 }}>{g.supplierName}</h3>
-                <p style={{ margin: "4px 0 0", color: "var(--text-muted)", fontSize: 14 }}>
-                  Lead time {g.leadTimeDays} days · {g.lines.length} SKUs · ₹{(g.totalValuePaise / 100).toLocaleString("en-IN")}
-                </p>
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {!g.meetsMinOrderValue && (
-                  <Badge variant="warning">
-                    <AlertTriangle size={12} /> Below min-order value
-                  </Badge>
-                )}
-                <Button onClick={() => exportPoCsv(g.supplierId)}>
-                  <Download size={16} /> Export PO CSV
-                </Button>
-              </div>
+        <>
+          {renderSection("high", "High urgency",  grouped.high)}
+          {renderSection("med",  "Medium urgency", grouped.med)}
+          {renderSection("low",  "Low urgency",    grouped.low)}
+          <Glass>
+            <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>
+                {selected.size} of {(rows ?? []).length} selected for PO
+              </span>
+              <Button variant="ghost" onClick={() => setSelected(new Set())}>
+                <Download size={12} /> Clear selection
+              </Button>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                  <th style={{ padding: 8 }}>SKU</th>
-                  <th style={{ padding: 8 }}>Product</th>
-                  <th style={{ padding: 8, textAlign: "right" }}>On hand</th>
-                  <th style={{ padding: 8, textAlign: "right" }}>Need</th>
-                  <th style={{ padding: 8, textAlign: "right" }}>Days left</th>
-                  <th style={{ padding: 8 }}>Urgency</th>
-                  <th style={{ padding: 8, textAlign: "right" }}>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {g.lines.map((l) => (
-                  <tr key={l.productId} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                    <td style={{ padding: 8, fontFamily: "monospace" }}>{l.skuCode}</td>
-                    <td style={{ padding: 8 }}>{l.productName}</td>
-                    <td style={{ padding: 8, textAlign: "right" }}>{l.onHandUnits}</td>
-                    <td style={{ padding: 8, textAlign: "right", fontWeight: 600 }}>{l.suggestQtyUnits}</td>
-                    <td style={{ padding: 8, textAlign: "right" }}>{l.daysOfStockLeft}</td>
-                    <td style={{ padding: 8 }}>
-                      <Badge variant={l.urgency === "critical" ? "danger" : l.urgency === "high" ? "warning" : "neutral"}>
-                        {l.urgency}
-                      </Badge>
-                    </td>
-                    <td style={{ padding: 8, textAlign: "right" }}>₹{(l.suggestValuePaise / 100).toLocaleString("en-IN")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </Glass>
-        ))
+        </>
       )}
     </div>
   );

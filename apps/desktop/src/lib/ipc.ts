@@ -626,7 +626,15 @@ export type IpcCall =
   | { cmd: "dpdp_list_dsr"; args: { openOnly?: boolean; limit?: number } }
   | { cmd: "shops_list"; args: Record<string, never> }
   | { cmd: "batches_list_by_shop"; args: { shopId: string; limit?: number } }
-  | { cmd: "shops_inventory_summary"; args: Record<string, never> };
+  | { cmd: "shops_inventory_summary"; args: Record<string, never> }
+  | { cmd: "list_ddi_pairs"; args: Record<string, never> }
+  | { cmd: "list_customer_allergies"; args: { customerId: string } }
+  | { cmd: "list_dose_ranges"; args: { productId: string } }
+  // ----- Wave 2 Agent A read-screen IPCs (S26 demo-data hazard fixes) -----
+  | { cmd: "list_schedule_register"; args: { periodStartIso: string; periodEndIso: string; schedule: "all" | "H" | "H1" | "X"; shopId: string } }
+  | { cmd: "schedule_register_pdf_path"; args: { periodStartIso: string; periodEndIso: string; schedule: "all" | "H" | "H1" | "X"; shopId: string } }
+  | { cmd: "list_reorder_suggestions"; args: { shopId: string; horizonDays: number } }
+  | { cmd: "generate_gstr3b_payload"; args: { periodYyyymm: string; shopId: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -2110,4 +2118,113 @@ export async function batchesListByShopRpc(args: { shopId: string; limit?: numbe
 }
 export async function shopsInventorySummaryRpc(): Promise<readonly ShopSummaryRowDTO[]> {
   return (await handler({ cmd: "shops_inventory_summary", args: {} })) as readonly ShopSummaryRowDTO[];
+}
+
+// ─── Formulary RPCs (S26.D — Wave 2 Agent C) ─────────────────────────────
+// These hydrate BillingClinicalGuard with real DDI / allergy / dose data
+// from the SQLite formulary tables (migration 0046 seeds ~50-150 DDI pairs).
+// The engine in @pharmacare/formulary consumes these shapes verbatim.
+import type {
+  DdiPair as FormularyDdiPair,
+  CustomerAllergy as FormularyCustomerAllergy,
+  DoseRange as FormularyDoseRange,
+} from "@pharmacare/formulary";
+
+export type DdiPairDTO = FormularyDdiPair;
+export type CustomerAllergyRowDTO = FormularyCustomerAllergy;
+export type DoseRangeDTO = FormularyDoseRange;
+
+export async function listDdiPairsRpc(): Promise<readonly DdiPairDTO[]> {
+  return (await handler({ cmd: "list_ddi_pairs", args: {} })) as readonly DdiPairDTO[];
+}
+export async function listCustomerAllergiesRpc(customerId: string): Promise<readonly CustomerAllergyRowDTO[]> {
+  return (await handler({ cmd: "list_customer_allergies", args: { customerId } })) as readonly CustomerAllergyRowDTO[];
+}
+export async function listDoseRangesRpc(productId: string): Promise<DoseRangeDTO | null> {
+  return (await handler({ cmd: "list_dose_ranges", args: { productId } })) as DoseRangeDTO | null;
+}
+
+// --- Wave 2 Agent A wire types + RPC wrappers (S26 demo-data hazard fixes) ----------
+// Contracts shipped from Rust by Wave 2 Agent A. JSON shapes are camelCase via serde
+// `rename_all = "camelCase"`. If Agent A diverges, only this file (+ the consumer
+// screens) need to update.
+
+export interface ScheduleRegisterRowDTO {
+  readonly billId: string;
+  readonly billNo: string;
+  readonly billedAt: string;          // ISO date "YYYY-MM-DD"
+  readonly schedule: "H" | "H1" | "X";
+  readonly customerName: string;
+  readonly doctorName: string;
+  readonly doctorRegNo: string;
+  readonly drug: string;
+  readonly batchNo: string;
+  readonly qty: number;
+  readonly rxImage?: boolean;
+  readonly witnessName?: string;
+}
+
+export interface ReorderSuggestionDTO {
+  readonly productId: string;
+  readonly productName: string;
+  readonly skuCode: string;
+  readonly supplierId: string;
+  readonly supplierName: string;
+  readonly onHandUnits: number;
+  readonly expectedDemandUnits: number;
+  readonly safetyStockUnits: number;
+  readonly suggestQtyUnits: number;
+  readonly suggestValuePaise: number;
+  readonly urgency: "critical" | "high" | "normal";
+  readonly daysOfStockLeft: number;
+}
+
+export interface Gstr3bSectionDTO {
+  readonly taxablePaise: number;
+  readonly igstPaise: number;
+  readonly cgstPaise: number;
+  readonly sgstPaise: number;
+  readonly cessPaise: number;
+}
+
+export interface Gstr3bPayloadDTO {
+  readonly period: string;            // "YYYY-MM"
+  readonly shopId: string;
+  readonly outwardSupplies: Gstr3bSectionDTO;
+  readonly eligibleItc: Gstr3bSectionDTO;
+  readonly taxPayable: Gstr3bSectionDTO;
+  readonly zeroRatedTaxablePaise: number;
+  readonly nilRatedTaxablePaise: number;
+}
+
+export async function listScheduleRegisterRpc(args: {
+  periodStartIso: string;
+  periodEndIso: string;
+  schedule: "all" | "H" | "H1" | "X";
+  shopId: string;
+}): Promise<readonly ScheduleRegisterRowDTO[]> {
+  return (await handler({ cmd: "list_schedule_register", args })) as readonly ScheduleRegisterRowDTO[];
+}
+
+export async function scheduleRegisterPdfPathRpc(args: {
+  periodStartIso: string;
+  periodEndIso: string;
+  schedule: "all" | "H" | "H1" | "X";
+  shopId: string;
+}): Promise<string> {
+  return (await handler({ cmd: "schedule_register_pdf_path", args })) as string;
+}
+
+export async function listReorderSuggestionsRpc(args: {
+  shopId: string;
+  horizonDays: number;
+}): Promise<readonly ReorderSuggestionDTO[]> {
+  return (await handler({ cmd: "list_reorder_suggestions", args })) as readonly ReorderSuggestionDTO[];
+}
+
+export async function generateGstr3bPayloadRpc(args: {
+  periodYyyymm: string;
+  shopId: string;
+}): Promise<Gstr3bPayloadDTO> {
+  return (await handler({ cmd: "generate_gstr3b_payload", args })) as Gstr3bPayloadDTO;
 }
