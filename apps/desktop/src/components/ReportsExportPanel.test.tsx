@@ -84,7 +84,8 @@ describe("ReportsExportPanel (S26 Wave 2 Agent B)", () => {
     await waitFor(() => {
       expect(captured).not.toBeNull();
     });
-    const text = await captured!.text();
+    // jsdom's Blob does not implement .text(); Response wraps it cross-env.
+    const text = await new Response(captured!).text();
     const parsed = JSON.parse(text);
     expect(parsed).toMatchObject({
       period: "2026-04",
