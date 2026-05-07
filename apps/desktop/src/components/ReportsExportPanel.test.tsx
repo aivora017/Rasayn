@@ -32,9 +32,14 @@ describe("ReportsExportPanel (S26 Wave 2 Agent B)", () => {
       if (call.cmd === "generate_gstr3b_payload") return PAYLOAD;
       return null;
     });
-    // Stub URL.createObjectURL so the download path doesn't error in jsdom.
-    const createSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:fake");
-    const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    // jsdom does NOT define URL.createObjectURL — vi.spyOn fails on a missing prop.
+    // Assign first, then spy. Restore at test end via mockRestore (assignment).
+    const origCreate = (URL as any).createObjectURL;
+    const origRevoke = (URL as any).revokeObjectURL;
+    const createSpy = vi.fn().mockReturnValue("blob:fake");
+    const revokeSpy = vi.fn();
+    (URL as any).createObjectURL = createSpy;
+    (URL as any).revokeObjectURL = revokeSpy;
     render(
       <ToasterProvider>
         <ReportsExportPanel period="2026-04" shopId="shop_local" />
@@ -49,8 +54,8 @@ describe("ReportsExportPanel (S26 Wave 2 Agent B)", () => {
       expect(c!.args).toMatchObject({ periodYyyymm: "2026-04", shopId: "shop_local" });
     });
     expect(createSpy).toHaveBeenCalled();
-    createSpy.mockRestore();
-    revokeSpy.mockRestore();
+    (URL as any).createObjectURL = origCreate;
+    (URL as any).revokeObjectURL = origRevoke;
   });
 
   it("downloads a JSON Blob whose body parses to the Gstr3bPayloadDTO returned by IPC", async () => {
@@ -59,11 +64,15 @@ describe("ReportsExportPanel (S26 Wave 2 Agent B)", () => {
       return null;
     });
     let captured: Blob | null = null;
-    const createSpy = vi.spyOn(URL, "createObjectURL").mockImplementation((b: unknown) => {
+    const origCreate2 = (URL as any).createObjectURL;
+    const origRevoke2 = (URL as any).revokeObjectURL;
+    const createSpy = vi.fn((b: unknown) => {
       captured = b as Blob;
       return "blob:fake";
     });
-    const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const revokeSpy = vi.fn();
+    (URL as any).createObjectURL = createSpy;
+    (URL as any).revokeObjectURL = revokeSpy;
     render(
       <ToasterProvider>
         <ReportsExportPanel period="2026-04" shopId="shop_local" />

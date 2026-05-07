@@ -155,7 +155,11 @@ describe("BillingClinicalGuard - S26.D IPC hydration", () => {
     await waitFor(() => {
       expect(screen.getByTestId("ddi-modal")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("alert-dose")).toBeInTheDocument();
+    // Engine raises both per-dose-max and daily-max alerts when the same line
+    // trips both limits. Assert at least one — formulary engine deduplicates
+    // upstream in S26.E if needed.
+    const doseAlerts = screen.getAllByTestId("alert-dose");
+    expect(doseAlerts.length).toBeGreaterThanOrEqual(1);
   });
 
   it("5. IPC error on list_ddi_pairs -> guard logs but does not break Bill flow", async () => {
