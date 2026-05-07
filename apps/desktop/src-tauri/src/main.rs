@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod abdm;
+mod auto_irn;
 mod backup_scheduler;
 mod cash_shift;
 mod cleartax;
@@ -7,11 +8,13 @@ mod cleartax;
 mod cleartax_wire;
 mod cold_chain;
 mod commands;
+mod crypto_store;
 mod cygnet;
 #[cfg(feature = "cygnet-live")]
 mod cygnet_wire;
 mod db;
 mod dpdp;
+mod dpo_compliance;
 mod formulary_loader;
 mod idempotency;
 mod images;
@@ -57,6 +60,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(DbState(shared))
+        .manage(crypto_store::CryptoStore::new())
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
             commands::db_version,
@@ -174,6 +178,10 @@ fn main() {
             dpdp::dpdp_open_dsr,
             dpdp::dpdp_update_dsr_status,
             dpdp::dpdp_list_dsr,
+            dpo_compliance::shops_set_dpo,
+            dpo_compliance::shops_get_dpo,
+            dpo_compliance::dpdp_check_billing_consent,
+            auto_irn::auto_submit_irn_for_bill,
             multi_shop::shops_list,
             multi_shop::batches_list_by_shop,
             multi_shop::shops_inventory_summary,
@@ -189,6 +197,8 @@ fn main() {
             formulary_loader::list_dose_ranges,
             reorder_export::list_reorder_suggestions,
             reports_export::generate_gstr3b_payload,
+            crypto_store::crypto_get_or_create_dek,
+            crypto_store::crypto_reset_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

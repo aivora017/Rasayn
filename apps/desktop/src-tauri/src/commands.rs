@@ -263,6 +263,20 @@ pub fn save_bill(
         }
     }
 
+    // S26.I — DPDP §6 consent gate. Before persisting any customer-linked
+    // bill (which writes phone, GSTIN, address into `bills`/`payments` and
+    // pulls them into the print receipt), the canonical `dpdp_consents`
+    // table MUST show an active "billing"-purpose row. This closes the
+    // split-brain where `customers.consent_*` flags and `dpdp_consents`
+    // never sync. Frontend catches `DPDP_CONSENT_REQUIRED` and re-prompts
+    // the consent modal. Walk-in (no customer_id) is unaffected.
+    if let Some(cid) = input.customer_id.as_deref() {
+        let granted = crate::dpo_compliance::check_billing_consent_inner(&c, cid)?;
+        if !granted {
+            return Err("DPDP_CONSENT_REQUIRED".to_string());
+        }
+    }
+
     let shop_state: String = c
         .query_row(
             "SELECT state_code FROM shops WHERE id = ?1",
@@ -516,6 +530,19 @@ pub fn save_bill(
     }
 
     tx.commit().map_err(|e| e.to_string())?;
+
+    // S26.I — auto-IRN scheduler. Hard Rule §6 ("compliance automatic,
+    // never manual") forbids relying on the cashier to click the manual
+    // "Submit to IRP" button after F10-Save. We invoke the helper inline
+    // (cheap; reads three columns from `shops`/`bills`) — for shops below
+    // the ₹5cr GSTN threshold this returns "skipped (below threshold)"
+    // synchronously and we do nothing. For shops above the threshold the
+    // helper returns "submitted" / "queued (offline)"; the existing
+    // retry workers in cygnet_wire / cleartax_wire own actual delivery.
+    // Errors here are intentionally swallowed so a transient IRN issue
+    // never invalidates a saved bill from the cashier's point of view.
+    let _ = crate::auto_irn::auto_submit_irn_inner(&c, &bill_id);
+
     Ok(result)
 }
 
@@ -4781,55 +4808,4 @@ pub fn list_irn_records(
             shop_id: r.get(2)?,
             vendor: r.get(3)?,
             status: r.get(4)?,
-            irn: r.get(5)?,
-            ack_no: r.get(6)?,
-            ack_date: r.get(7)?,
-            signed_invoice: r.get(8)?,
-            qr_code: r.get(9)?,
-            error_code: r.get(10)?,
-            error_msg: r.get(11)?,
-            attempt_count: r.get(12)?,
-            last_attempt_at: r.get(13)?,
-            submitted_at: r.get(14)?,
-            cancelled_at: r.get(15)?,
-            created_at: r.get(16)?,
-        })
-    };
-
-    let rows: Vec<IrnRecordOut> = match status {
-        Some(s) => stmt
-            .query_map(rusqlite::params![shop_id, s, lim], mapper)
-            .map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?,
-        None => stmt
-            .query_map(rusqlite::params![shop_id, lim], mapper)
-            .map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?,
-    };
-
-    Ok(rows)
-}
-
-/// Get the active IRN for a bill, if any.
-#[tauri::command]
-pub fn get_irn_for_bill(
-    bill_id: String,
-    state: State<DbState>,
-) -> Result<Option<IrnRecordOut>, String> {
-    let db = state.0.lock().map_err(|e| e.to_string())?;
-    let id: Option<String> = db
-        .query_row(
-            "SELECT id FROM irn_records
-             WHERE bill_id = ?1
-             ORDER BY created_at DESC LIMIT 1",
-            rusqlite::params![bill_id],
-            |r| r.get(0),
-        )
-        .ok();
-    match id {
-        Some(i) => read_irn_record(&db, &i).map(Some),
-        None => Ok(None),
-    }
-}
+            irn: r.get(

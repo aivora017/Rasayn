@@ -113,6 +113,7 @@ function renderThermal(input: RenderInvoiceInput, layout: InvoiceLayout): string
     ${s.pharmacistName ? escapeHtml(`Dispensed under ${s.pharmacistName}, Reg ${s.pharmacistRegNo ?? "—"}`) + "<br/>" : ""}
     Goods once sold are non-returnable.<br/>
     Schedule H / H1 / X drugs to be sold against a valid prescription only.<br/>
+    ${renderDpdpFooter(s)}
     Thank you · Visit again
   </div>
   <script>window.onload=function(){try{window.focus();window.print();}catch(e){}};</script>
@@ -208,6 +209,7 @@ function renderA5(input: RenderInvoiceInput, layout: InvoiceLayout): string {
   <div class="words"><b>In words:</b> ${escapeHtml(amountInWords(b.grandTotalPaise))}</div>
   <div class="foot">
     Schedule H / H1 / X drugs to be sold against a valid prescription only. Goods once sold are non-returnable.<br/>
+    ${renderDpdpFooter(s)}
     Subject to ${escapeHtml(resolveJurisdiction(s))} jurisdiction. E.&O.E.
   </div>
   <div class="sig"><div class="box">For ${escapeHtml(s.name)}<br/>Authorised Signatory</div></div>
@@ -339,22 +341,21 @@ function renderRxBlockA5(rx: PrescriptionFull): string {
   </div></div>`;
 }
 
-function resolveJurisdiction(s: ShopFull): string {
-  // Best-effort: use state code → state name map for common IN codes.
-  const map: Record<string, string> = {
-    "27": "Maharashtra", "29": "Karnataka", "07": "Delhi", "24": "Gujarat",
-    "33": "Tamil Nadu", "19": "West Bengal", "06": "Haryana", "09": "Uttar Pradesh",
-    "36": "Telangana", "23": "Madhya Pradesh", "03": "Punjab",
-  };
-  return map[s.stateCode] ?? "local";
-}
-
-// Export a tiny test-helper convenient for fixtures.
-export function renderInvoice(bill: BillFull, opts?: { layout?: InvoiceLayout; printReceipt?: PrintReceipt }): string {
-  const input: RenderInvoiceInput = {
-    bill,
-    ...(opts?.layout !== undefined ? { layout: opts.layout } : {}),
-    ...(opts?.printReceipt !== undefined ? { printReceipt: opts.printReceipt } : {}),
-  };
-  return renderInvoiceHtml(input);
-}
+// S26.I — DPDP §10 visibility footer. Renders a one-line contact block
+// for the Data Protection Officer and grievance officer on every printed
+// bill. Returns "" when fields are NULL so legacy fixtures still render.
+function renderDpdpFooter(s: ShopFull): string {
+  const dpoName = s.dpoName ?? null;
+  const dpoEmail = s.dpoEmail ?? null;
+  const grName = s.grievanceOfficerName ?? null;
+  const grEmail = s.grievanceOfficerEmail ?? null;
+  if (!dpoName && !dpoEmail && !grName && !grEmail) return "";
+  const parts: string[] = [];
+  if (dpoName || dpoEmail) {
+    parts.push(
+      `Data Protection Officer: ${escapeHtml(dpoName ?? "—")}${dpoEmail ? ` (${escapeHtml(dpoEmail)})` : ""}`,
+    );
+  }
+  if (grName || grEmail) {
+    parts.push(
+      `Grievance Officer: ${escapeHtml(grName 

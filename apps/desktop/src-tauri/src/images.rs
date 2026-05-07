@@ -672,3 +672,92 @@ pub fn check_similar_images_for_bytes(
     out.sort_by_key(|r| r.distance);
     Ok(out)
 }
+
+// =====================================================================
+// S26.E (silent killer #5) — at-rest encryption helpers for image bytes
+// ---------------------------------------------------------------------
+// Plumbing only for the first round: callers can wrap/unwrap an image
+// blob given the per-shop DEK obtained via `crypto_store::
+// crypto_get_or_create_dek`. `attach_product_image` is intentionally
+// NOT switched to encrypt-by-default yet — that requires a follow-up
+// migration adding `is_encrypted BOOLEAN DEFAULT 0` to product_images
+// plus a one-shot rewrap pass (S26.F).
+// See ADR-0071 for the threat model + rotation policy.
+
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Key, Nonce};
+use rand::{rngs::OsRng, RngCore};
+
+/// Encrypt a raw image blob under the supplied DEK.
+/// Returns the serialized envelope: [version=1 : u8] [nonce : 12] [ct+tag : N],
+/// matching the TS `serializeBlob` layout.
+#[allow(dead_code)] // wired into product_images writes in S26.F
+pub fn encrypt_image_blob(bytes: &[u8], dek: &[u8]) -> Result<Vec<u8>, String> {
+    if dek.len() != 32 {
+        return Err(format!("encrypt_image_blob: dek must be 32 bytes (got {})", dek.len()));
+    }
+    let key = Key::<Aes256Gcm>::from_slice(dek);
+    let cipher = Aes256Gcm::new(key);
+    let mut nonce_bytes = [0u8; 12];
+    OsRng.fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let ct = cipher
+        .encrypt(nonce, bytes)
+        .map_err(|e| format!("encrypt_image_blob: {e}"))?;
+    let mut out = Vec::with_capacity(1 + 12 + ct.len());
+    out.push(1u8);
+    out.extend_from_slice(&nonce_bytes);
+    out.extend_from_slice(&ct);
+    Ok(out)
+}
+
+/// Decrypt a previously-encrypted image blob. Rejects unknown versions
+/// and surfaces auth-tag mismatches as opaque errors.
+#[allow(dead_code)] // wired into product_images reads in S26.F
+pub fn decrypt_image_blob(blob: &[u8], dek: &[u8]) -> Result<Vec<u8>, String> {
+    if dek.len() != 32 {
+        return Err(format!("decrypt_image_blob: dek must be 32 bytes (got {})", dek.len()));
+    }
+    if blob.len() < 1 + 12 + 16 {
+        return Err("decrypt_image_blob: blob too short".to_string());
+    }
+    if blob[0] != 1 {
+        return Err(format!("decrypt_image_blob: unsupported version {}", blob[0]));
+    }
+    let key = Key::<Aes256Gcm>::from_slice(dek);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(&blob[1..13]);
+    cipher
+        .decrypt(nonce, &blob[13..])
+        .map_err(|e| format!("decrypt_image_blob: {e}"))
+}
+
+#[cfg(test)]
+mod crypto_helper_tests {
+    use super::*;
+
+    fn fresh_dek() -> Vec<u8> {
+        let mut k = vec![0u8; 32];
+        OsRng.fill_bytes(&mut k);
+        k
+    }
+
+    #[test]
+    fn encrypt_decrypt_roundtrip() {
+        let dek = fresh_dek();
+        let plaintext = b"\x89PNG\r\n\x1a\n fake image bytes";
+        let blob = encrypt_image_blob(plaintext, &dek).unwrap();
+        assert_eq!(blob[0], 1, "version byte");
+        assert!(blob.len() >= 1 + 12 + 16 + plaintext.len());
+        let pt = decrypt_image_blob(&blob, &dek).unwrap();
+        assert_eq!(pt, plaintext);
+    }
+
+    #[test]
+    fn decrypt_with_wrong_dek_fails() {
+        let dek_a = fresh_dek();
+        let dek_b = fresh_dek();
+        let blob = encrypt_image_blob(b"hello", &dek_a).unwrap();
+        assert!(decrypt_image_blob(&blob, &dek_b).is_err());
+    }
+}
