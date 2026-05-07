@@ -6,7 +6,7 @@
 // Step 4: confirmation + jump into BillingScreen
 
 import { useCallback, useMemo, useState } from "react";
-import { Building2, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Upload, ShieldCheck } from "lucide-react";
+import { Building2, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Upload } from "lucide-react";
 import { Glass, Badge, Button, Input } from "@pharmacare/design-system";
 import {
   ENTITY_TYPES, ALL_ENTITY_TYPES, validateRegistration, isAuditRequired,
@@ -14,89 +14,28 @@ import {
   type EntityType, type RegistrationForm,
 } from "@pharmacare/entity-types";
 
-// S26.I — DPDP §10 mandate: every shop must publish a Data Protection
-// Officer + grievance officer contact. The onboarding wizard captures
-// these five fields and writes them to `shops` via the `shops_set_dpo`
-// Tauri command before the wizard can complete.
-export interface DpoContactDraft {
-  dpoName: string;
-  dpoEmail: string;
-  dpoPhone: string;
-  grievanceOfficerName: string;
-  grievanceOfficerEmail: string;
-}
+interface Props { onComplete?: (form: RegistrationForm) => void }
 
-interface Props {
-  onComplete?: (form: RegistrationForm, dpo: DpoContactDraft) => void;
-  /** Hook for tests / parent shells to inject the IPC; defaults to a noop
-   * so the wizard can render in isolation. */
-  saveDpo?: (shopId: string, dpo: DpoContactDraft) => Promise<void>;
-  shopId?: string;
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function isDpoComplete(d: DpoContactDraft): boolean {
-  return (
-    d.dpoName.trim().length > 0 &&
-    EMAIL_RE.test(d.dpoEmail.trim()) &&
-    d.dpoPhone.trim().length > 0 &&
-    d.grievanceOfficerName.trim().length > 0 &&
-    EMAIL_RE.test(d.grievanceOfficerEmail.trim())
-  );
-}
-
-export default function OnboardingWizard({ onComplete, saveDpo, shopId = "shop_local" }: Props = {}): React.ReactElement {
+export default function OnboardingWizard({ onComplete }: Props = {}): React.ReactElement {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const [form, setForm] = useState<RegistrationForm>({ entityType: "sole_proprietor" });
-  const [dpo, setDpo] = useState<DpoContactDraft>({
-    dpoName: "",
-    dpoEmail: "",
-    dpoPhone: "",
-    grievanceOfficerName: "",
-    grievanceOfficerEmail: "",
-  });
-  const [dpoError, setDpoError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const meta = entityType ? ENTITY_TYPES[entityType] : null;
   const validation = useMemo(() => validateRegistration(form), [form]);
-  const dpoOk = useMemo(() => isDpoComplete(dpo), [dpo]);
-  const canAdvanceStep2 = validation.valid && dpoOk;
 
   const updateField = useCallback(<K extends keyof RegistrationForm>(key: K, val: RegistrationForm[K]) => {
     setForm((f) => ({ ...f, [key]: val }));
   }, []);
 
-  const updateDpo = useCallback(<K extends keyof DpoContactDraft>(key: K, val: DpoContactDraft[K]) => {
-    setDpo((d) => ({ ...d, [key]: val }));
-    setDpoError(null);
-  }, []);
-
-  const advanceFromStep2 = useCallback(async () => {
-    if (!isDpoComplete(dpo)) {
-      setDpoError("All five DPO + grievance officer fields are required (DPDP §10).");
-      return;
-    }
-    if (saveDpo) {
-      try {
-        await saveDpo(shopId, dpo);
-      } catch (e) {
-        setDpoError(`Could not save DPO: ${(e as Error).message}`);
-        return;
-      }
-    }
-    setStep(3);
-  }, [dpo, saveDpo, shopId]);
-
   const finish = useCallback(() => {
     setBusy(true);
     try {
-      onComplete?.(form, dpo);
+      onComplete?.(form);
       setStep(4);
     } finally { setBusy(false); }
-  }, [form, dpo, onComplete]);
+  }, [form, onComplete]);
 
   return (
     <div className="screen-shell flex flex-col gap-4 p-6 max-w-4xl mx-auto" data-screen="onboarding">
@@ -285,21 +224,65 @@ export default function OnboardingWizard({ onComplete, saveDpo, shopId = "shop_l
               </div>
             )}
 
-            {/* S26.I — Compliance contacts (DPDP §10). Captures DPO +
-                grievance officer required by the Data Protection Officer
-                mandate. All five fields are mandatory before save.       */}
-            <div
-              className="mt-4 p-3 border border-[var(--pc-border-subtle)] rounded-lg"
-              data-testid="onboarding-dpo-block"
-            >
-              <h3 className="font-medium text-[13px] mb-1 flex items-center gap-2">
-                <ShieldCheck size={14} /> Compliance contacts (DPDP §10)
-              </h3>
-              <p className="text-[11px] text-[var(--pc-text-secondary)] mb-2">
-                Every pharmacy must publish a Data Protection Officer and a grievance officer.
-                These appear on every printed bill and on the public DPDP page.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Field label="DPO name *">
-                  <Input
-     
+            <div className="flex justify-between mt-2">
+              <Button variant="ghost" onClick={() => setStep(1)}><ChevronLeft size={14} /> Back</Button>
+              <Button onClick={() => setStep(3)} disabled={!validation.valid}>
+                Next: Migrate or skip <ArrowRight size={14} />
+              </Button>
+            </div>
+          </div>
+        </Glass>
+      )}
+
+      {/* Step 3: Migration (optional) */}
+      {step === 3 && (
+        <Glass>
+          <div className="p-4 flex flex-col gap-3" data-testid="step-migrate">
+            <h2 className="font-medium">Migrate from existing software (optional)</h2>
+            <p className="text-[12px] text-[var(--pc-text-secondary)]">
+              We can import your customer master, product list, and bills from any of these. Skip if you're starting fresh.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {["Marg ERP", "Tally Prime", "Vyapar", "Medeil", "GoFrugal", "Generic CSV"].map((vendor) => (
+                <Button key={vendor} variant="ghost"><Upload size={14} /> Import from {vendor}</Button>
+              ))}
+            </div>
+            <p className="text-[11px] text-[var(--pc-text-tertiary)] mt-2">
+              You can also do this later from Settings → Migration. <strong>You can also export everything anytime</strong> — no vendor lock-in.
+            </p>
+            <div className="flex justify-between mt-2">
+              <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft size={14} /> Back</Button>
+              <Button onClick={finish} disabled={busy}>Skip & finish <ArrowRight size={14} /></Button>
+            </div>
+          </div>
+        </Glass>
+      )}
+
+      {/* Step 4: Done */}
+      {step === 4 && entityType && (
+        <Glass>
+          <div className="p-6 flex flex-col items-center gap-3 text-center" data-testid="step-done">
+            <CheckCircle2 size={48} className="text-[var(--pc-state-success)]" />
+            <h2 className="font-semibold text-[18px]">Setup complete</h2>
+            <p className="text-[13px] text-[var(--pc-text-secondary)] max-w-md">
+              Registered as <strong>{ENTITY_TYPES[entityType].displayName}</strong>.
+              Annual compliance bundle will include {annualFilingsFor(entityType).length} filings.
+              {isAuditRequired({ entityType, turnoverPaise: 0 }).required && " Statutory audit applies — please brief your CA."}
+            </p>
+            <Badge variant="success">Ready to bill</Badge>
+          </div>
+        </Glass>
+      )}
+    </div>
+  );
+}
+
+interface FieldProps { label: string; children: React.ReactNode; wide?: boolean }
+function Field({ label, children, wide = false }: FieldProps): React.ReactElement {
+  return (
+    <label className={`flex flex-col gap-1 ${wide ? "md:col-span-2" : ""}`}>
+      <span className="text-[11px] text-[var(--pc-text-secondary)] font-medium">{label}</span>
+      {children}
+    </label>
+  );
+}

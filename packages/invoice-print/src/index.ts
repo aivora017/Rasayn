@@ -113,11 +113,10 @@ function renderThermal(input: RenderInvoiceInput, layout: InvoiceLayout): string
     ${s.pharmacistName ? escapeHtml(`Dispensed under ${s.pharmacistName}, Reg ${s.pharmacistRegNo ?? "—"}`) + "<br/>" : ""}
     Goods once sold are non-returnable.<br/>
     Schedule H / H1 / X drugs to be sold against a valid prescription only.<br/>
-    ${renderDpdpFooter(s)}
     Thank you · Visit again
   </div>
   <script>window.onload=function(){try{window.focus();window.print();}catch(e){}};</script>
-</body></html>`;
+${renderDpdpFooter(input.shop)}</body></html>`;
 }
 
 function renderThermalLine(l: BillLineFull): string {
@@ -209,7 +208,6 @@ function renderA5(input: RenderInvoiceInput, layout: InvoiceLayout): string {
   <div class="words"><b>In words:</b> ${escapeHtml(amountInWords(b.grandTotalPaise))}</div>
   <div class="foot">
     Schedule H / H1 / X drugs to be sold against a valid prescription only. Goods once sold are non-returnable.<br/>
-    ${renderDpdpFooter(s)}
     Subject to ${escapeHtml(resolveJurisdiction(s))} jurisdiction. E.&O.E.
   </div>
   <div class="sig"><div class="box">For ${escapeHtml(s.name)}<br/>Authorised Signatory</div></div>
@@ -341,21 +339,48 @@ function renderRxBlockA5(rx: PrescriptionFull): string {
   </div></div>`;
 }
 
-// S26.I — DPDP §10 visibility footer. Renders a one-line contact block
-// for the Data Protection Officer and grievance officer on every printed
-// bill. Returns "" when fields are NULL so legacy fixtures still render.
-function renderDpdpFooter(s: ShopFull): string {
-  const dpoName = s.dpoName ?? null;
-  const dpoEmail = s.dpoEmail ?? null;
-  const grName = s.grievanceOfficerName ?? null;
-  const grEmail = s.grievanceOfficerEmail ?? null;
-  if (!dpoName && !dpoEmail && !grName && !grEmail) return "";
+function resolveJurisdiction(s: ShopFull): string {
+  // Best-effort: use state code → state name map for common IN codes.
+  const map: Record<string, string> = {
+    "27": "Maharashtra", "29": "Karnataka", "07": "Delhi", "24": "Gujarat",
+    "33": "Tamil Nadu", "19": "West Bengal", "06": "Haryana", "09": "Uttar Pradesh",
+    "36": "Telangana", "23": "Madhya Pradesh", "03": "Punjab",
+  };
+  return map[s.stateCode] ?? "local";
+}
+
+// Export a tiny test-helper convenient for fixtures.
+/**
+ * S26.I — DPDP §10 footer. Renders DPO + grievance officer when set.
+ * Returns empty string if all 4 fields are null/undefined so existing
+ * fixtures (and credit-note layouts that have not yet been migrated)
+ * keep rendering unchanged.
+ */
+function renderDpdpFooter(shop: ShopFull): string {
   const parts: string[] = [];
-  if (dpoName || dpoEmail) {
+  if (shop.dpoName || shop.dpoEmail) {
+    const name = shop.dpoName ?? "";
+    const email = shop.dpoEmail ?? "";
     parts.push(
-      `Data Protection Officer: ${escapeHtml(dpoName ?? "—")}${dpoEmail ? ` (${escapeHtml(dpoEmail)})` : ""}`,
+      `DPO: ${escapeHtml(name)}${email ? ` &lt;${escapeHtml(email)}&gt;` : ""}`,
     );
   }
-  if (grName || grEmail) {
+  if (shop.grievanceOfficerName || shop.grievanceOfficerEmail) {
+    const grName = shop.grievanceOfficerName ?? "";
+    const grEmail = shop.grievanceOfficerEmail ?? "";
     parts.push(
-      `Grievance Officer: ${escapeHtml(grName 
+      `Grievance Officer: ${escapeHtml(grName)}${grEmail ? ` &lt;${escapeHtml(grEmail)}&gt;` : ""}`,
+    );
+  }
+  if (parts.length === 0) return "";
+  return `<div class="dpdp-footer" style="font-size:9px;color:#666;margin-top:6px;text-align:center;">${parts.join(" &nbsp;|&nbsp; ")}</div>`;
+}
+
+export function renderInvoice(bill: BillFull, opts?: { layout?: InvoiceLayout; printReceipt?: PrintReceipt }): string {
+  const input: RenderInvoiceInput = {
+    bill,
+    ...(opts?.layout !== undefined ? { layout: opts.layout } : {}),
+    ...(opts?.printReceipt !== undefined ? { printReceipt: opts.printReceipt } : {}),
+  };
+  return renderInvoiceHtml(input);
+}

@@ -16,9 +16,7 @@ export interface ShopFull {
   readonly pharmacistRegNo: string | null;
   readonly fssaiNo: string | null;
   readonly defaultInvoiceLayout: InvoiceLayout;
-  // S26.I — DPDP §10 visibility mandate. Every bill must surface the
-  // Data Protection Officer + grievance officer contact. NULL = not yet
-  // configured; the footer renderer skips the line in that case.
+  // S26.I — DPDP §10 mandate: DPO + grievance officer visible on every bill.
   readonly dpoName?: string | null;
   readonly dpoEmail?: string | null;
   readonly grievanceOfficerName?: string | null;
@@ -192,4 +190,15 @@ export interface OriginalBillSummary {
 
 export interface CreditNoteFull {
   readonly shop: ShopFull;
-  reado
+  readonly creditNote: CreditNoteHeader;
+  readonly originalBill: OriginalBillSummary;
+  readonly customer: CustomerFull | null;
+  readonly lines: readonly CreditNoteLine[];
+  readonly hsnRefundSummary: readonly HsnSummary[];
+}
+
+export interface RenderCreditNoteInput {
+  readonly creditNote: CreditNoteFull;
+  readonly layout?: InvoiceLayout;
+  readonly printReceipt?: PrintReceipt;
+}

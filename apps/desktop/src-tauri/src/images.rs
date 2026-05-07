@@ -694,7 +694,10 @@ use rand::{rngs::OsRng, RngCore};
 #[allow(dead_code)] // wired into product_images writes in S26.F
 pub fn encrypt_image_blob(bytes: &[u8], dek: &[u8]) -> Result<Vec<u8>, String> {
     if dek.len() != 32 {
-        return Err(format!("encrypt_image_blob: dek must be 32 bytes (got {})", dek.len()));
+        return Err(format!(
+            "encrypt_image_blob: dek must be 32 bytes (got {})",
+            dek.len()
+        ));
     }
     let key = Key::<Aes256Gcm>::from_slice(dek);
     let cipher = Aes256Gcm::new(key);
@@ -716,13 +719,19 @@ pub fn encrypt_image_blob(bytes: &[u8], dek: &[u8]) -> Result<Vec<u8>, String> {
 #[allow(dead_code)] // wired into product_images reads in S26.F
 pub fn decrypt_image_blob(blob: &[u8], dek: &[u8]) -> Result<Vec<u8>, String> {
     if dek.len() != 32 {
-        return Err(format!("decrypt_image_blob: dek must be 32 bytes (got {})", dek.len()));
+        return Err(format!(
+            "decrypt_image_blob: dek must be 32 bytes (got {})",
+            dek.len()
+        ));
     }
     if blob.len() < 1 + 12 + 16 {
         return Err("decrypt_image_blob: blob too short".to_string());
     }
     if blob[0] != 1 {
-        return Err(format!("decrypt_image_blob: unsupported version {}", blob[0]));
+        return Err(format!(
+            "decrypt_image_blob: unsupported version {}",
+            blob[0]
+        ));
     }
     let key = Key::<Aes256Gcm>::from_slice(dek);
     let cipher = Aes256Gcm::new(key);
