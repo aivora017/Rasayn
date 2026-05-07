@@ -24,7 +24,10 @@ interface Props {
 
 function monthBoundsIso(periodYyyymm: string): { start: string; end: string } {
   // Returns inclusive ISO date strings (YYYY-MM-DD) for first and last day of the month.
-  const [y, m] = periodYyyymm.split("-").map((s) => Number(s));
+  // Explicit parse with guards — noUncheckedIndexedAccess marks parts[i] as string|undefined.
+  const parts = periodYyyymm.split("-");
+  const y = Number(parts[0] ?? "0");
+  const m = Number(parts[1] ?? "0");
   const start = new Date(Date.UTC(y, m - 1, 1));
   const end = new Date(Date.UTC(y, m, 0)); // day 0 of next month = last day of this month
   const iso = (d: Date) => d.toISOString().slice(0, 10);
