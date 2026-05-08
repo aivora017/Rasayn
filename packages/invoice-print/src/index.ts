@@ -116,7 +116,7 @@ function renderThermal(input: RenderInvoiceInput, layout: InvoiceLayout): string
     Thank you · Visit again
   </div>
   <script>window.onload=function(){try{window.focus();window.print();}catch(e){}};</script>
-${renderDpdpFooter(input.shop)}</body></html>`;
+${renderDpdpFooter(input.bill.shop)}</body></html>`;
 }
 
 function renderThermalLine(l: BillLineFull): string {
