@@ -13,6 +13,18 @@
 // closes the DPDP consent split-brain: the legacy `customers.consent_*`
 // flags and the canonical `dpdp_consents` table no longer have to agree
 // because save_bill now consults the canonical table directly.
+
+#[allow(dead_code)] // public via shops_get_dpo Tauri command
+type DpoRow = (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 //
 // Migration 0048 adds the seven shop columns these commands read/write.
 
@@ -140,15 +152,7 @@ pub fn shops_get_dpo(
     shop_id: String,
 ) -> Result<Option<DpoContact>, String> {
     let c = state.0.lock().map_err(|e| e.to_string())?;
-    let row: Option<(
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-    )> = c
+    let row: Option<DpoRow> = c
         .query_row(
             "SELECT dpo_name, dpo_email, dpo_phone,
                     grievance_officer_name, grievance_officer_email,

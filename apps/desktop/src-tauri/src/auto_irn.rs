@@ -91,7 +91,7 @@ pub fn auto_submit_irn_for_bill(
     // to assert the threshold gate without standing up a tokio runtime.
     #[cfg(any(test, debug_assertions))]
     {
-        return Ok("submitted".to_string());
+        Ok("submitted".to_string())
     }
     #[cfg(not(any(test, debug_assertions)))]
     {
