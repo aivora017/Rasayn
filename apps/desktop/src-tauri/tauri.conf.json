@@ -49,5 +49,19 @@
       "providerShortName": "",
       "entitlements": ""
     }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "$UPDATE_FEED_URL",
+        "https://updates.pharmacare.in/manifest.json?channel=stable"
+      ],
+      "dialog": true,
+      "pubkey": "REPLACE_WITH_BASE64_ED25519_PUBLIC_KEY",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

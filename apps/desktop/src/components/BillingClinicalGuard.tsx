@@ -23,6 +23,10 @@ export interface ClinicalBasketLine extends BasketItem {
   /** Branded drug query for PMBJP suggestion */
   readonly brandedQuery?: BrandedDrugQuery;
   readonly productName?: string;
+  /** S28-A1: Schedule class of the underlying product. When the basket
+   *  contains any "H" | "H1" | "X" line, the guard surfaces the
+   *  "Counseling required" banner that routes to CounselingScreen. */
+  readonly scheduleClass?: "OTC" | "G" | "H" | "H1" | "X" | "NDPS";
 }
 
 interface BillingClinicalGuardProps {
@@ -34,10 +38,14 @@ interface BillingClinicalGuardProps {
   readonly doseRanges?: readonly DoseRange[];
   /** Bubbles up to caller so the F10 / Save button can be disabled. */
   readonly onSaveBlockedChange?: (blocked: boolean) => void;
+  /** S28-A1: invoked when the cashier clicks "Open Counseling" on the
+   *  banner. BillingScreen wires this to its CounselingScreen route
+   *  with the active bill_id. */
+  readonly onOpenCounseling?: () => void;
 }
 
 export default function BillingClinicalGuard({
-  basket, customer, ddiTable, customerAllergies, doseRanges, onSaveBlockedChange,
+  basket, customer, ddiTable, customerAllergies, doseRanges, onSaveBlockedChange, onOpenCounseling,
 }: BillingClinicalGuardProps): React.ReactElement | null {
 
   // S26.D — Wave 2 Agent C: hydrate formulary tables from IPC.
@@ -174,10 +182,49 @@ export default function BillingClinicalGuard({
     onSaveBlockedChange?.(blocked);
   }, [blocked, onSaveBlockedChange]);
 
-  if (alerts.length === 0 && suggestions.length === 0) return null;
+  // S28-A1: Schedule-H counseling required indicator. Drawn from
+  // basket lines whose scheduleClass is H/H1/X. Pure derivation --
+  // does NOT issue an IPC call (the per-line schedule must be passed
+  // by BillingScreen because it already has the product row); the
+  // canonical save_bill gate runs server-side regardless.
+  const scheduledLines = basket.filter((l) =>
+    l.scheduleClass === "H" || l.scheduleClass === "H1" || l.scheduleClass === "X",
+  );
+  const counselingRequired = scheduledLines.length > 0;
+
+  if (
+    alerts.length === 0 &&
+    suggestions.length === 0 &&
+    !counselingRequired
+  ) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-2" data-testid="billing-clinical-guard">
+      {/* S28-A1: Schedule-H counseling-required banner -- blocks bill close */}
+      {counselingRequired && (
+        <div
+          className="counsel-required-banner"
+          data-testid="counsel-required-banner"
+          role="alert"
+        >
+          <div className="counsel-required-banner__text">
+            <strong>Counseling required</strong> -- this bill has{" "}
+            {scheduledLines.length} Schedule-H/H1/X line
+            {scheduledLines.length === 1 ? "" : "s"}. Pharmacist must counsel
+            the patient before bill close (D&amp;C s.22 / s.27).
+          </div>
+          <button
+            type="button"
+            className="counsel-required-banner__cta"
+            onClick={() => onOpenCounseling?.()}
+            data-testid="counsel-open-button"
+          >
+            Open Counseling
+          </button>
+        </div>
+      )}
       {/* Generic-suggestion banner — non-blocking */}
       {suggestions.length > 0 && (
         <Glass>

@@ -55,7 +55,10 @@ export interface FeatureFlags {
 const DEFAULT: FeatureFlags = {
   cashShift: false, caExport: true, onboarding: true, migrationImport: true, dataExport: true,
   license: true, updateChecker: true, khata: false, doctorReport: false, loyalty: false, multiStateGstRoute: false,
-  rbac: false, ddiAlerts: false, counseling: false, stockTransfer: false,
+  // S28-D1: counseling flipped ON. CounselingScreen is real per S28-A1
+  // (ADR-0073). The scaffold-only entry is removed from
+  // SCAFFOLD_ONLY_MODES below so PILOT_BUILD no longer suppresses it.
+  rbac: false, ddiAlerts: false, counseling: true, stockTransfer: false,
   gst3bAndRecon: false, thermalEscPos: false, gs1DataMatrix: false, dpdp: true, abdm: false, pmbjp: false,
   ocrRx: false, cfdDisplay: false, copilot: false, demandForecast: false, fraudAlerts: false, inspectorMode: false,
   multiStore: true, coldChain: true,
@@ -76,20 +79,21 @@ export function anyPharmacyOsFeatureEnabled(): boolean {
 }
 // === S26.G — PILOT_BUILD scaffold-only gate ===
 //
-// Four screens (RxScanModal, ARShelfOverlay, CounselingScreen,
-// ABHAVerifyModal) ship as 1/5 scaffolds rendering literal "coming online"
-// text. In a PILOT_BUILD artifact (Vaidyanath / future paying pilots) we
-// hide them from the sidebar + command palette and render UpcomingFeature
-// instead of the scaffold body for any deep-link arrival. In dev
-// (PILOT_BUILD=false) the scaffolds remain reachable so the team can
-// iterate.
+// Originally four screens (RxScanModal, ARShelfOverlay, CounselingScreen,
+// ABHAVerifyModal) shipped as 1/5 scaffolds rendering literal "coming
+// online" text. In a PILOT_BUILD artifact we hide them from the sidebar +
+// command palette and render UpcomingFeature instead of the scaffold body.
+//
+// S28-D1: "counseling" graduated out of this list — CounselingScreen is
+// now a real implementation per S28-A1 (ADR-0073) and is required for the
+// Schedule-H mandate at the Vaidyanath pilot. The remaining three screens
+// stay scaffolded.
 
 export const PILOT_BUILD: boolean =
   typeof import.meta !== "undefined" &&
   (import.meta as { env?: { VITE_PILOT_BUILD?: string } }).env?.VITE_PILOT_BUILD !== "false";
 
 export const SCAFFOLD_ONLY_MODES = [
-  "counseling",
   "arShelf",
   "rxScan",
   "abhaVerify",

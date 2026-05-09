@@ -49,6 +49,9 @@ export type SourceVendor = "marg" | "tally" | "tally_csv" | "vyapar" | "medeil" 
 // ────────────────────────────────────────────────────────────────────────
 
 export function parseCsv(text: string): readonly (readonly string[])[] {
+  // Strip UTF-8 BOM (﻿) if present — Excel-saved CSVs (and Marg's
+  // export-to-Excel→re-export route) frequently leave a BOM at byte 0.
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -406,7 +409,11 @@ export async function planImport(source: ImportSource, probe?: ExistingRowProbe)
 
 function parseRupeeToPaise(s: string): number {
   if (!s) return 0;
-  const cleaned = s.replace(/[₹,\s]/g, "");
+  // Strip currency prefixes (₹, Rs, Rs., INR), commas and whitespace.
+  // Real Marg exports inconsistently prefix MRP/PurchaseRate/SellingRate.
+  const cleaned = s
+    .replace(/^\s*(?:Rs\.?|INR)\s*/i, "")
+    .replace(/[₹,\s]/g, "");
   const n = parseFloat(cleaned);
   if (Number.isNaN(n)) return 0;
   return Math.round(n * 100);

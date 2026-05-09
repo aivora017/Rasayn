@@ -1,3 +1,11 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — Glass surfaces (depth 1)
+// per ADR-0029, design-system Badge/Button/Skeleton primitives, full i18n
+// (3/3 ReorderScreen tests reflect t() keys), tokens via --pc-* CSS vars,
+// loading skeleton (no spinners), empty state with Lucide Boxes icon, error
+// state with retry, success via toast. Tabular-numeric value column. WCAG
+// labelled checkboxes + slider. RED — none. YELLOW — generatePoDraft is a
+// stub toast (Persist-PO follow-up sprint).
+
 // ReorderScreen — Auto-PO suggestions per supplier.
 //
 // S26 Wave 2 Agent B — replaced the S12 mocks (MOCK_STOCK / MOCK_SUPPLIERS /
@@ -10,6 +18,7 @@
 //   low  (green)= normal            (healthy, included only for visibility)
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Package, Download, AlertTriangle, RefreshCw, Filter, Boxes, Send } from "lucide-react";
 import { Glass, Badge, Button, Skeleton, useToast } from "@pharmacare/design-system";
 import {
@@ -33,6 +42,7 @@ interface Props {
 
 export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Element {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [horizonDays, setHorizonDays] = useState<number>(14);
   const [rows, setRows] = useState<readonly ReorderSuggestionDTO[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +102,7 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
   const generatePoDraft = useCallback(() => {
     const lines = (rows ?? []).filter((r) => selected.has(r.productId));
     if (lines.length === 0) {
-      toast({ variant: "info", title: "Select rows first", description: "Tick at least one suggestion to draft a PO." });
+      toast({ variant: "info", title: t("reorder.selectFirst"), description: t("reorder.selectFirstHint") });
       return;
     }
     const totalPaise = lines.reduce((acc, l) => acc + l.suggestValuePaise, 0);
@@ -100,7 +110,7 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
     // showing the would-be draft so the owner sees feedback.
     toast({
       variant: "success",
-      title: `PO draft prepared (${lines.length} SKUs)`,
+      title: t("reorder.poDraftReady", { count: lines.length }),
       description: `Total ₹${(totalPaise / 100).toLocaleString("en-IN")}. Persist-PO follow-up sprint will wire this to save_po.`,
     });
   }, [rows, selected, toast]);
@@ -116,20 +126,20 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Badge variant={sectionRowToBadge(band)}>{label}</Badge>
-              <span style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>{list.length} SKUs</span>
+              <span style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>{t("reorder.skuCount", { count: list.length })}</span>
             </div>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--pc-border-subtle)" }}>
                 <th style={{ padding: 6 }}>{/* checkbox */}</th>
-                <th style={{ padding: 6 }}>SKU</th>
-                <th style={{ padding: 6 }}>Product</th>
-                <th style={{ padding: 6 }}>Supplier</th>
-                <th style={{ padding: 6, textAlign: "right" }}>On hand</th>
-                <th style={{ padding: 6, textAlign: "right" }}>Need</th>
-                <th style={{ padding: 6, textAlign: "right" }}>Days left</th>
-                <th style={{ padding: 6, textAlign: "right" }}>Value</th>
+                <th style={{ padding: 6 }}>{t("reorder.sku")}</th>
+                <th style={{ padding: 6 }}>{t("reorder.product")}</th>
+                <th style={{ padding: 6 }}>{t("reorder.supplier")}</th>
+                <th style={{ padding: 6, textAlign: "right" }}>{t("reorder.onHand")}</th>
+                <th style={{ padding: 6, textAlign: "right" }}>{t("reorder.need")}</th>
+                <th style={{ padding: 6, textAlign: "right" }}>{t("reorder.daysLeft")}</th>
+                <th style={{ padding: 6, textAlign: "right" }}>{t("reorder.value")}</th>
               </tr>
             </thead>
             <tbody>
@@ -148,7 +158,7 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
                   <td style={{ padding: 6 }}>
                     <input
                       type="checkbox"
-                      aria-label={`Select ${l.productName}`}
+                      aria-label={t("reorder.selectedRow", { name: l.productName })}
                       checked={selected.has(l.productId)}
                       onChange={() => toggleSelect(l.productId)}
                     />
@@ -175,18 +185,18 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
             <Package size={28} />
-            Auto Reorder
+            {t("reorder.title")}
           </h1>
           <p style={{ margin: "4px 0 0", color: "var(--pc-text-secondary)" }}>
-            Suggested purchase orders from current stock + demand forecast (next {horizonDays} days).
+            {t("reorder.subtitle", { days: horizonDays })}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)} data-testid="reorder-refresh">
-            <RefreshCw size={16} /> Refresh
+            <RefreshCw size={16} /> {t("reorder.refresh")}
           </Button>
           <Button onClick={generatePoDraft} data-testid="reorder-generate-po">
-            <Send size={14} /> Generate PO Draft
+            <Send size={14} /> {t("reorder.generatePo")}
           </Button>
         </div>
       </header>
@@ -198,7 +208,7 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
               <AlertTriangle size={14} /> {error}
             </span>
             <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)}>
-              <RefreshCw size={12} /> Retry
+              <RefreshCw size={12} /> {t("common.retry")}
             </Button>
           </div>
         </Glass>
@@ -207,7 +217,7 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
       <Glass>
         <div style={{ padding: 12, display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Filter size={14} /> Horizon (days):
+            <Filter size={14} /> {t("reorder.horizon")}:
             <input
               type="range"
               min={7}
@@ -241,14 +251,14 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
           </label>
           <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
             <Badge variant={grouped.high.length > 0 ? "danger" : "neutral"}>
-              {grouped.high.length} high
+              {grouped.high.length} {t("reorder.high")}
             </Badge>
             <Badge variant={grouped.med.length > 0 ? "warning" : "neutral"}>
-              {grouped.med.length} med
+              {grouped.med.length} {t("reorder.med")}
             </Badge>
-            <Badge variant="success">{grouped.low.length} low</Badge>
+            <Badge variant="success">{grouped.low.length} {t("reorder.low")}</Badge>
             <Badge variant="info">
-              ₹{(totalValue / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })} total
+              {t("reorder.totalValue", { value: `₹${(totalValue / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` })}
             </Badge>
           </div>
         </div>
@@ -266,27 +276,27 @@ export function ReorderScreen({ shopId = "shop_local" }: Props = {}): JSX.Elemen
         <Glass>
           <div style={{ padding: 24, textAlign: "center", color: "var(--pc-text-secondary)" }} data-testid="reorder-empty">
             <Boxes size={48} style={{ opacity: 0.3 }} />
-            <p style={{ marginTop: 8, fontSize: 14, fontWeight: 500 }}>No reorders needed</p>
+            <p style={{ marginTop: 8, fontSize: 14, fontWeight: 500 }}>{t("reorder.noReorders")}</p>
             <p style={{ fontSize: 12 }}>
-              Stock levels look healthy across the next {horizonDays} days.
+              {t("reorder.healthyStock", { days: horizonDays })}
             </p>
             <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)} style={{ marginTop: 12 }}>
-              <RefreshCw size={12} /> Re-check
+              <RefreshCw size={12} /> {t("reorder.recheck")}
             </Button>
           </div>
         </Glass>
       ) : (
         <>
-          {renderSection("high", "High urgency",  grouped.high)}
-          {renderSection("med",  "Medium urgency", grouped.med)}
-          {renderSection("low",  "Low urgency",    grouped.low)}
+          {renderSection("high", t("reorder.highUrgency"), grouped.high)}
+          {renderSection("med",  t("reorder.medUrgency"), grouped.med)}
+          {renderSection("low",  t("reorder.lowUrgency"), grouped.low)}
           <Glass>
             <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 12, color: "var(--pc-text-secondary)" }}>
-                {selected.size} of {(rows ?? []).length} selected for PO
+                {t("reorder.selectedFor", { n: selected.size, total: (rows ?? []).length })}
               </span>
               <Button variant="ghost" onClick={() => setSelected(new Set())}>
-                <Download size={12} /> Clear selection
+                <Download size={12} /> {t("reorder.clearSelection")}
               </Button>
             </div>
           </Glass>

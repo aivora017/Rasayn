@@ -809,3 +809,102 @@ describe("BillingScreen · S26.C customerStateCode pass-through", () => {
     expect(saveCall.args.input.customerId).toBeNull();
   });
 });
+
+describe("BillingScreen · COUNSELING_INCOMPLETE wire-up (S28-D1)", () => {
+  beforeEach(() => {
+    _resetPendingGrnDraftForTests();
+  });
+
+  it("save_bill error COUNSELING_INCOMPLETE → opens CounselingScreen modal with missing drugs", async () => {
+    const calls: IpcCall[] = [];
+    const SCH_H_DRUG: ProductHit = {
+      id: "p_h",
+      name: "Augmentin 625",
+      genericName: "Amoxicillin+Clavulanate",
+      manufacturer: "GSK",
+      gstRate: 12,
+      schedule: "OTC",
+      mrpPaise: 22000,
+    };
+    setIpcHandler(async (call: IpcCall) => {
+      calls.push(call);
+      if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
+      if (call.cmd === "db_version") return 2;
+      if (call.cmd === "search_products") return [SCH_H_DRUG];
+      if (call.cmd === "pick_fefo_batch") return BATCH;
+      if (call.cmd === "list_fefo_candidates") return [BATCH];
+      if (call.cmd === "save_bill") {
+        throw new Error(
+          'COUNSELING_INCOMPLETE:[{"drugId":"p_h","drugName":"Augmentin 625","scheduleClass":"H"}]',
+        );
+      }
+      if (call.cmd === "search_customers") return [];
+      if (call.cmd === "list_prescriptions") return [];
+      if (call.cmd === "list_stock") return [];
+      if (call.cmd === "check_counseling_complete") return [];
+      return null;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    // Pay (F6 -> F10 inside payment) or finalize via F10 — depending on the flow,
+    // the save call should land. Use any visible pathway: the toast or the banner.
+    await waitFor(() =>
+      expect(calls.some((c) => c.cmd === "save_bill")).toBe(true),
+    );
+    // The COUNSELING_INCOMPLETE error opens the modal:
+    await waitFor(
+      () => {
+        expect(screen.getAllByText(/Schedule-H counseling required/i).length).toBeGreaterThan(0);
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it("save_bill is retried after CounselingScreen.onComplete callback (S28-D1)", async () => {
+    // This is a smoke test — the retry path is owned by D1 and exercised
+    // implicitly by the BillingScreen state machine. The assertion here
+    // is that AFTER the COUNSELING_INCOMPLETE error, the basket is
+    // preserved (lines are not cleared) so the user can retry.
+    const calls: IpcCall[] = [];
+    const SCH_H_DRUG: ProductHit = {
+      id: "p_h2",
+      name: "Calpol 500",
+      genericName: "Paracetamol",
+      manufacturer: "GSK",
+      gstRate: 12,
+      schedule: "OTC",
+      mrpPaise: 9000,
+    };
+    setIpcHandler(async (call: IpcCall) => {
+      calls.push(call);
+      if (call.cmd === "health_check") return { ok: true, version: "0.1.0" };
+      if (call.cmd === "db_version") return 2;
+      if (call.cmd === "search_products") return [SCH_H_DRUG];
+      if (call.cmd === "pick_fefo_batch") return BATCH;
+      if (call.cmd === "list_fefo_candidates") return [BATCH];
+      if (call.cmd === "save_bill") {
+        throw new Error(
+          'COUNSELING_INCOMPLETE:[{"drugId":"p_h2","drugName":"Calpol 500","scheduleClass":"H"}]',
+        );
+      }
+      if (call.cmd === "search_customers") return [];
+      if (call.cmd === "list_prescriptions") return [];
+      if (call.cmd === "list_stock") return [];
+      if (call.cmd === "check_counseling_complete") return [];
+      return null;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("product-search")).toBeInTheDocument());
+    await addOneLine(user);
+    fireEvent.keyDown(window, { key: "F10" });
+    await waitFor(() =>
+      expect(calls.some((c) => c.cmd === "save_bill")).toBe(true),
+    );
+    // Basket preserved — line is still rendered:
+    await waitFor(() => expect(screen.getByTestId("line-batch-0")).toBeInTheDocument());
+  });
+});

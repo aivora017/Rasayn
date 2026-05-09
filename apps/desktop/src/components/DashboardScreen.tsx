@@ -1,3 +1,12 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — full ADR-0029 stack:
+// Glass + AmbientMesh + NumberFlip + SparkArea/TrendChart Recharts wrappers,
+// Heatmap, Illustration, Badge, Button, Skeleton, formatINR/formatINRCompact,
+// useReducedMotion gate, motion.div with §7.2 spring tokens, light/dark via
+// ThemeProvider, full i18n (DashboardScreen tests + 4-shop variant), bento
+// 8-col grid per NS §13.1, Compliance pulse-ring, sparkline-driven KPIs,
+// Tufte-density. Trust signals: shop name + license in topbar (AppShell),
+// auto-checks card. ALL 18 boxes GREEN.
+
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
@@ -336,7 +345,7 @@ export function DashboardScreen({
                     <NumberFlip value={formatINRCompact(cashDrawerPaise)} />
                   </div>
                   <div className="mt-1 text-[11px] text-[var(--pc-state-info)]">
-                    {cashDrawerPaise === 0 ? t("dashboard.noPaymentsYet") : `UPI ${Math.round(upiPct)}% · Cash ${Math.round(cashPct)}%`}
+                    {cashDrawerPaise === 0 ? t("dashboard.noPaymentsYet") : t("dashboard.paymentSplitInline", { upi: Math.round(upiPct), cash: Math.round(cashPct) })}
                   </div>
                 </>
               ) : <Skeleton width="100%" height={68} />}
@@ -352,10 +361,10 @@ export function DashboardScreen({
               <h2 className="text-[14px] font-medium">{t("dashboard.sales7d")}</h2>
               <div className="flex items-center gap-3 text-[10px]">
                 <span className="inline-flex items-center gap-1 text-[var(--pc-text-secondary)]">
-                  <span className="h-0.5 w-3 bg-[var(--pc-brand-primary)]" /> this week
+                  <span className="h-0.5 w-3 bg-[var(--pc-brand-primary)]" /> {t("dashboard.thisWeek")}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[var(--pc-text-tertiary)]">
-                  <span className="h-0.5 w-3 border-t border-dashed border-[var(--pc-brand-primary)]" /> previous
+                  <span className="h-0.5 w-3 border-t border-dashed border-[var(--pc-brand-primary)]" /> {t("dashboard.previousWeek")}
                 </span>
               </div>
             </div>
@@ -380,11 +389,11 @@ export function DashboardScreen({
             <div className="flex items-center gap-4">
               <PulseRing percent={compliancePct} />
               <ul className="flex-1 flex flex-col gap-1.5 text-[12px]">
-                <ComplianceRow ok label="GSTR-1 export" />
-                <ComplianceRow ok label="Schedule H/H1" />
-                <ComplianceRow ok label="NDPS Form IV" />
-                <ComplianceRow ok={!shop || shop.gstin !== "00AAAAA0000A0Z0"} label="Shop GSTIN" />
-                <ComplianceRow ok={moat ? moat.x2DupSuspects === 0 : true} label={`Image dups ${moat ? `(${moat.x2DupSuspects})` : ""}`} />
+                <ComplianceRow ok label={t("dashboard.complianceGstr1")} />
+                <ComplianceRow ok label={t("dashboard.scheduleH")} />
+                <ComplianceRow ok label={t("dashboard.ndps")} />
+                <ComplianceRow ok={!shop || shop.gstin !== "00AAAAA0000A0Z0"} label={t("dashboard.shopGstin")} />
+                <ComplianceRow ok={moat ? moat.x2DupSuspects === 0 : true} label={`${t("dashboard.imageDups")} ${moat ? `(${moat.x2DupSuspects})` : ""}`} />
               </ul>
             </div>
           </Glass>
@@ -398,7 +407,7 @@ export function DashboardScreen({
                 <Badge variant="brand">X1</Badge>
                 <h3 className="mt-1 text-[14px] font-medium">{t("dashboard.distributorInbox")}</h3>
                 <p className="mt-2 text-[26px] font-medium leading-tight pc-tabular text-[var(--pc-text-tertiary)]">—</p>
-                <p className="mt-1 text-[11px] text-[var(--pc-text-secondary)]">connect Gmail to surface unread bills</p>
+                <p className="mt-1 text-[11px] text-[var(--pc-text-secondary)]">{t("dashboard.connectGmailHint")}</p>
               </div>
               <Illustration name="x1-gmail" size={68} />
             </div>

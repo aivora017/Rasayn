@@ -80,6 +80,9 @@ import {
   findSimilarImagesRpc,
   getDuplicateSuspectsRpc,
   checkSimilarImagesForBytesRpc,
+  // S28-D1 onboarding validators
+  validateRetailLicenseFormatRpc,
+  attachRetailLicensePdfRpc,
 } from "./ipc.js";
 
 // ----------------------------------------------------------------------------
@@ -757,6 +760,28 @@ describe("ipc.ts · command name + arg shape · A13 expiry + X2/X2b images", () 
           maxDistance: 12,
         },
       },
+    });
+    expectCamelCaseArgs(rec.call!);
+  });
+
+  it("validate_retail_license_format — args camelCase (S28-D1)", async () => {
+    const { rec, setup } = recorder({ ok: true, normalized: "MH-DRG-12345" });
+    setup();
+    await validateRetailLicenseFormatRpc("MH-DRG-12345");
+    expect(rec.call).toEqual({
+      cmd: "validate_retail_license_format",
+      args: { licenseNo: "MH-DRG-12345" },
+    });
+    expectCamelCaseArgs(rec.call!);
+  });
+
+  it("attach_retail_license_pdf — args camelCase (S28-D1)", async () => {
+    const { rec, setup } = recorder({ ok: true, path: "/tmp/license.pdf" });
+    setup();
+    await attachRetailLicensePdfRpc({ shopId: "shop_1", path: "/tmp/license.pdf" });
+    expect(rec.call).toEqual({
+      cmd: "attach_retail_license_pdf",
+      args: { shopId: "shop_1", path: "/tmp/license.pdf" },
     });
     expectCamelCaseArgs(rec.call!);
   });

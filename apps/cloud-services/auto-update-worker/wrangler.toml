@@ -1,0 +1,38 @@
+# Cloudflare Workers config for the PharmaCare auto-update manifest worker.
+# Deploy with: npx wrangler deploy
+#
+# Channel manifests live in R2 at keys:
+#   manifest-stable.json
+#   manifest-beta.json
+#   manifest-pilot.json
+#
+# Replace `account_id` with the founder's Cloudflare account id before deploy.
+# Bucket name `pharmacare-update-manifests` matches the R2 bucket created in
+# the deployment runbook (docs/runbooks/auto-update-release-flow.md §3).
+
+name = "pharmacare-auto-update"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+account_id = "REPLACE_WITH_FOUNDER_CLOUDFLARE_ACCOUNT_ID"
+
+# Custom domain — bind updates.pharmacare.in to this worker via the Cloudflare
+# dashboard (Workers > Routes) once the zone is added. The worker also serves
+# from the default *.workers.dev URL for staging.
+routes = [
+  { pattern = "updates.pharmacare.in/*", zone_name = "pharmacare.in" },
+]
+
+[[r2_buckets]]
+binding = "MANIFESTS"
+bucket_name = "pharmacare-update-manifests"
+preview_bucket_name = "pharmacare-update-manifests-preview"
+
+# Observability — keep tail logs on for the first 30 days post-pilot so we
+# can debug the v0.1.0 -> v0.1.1 patch flow on real client traffic.
+[observability]
+enabled = true
+
+[vars]
+# Non-secret env vars only. Channel allow-list is hard-coded in worker.ts;
+# secrets (R2 access keys, signing keys) are NOT stored here — see runbook.
+LOG_LEVEL = "info"

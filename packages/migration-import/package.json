@@ -5,6 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "bin": {
+    "pharmacare-import": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -15,12 +18,18 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "import": "node --import tsx/esm src/cli.ts",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@pharmacare/shared-types": "*"
+    "@pharmacare/shared-db": "*",
+    "@pharmacare/shared-types": "*",
+    "better-sqlite3": "^11.5.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.5"
   }

@@ -1,0 +1,16 @@
+ProductCode,ItemName,Mfr,Pack,BatchNo,Expiry,MRP,PurchaseRate,Stock,HSN,GST,Schedule,Composition
+MRG-0001,Paracetamol 500mg Tab,Cipla,10x10,PC2401,2027-06-30,25.50,18.40,500,30049099,12,OTC,Paracetamol 500mg
+MRG-0002,Crocin Advance Tab,GSK,10x15,CA2402,2027-08-31,42.00,30.20,300,30049099,12,OTC,Paracetamol 500mg + Caffeine 25mg
+MRG-0003,Amoxicillin 500mg Cap,Cipla,10x10,AM2403,2026-12-31,85.00,60.00,200,30041000,12,H,Amoxicillin Trihydrate 500mg
+MRG-0004,Metformin 500mg Tab,Sun Pharma,10x10,MT2404,2027-09-30,38.00,25.00,400,30049099,12,OTC,Metformin HCl 500mg
+MRG-0005,Azithromycin 500mg Tab,Pfizer,1x3,AZ2405,2027-04-30,135.00,95.00,150,30041000,12,H,Azithromycin Dihydrate 500mg
+MRG-0006,Ondansetron 4mg Tab,Cipla,10x10,OD2406,2027-03-31,22.00,15.00,250,30049099,12,H,Ondansetron HCl 4mg
+MRG-0007,Pantoprazole 40mg Tab,Sun Pharma,10x15,PN2407,2027-07-31,75.00,52.00,350,30049099,12,H,Pantoprazole Sodium 40mg
+MRG-0008,Cetirizine 10mg Tab,Cipla,10x10,CT2408,2027-05-31,18.00,12.50,600,30049099,12,OTC,Cetirizine Dihydrochloride 10mg
+MRG-0009,Vitamin D3 60K Sachet,Mankind,1x4,VD2409,2027-11-30,55.00,38.00,180,30049099,12,OTC,Cholecalciferol 60000IU
+MRG-0010,Atorvastatin 10mg Tab,Sun Pharma,10x10,AT2410,2027-02-28,98.00,68.00,220,30049099,12,H,Atorvastatin Calcium 10mg
+MRG-0011,Diazepam 5mg Tab,Abbott,10x10,DZ2411,2026-10-31,28.00,18.00,80,30049099,18,H1,Diazepam 5mg
+MRG-0012,Cough Syrup 100ml,Himalaya,1x100ml,CS2412,2027-01-31,95.00,68.00,120,30049099,12,OTC,Tulsi + Honey + Vasaka
+MRG-0013,Insulin Glargine 100IU,Sanofi,1x3ml,IG2413,2026-09-30,1850.00,1350.00,40,30043990,5,H,Insulin Glargine 100IU/ml
+MRG-0014,Bandage Roll 5cm,Johnson,1pc,BR2414,bad-date-here,35.00,22.00,500,30051010,12,OTC,Cotton bandage
+MRG-0015,Telmisartan 40mg Tab,Cipla,10x15,TM2415,2027-12-31,72.00,50.00,300,30049099,12,H,Telmisartan 40mg

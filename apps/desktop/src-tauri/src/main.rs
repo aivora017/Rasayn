@@ -8,6 +8,7 @@ mod cleartax;
 mod cleartax_wire;
 mod cold_chain;
 mod commands;
+mod counseling;
 mod crypto_store;
 mod cygnet;
 #[cfg(feature = "cygnet-live")]
@@ -15,13 +16,17 @@ mod cygnet_wire;
 mod db;
 mod dpdp;
 mod dpo_compliance;
+mod dr;
+mod dsr_export;
 mod formulary_loader;
 mod idempotency;
 mod images;
 mod khata;
 mod license;
+mod locale;
 mod multi_shop;
 mod oauth;
+mod onboarding;
 mod phash;
 mod photo_grn;
 mod photo_grn_tiers;
@@ -199,6 +204,19 @@ fn main() {
             reports_export::generate_gstr3b_payload,
             crypto_store::crypto_get_or_create_dek,
             crypto_store::crypto_reset_cache,
+            counseling::log_counseling,
+            counseling::list_counseling_for_bill,
+            counseling::check_counseling_complete,
+            dr::dr_take_snapshot,
+            dr::dr_restore_snapshot,
+            dr::dr_list_snapshots,
+            locale::get_locale,
+            locale::set_locale,
+            onboarding::validate_retail_license_format,
+            onboarding::attach_retail_license_pdf,
+            dsr_export::request_personal_data_export,
+            dsr_export::dsr_get_export_status,
+            dsr_export::dsr_list_exports,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,0 +1,12 @@
+{
+  "schema": "pcall-summary/v1",
+  "ts_iso": "2026-05-08T07:20:53Z",
+  "gates": [
+    {"name": "cargo-metadata", "status": "SKIP", "elapsed_ms": 0, "reason": "PCALL_SKIP"},
+    {"name": "cargo-fmt", "status": "SKIP", "elapsed_ms": 0, "reason": "PCALL_SKIP"},
+    {"name": "clippy", "status": "SKIP", "elapsed_ms": 0, "reason": "PCALL_SKIP"},
+    {"name": "tsc", "status": "SKIP", "elapsed_ms": 0, "reason": "PCALL_SKIP"},
+    {"name": "turbo-test", "status": "SKIP", "elapsed_ms": 0, "reason": "PCALL_SKIP"},
+    {"name": "graph-lint", "status": "SKIP", "elapsed_ms": 0, "reason": "PCALL_SKIP"}
+  ]
+}

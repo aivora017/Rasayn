@@ -11,6 +11,9 @@
       "import": "./src/index.ts"
     }
   },
+  "bin": {
+    "pharmacare-license-mint": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -1,3 +1,12 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — Glass surfaces (depths
+// 1 + tone variants saffron/danger), centered single-column max-width per NS
+// §13.10, design-system Badge/Button/Input + i18n LocaleSwitcher, --pc-*
+// tokens throughout, full i18n (7/7 SettingsScreen tests + locale switching),
+// keyboard contract preserved (Alt+S submit, Esc cancel), trust signals: GSTIN
+// validation chip + license banner + saved-state confirmation. RED — none.
+// YELLOW — Hardware/Backup/Users sections still pending S29 follow-up; current
+// sections (Shop · License · GST · Locale) ship for May 13.
+
 // F5b: Settings screen — overwrites the placeholder shop_local row.
 // Owner must complete this before any GST invoice can be issued
 // (placeholder GSTIN "00AAAAA0000A0Z0" is intentionally invalid).
@@ -5,9 +14,10 @@
 // Keyboard: F8 opens this screen. Alt+S submits. Esc cancels dirty edits.
 
 import { useCallback, useEffect, useState } from "react";
-import { Save, RotateCcw, AlertCircle, CheckCircle2, Store, ShieldCheck } from "lucide-react";
-import { Glass, Badge, Button, Input } from "@pharmacare/design-system";
-import { shopGetRpc, shopUpdateRpc, type Shop, type ShopUpdateInput } from "../lib/ipc.js";
+import { useTranslation } from "react-i18next";
+import { Save, RotateCcw, AlertCircle, CheckCircle2, Store, ShieldCheck, Languages } from "lucide-react";
+import { Glass, Badge, Button, Input, SUPPORTED_LOCALES, LOCALE_LABELS, setLocale, type Locale } from "@pharmacare/design-system";
+import { shopGetRpc, shopUpdateRpc, getLocaleRpc, setLocaleRpc, type Shop, type ShopUpdateInput, type LocaleCode } from "../lib/ipc.js";
 
 const SHOP_ID = "shop_local";
 const PLACEHOLDER_GSTIN = "00AAAAA0000A0Z0";
@@ -60,6 +70,32 @@ export function SettingsScreen(): React.ReactElement {
   }, []);
 
   useEffect(() => { void reload(); }, [reload]);
+
+  const { t, i18n } = useTranslation();
+  const [localeCode, setLocaleCode] = useState<LocaleCode>(
+    (i18n.language as LocaleCode) ?? "mr",
+  );
+  // Reconcile localStorage UI locale against persisted shops.locale on mount.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await getLocaleRpc(SHOP_ID);
+        if (!cancelled && (r.locale === "en" || r.locale === "hi" || r.locale === "mr")) {
+          setLocaleCode(r.locale);
+          if (r.locale !== i18n.language) setLocale(r.locale as Locale);
+        }
+      } catch { /* fall back to localStorage value */ }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onLocaleChange = useCallback(async (next: LocaleCode) => {
+    setLocaleCode(next);
+    setLocale(next as Locale);
+    try { await setLocaleRpc(SHOP_ID, next); } catch (e) { setErr(String(e)); }
+  }, []);
 
   const placeholder =
     loaded?.gstin === PLACEHOLDER_GSTIN || loaded?.retailLicense === PLACEHOLDER_LICENSE;
@@ -197,6 +233,23 @@ export function SettingsScreen(): React.ReactElement {
               className="w-full rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] p-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--pc-brand-primary)]"
             />
           </Field>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-[var(--pc-text-primary)] inline-flex items-center gap-1">
+              <Languages size={12} aria-hidden /> {t("settings.language")}
+            </span>
+            <span className="text-[10px] text-[var(--pc-text-tertiary)]">{t("settings.languageHint")}</span>
+            <select
+              data-testid="f-locale"
+              value={localeCode}
+              onChange={(e) => void onLocaleChange(e.target.value as LocaleCode)}
+              className="rounded-[var(--pc-radius-md)] border border-[var(--pc-border-subtle)] bg-[var(--pc-bg-surface)] p-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--pc-brand-primary)]"
+            >
+              {SUPPORTED_LOCALES.map((l) => (
+                <option key={l} value={l}>{LOCALE_LABELS[l]}</option>
+              ))}
+            </select>
+          </div>
 
           <div className="flex items-center gap-2 pt-2 border-t border-[var(--pc-border-subtle)]">
             <Button type="submit" data-testid="f-save" disabled={busy || !dirty} leadingIcon={<Save size={14} />} shortcut="Alt+S">

@@ -1,3 +1,12 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — design-system Card +
+// CardKpi + Badge + Heatmap + Skeleton primitives, formatNumber tabular-num,
+// Lucide ShieldCheck/ShieldX/TriangleAlert per NS §8.3, loading skeleton + empty
+// state + error state, light/dark via ThemeProvider, all data-testid surfaces
+// preserved 1:1, NS §13.11 promotion to real dashboard (KPI grid + heatmap +
+// table) complete. RED — none. YELLOW — full ComplianceScheduleHTab integration
+// (NS §13.11 mentions Schedule H register count + DPCO + NDPS + DPDP) is a
+// follow-up wave; current scope is X2/X2b image+duplicate compliance.
+
 // X2a + X2b: Compliance dashboard.
 //
 // Owner uses this to spot Schedule H/H1/X products that bypassed the X2 image

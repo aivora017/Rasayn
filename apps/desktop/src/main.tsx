@@ -3,7 +3,10 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import { initI18n } from "@pharmacare/design-system";
 
-initI18n((localStorage.getItem("pc-locale") as "en"|"hi"|"mr"|null) ?? "en");
+// S28-D1 (Q-007 + ADR-0074): default locale is Marathi for the Vaidyanath
+// pilot (Maharashtra). Cashier explicitly switches to en/hi via Settings;
+// `pc-locale` localStorage value wins when present.
+initI18n((localStorage.getItem("pc-locale") as "en"|"hi"|"mr"|null) ?? "mr");
 import { setIpcHandler, type IpcCall } from "./lib/ipc.js";
 
 // CSS load order is binding (North Star §4):

@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe("AppShell · S26.G scaffold-only gating", () => {
-  it("PILOT_BUILD=true: RxScan / ARShelf / Counseling / ABHA are NOT in the sidebar", async () => {
+  it("PILOT_BUILD=true: ARShelf / RxScan / ABHA are NOT in the sidebar (Counseling graduated S28-D1)", async () => {
     vi.resetModules();
     vi.doMock("../featureFlags.js", async () => {
       const actual = await vi.importActual<typeof import("../featureFlags.js")>(
@@ -70,7 +70,8 @@ describe("AppShell · S26.G scaffold-only gating", () => {
       render(<App />);
     });
     const nav = screen.getByRole("navigation", { name: /primary/i });
-    expect(nav.textContent ?? "").not.toMatch(/Counseling/i);
+    // S28-D1: Counseling is now a real screen — present in sidebar.
+    expect(nav.textContent ?? "").toMatch(/Counseling/i);
     expect(nav.textContent ?? "").not.toMatch(/AR Shelf/i);
     expect(nav.textContent ?? "").not.toMatch(/Rx Scan/i);
     expect(nav.textContent ?? "").not.toMatch(/ABHA/i);
@@ -105,7 +106,7 @@ describe("AppShell · S26.G scaffold-only gating", () => {
     expect(nav.textContent ?? "").toMatch(/AR Shelf/i);
   });
 
-  it("PILOT_BUILD=true: deep-link to counseling renders UpcomingFeature card, not the scaffold", async () => {
+  it("PILOT_BUILD=true: deep-link to counseling renders the real CounselingScreen (S28-D1)", async () => {
     vi.resetModules();
     vi.doMock("../featureFlags.js", async () => {
       const actual = await vi.importActual<typeof import("../featureFlags.js")>(
@@ -128,10 +129,10 @@ describe("AppShell · S26.G scaffold-only gating", () => {
     await act(async () => {
       render(<App initialMode="counseling" />);
     });
-    expect(screen.getByTestId("upcoming-feature-card")).toBeInTheDocument();
-    expect(screen.getByTestId("upcoming-feature-card").textContent ?? "")
-      .toMatch(/coming in the next release/i);
-    // The literal SCAFFOLD placeholder copy must be gone.
-    expect(screen.queryByText(/coming online/i)).toBeNull();
+    // S28-D1: counseling is real — must NOT render the UpcomingFeature
+    // placeholder; the actual CounselingScreen mounts (without billId
+    // it shows the "no active bill" empty state).
+    expect(screen.queryByTestId("upcoming-feature-card")).toBeNull();
+    expect(screen.queryByTestId("counseling-screen")).toBeInTheDocument();
   });
 });

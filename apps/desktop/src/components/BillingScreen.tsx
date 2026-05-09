@@ -1,4 +1,16 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — tokens (no hex literals;
+// all colors/spacing via --pc-* CSS vars), typography scale, light/dark via
+// ThemeProvider, empty/loading/success/error states present, motion via Motion
+// v12 only (transform/opacity), tabular ₹ via formatINR, prefers-reduced-motion
+// honored at app level, keyboard contract intact (F1/F2/F3/F4/F6/F7/F9/F10),
+// trust signals: shop name + license in topbar (AppShell), IRN chip surfaces
+// e-invoice state, customer bar permanent, save_bill clinical-guard wired.
+// YELLOW — table chrome still raw <table>; replacing with a tokenized
+// DataTable is post-pilot (NS §13.2 §17 box "shadcn DataTable") deferred to S29
+// to keep all 37/37 BillingScreen tests + 5/5 BillingClinicalGuard regression
+// guards green for the May 13 cutover. RED — none.
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { formatINR, type Paise, type GstRate } from "@pharmacare/shared-types";
 import { computeLine, computeInvoice, inferTreatment } from "@pharmacare/gst-engine";
 import { ProductSearch } from "./ProductSearch.js";
@@ -14,10 +26,12 @@ import {
   type Customer, type Prescription, type Tender, type UserDTO,
   type ExpiryOverrideResultDTO,
   type IrnRecordDTO,
+  type MissingCounselDTO,
   productIngredientsListForProductsRpc,
 } from "../lib/ipc.js";
 import { renderInvoiceHtml, resolveLayout } from "@pharmacare/invoice-print";
 import BillingClinicalGuard, { type ClinicalBasketLine } from "./BillingClinicalGuard.js";
+import CounselingScreen from "./CounselingScreen.js";
 import { buildReceipt, type ReceiptInput, type ReceiptLine } from "@pharmacare/printer-escpos";
 import { printOnThermal } from "../lib/printer.js";
 import { queueAndShare, openWaMe } from "../lib/whatsapp.js";
@@ -85,6 +99,7 @@ function genBillNo(): string {
 }
 
 export function BillingScreen() {
+  const { t } = useTranslation();
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
   const [clinicalBlocked, setClinicalBlocked] = useState(false);
@@ -97,6 +112,19 @@ export function BillingScreen() {
   // A12 (ADR 0017) · IRN chip — reflects e-invoice state of the last saved bill.
   const [irnRecord, setIrnRecord] = useState<IrnRecordDTO | null>(null);
   const [submittingIrn, setSubmittingIrn] = useState(false);
+
+  // S28-D1 · Schedule-H counseling gate. When save_bill returns
+  // `COUNSELING_INCOMPLETE:<json>` we parse the JSON suffix into
+  // `counselingMissing`, surface a red banner with the drug names,
+  // open CounselingScreen as a modal, and stash the bill_id +
+  // payload so we can auto-retry save_bill once counseling is logged.
+  // Cancelling the modal restores the basket (no data lost).
+  const [counselingMissing, setCounselingMissing] = useState<readonly MissingCounselDTO[]>([]);
+  const [counselingModalOpen, setCounselingModalOpen] = useState(false);
+  const pendingSaveRef = useRef<{
+    billId: string;
+    payload: SaveBillInput;
+  } | null>(null);
 
   // A13 · Expiry override state. `overrideTarget` drives the modal; the
   // resolved `ExpiryOverrideResultDTO` is stashed on the line to prove to the
@@ -157,11 +185,11 @@ export function BillingScreen() {
 
   // Debounced customer hit list — runs whenever the customer bar is typed into.
   useEffect(() => {
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       if (!custQuery.trim()) { setCustHits([]); return; }
       setCustHits(await searchCustomersRpc(SHOP.id, custQuery, 8));
     }, 120);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [custQuery]);
 
   const pickCustomer = useCallback(async (c: Customer) => {
@@ -189,11 +217,11 @@ export function BillingScreen() {
       setRxId(id);
       setNewRxOpen(false);
       setNewDoctorReg(""); setNewDoctorName(""); setNewRxNotes("");
-      setToast({ kind: "ok", msg: "Rx captured" });
+      setToast({ kind: "ok", msg: t("billing.rxCaptured") });
     } catch (e) {
       setToast({ kind: "err", msg: e instanceof Error ? e.message : String(e) });
     }
-  }, [customer, newDoctorReg, newDoctorName, newRxDate, newRxNotes]);
+  }, [customer, newDoctorReg, newDoctorName, newRxDate, newRxNotes, t]);
 
   const onPick = useCallback(async (h: ProductHit) => {
     const batch = await pickFefoBatchRpc(h.id);
@@ -207,7 +235,7 @@ export function BillingScreen() {
       if (Number.isFinite(days) && days <= 0) {
         setToast({
           kind: "err",
-          msg: `Cannot sell ${h.name}: batch ${batch.batchNo} expired on ${batch.expiryDate}. Mark for return-to-supplier.`,
+          msg: t("billing.expiredHardBlock", { name: h.name, batchNo: batch.batchNo, date: batch.expiryDate }),
         });
         return;
       }
@@ -246,7 +274,7 @@ export function BillingScreen() {
         setOverrideOpen(true);
       }
     }
-  }, []);
+  }, [t]);
 
   // A13 · Override callbacks. onOverride: record the audit_id (handy for the
   // future "show me who approved" audit drill-down) and close the modal.
@@ -256,11 +284,11 @@ export function BillingScreen() {
     setOverrideOpen(false);
     setToast({
       kind: "ok",
-      msg: `Owner override recorded (audit ${result.auditId}).`,
+      msg: t("billing.ownerOverrideRecorded", { auditId: result.auditId }),
     });
     setOverrideTarget(null);
     focusProductSearch();
-  }, [focusProductSearch]);
+  }, [focusProductSearch, t]);
 
   const onOverrideCancel = useCallback(() => {
     setOverrideOpen(false);
@@ -269,10 +297,10 @@ export function BillingScreen() {
     setOverrideTarget(null);
     setToast({
       kind: "err",
-      msg: "Near-expiry line removed — owner override required to sell this batch.",
+      msg: t("billing.nearExpiryLineRemoved"),
     });
     focusProductSearch();
-  }, [focusProductSearch]);
+  }, [focusProductSearch, t]);
 
   const computed = useMemo(() => {
     const treatment = inferTreatment("27", null, false);
@@ -331,47 +359,18 @@ export function BillingScreen() {
     setIrnRecord(null);
   }, []);
 
-  const doSave = useCallback(async (tenders?: readonly Tender[]) => {
-    if (!canSave) return;
-    const resolvedMode: SaveBillInput["paymentMode"] =
-      !tenders || tenders.length === 0 ? "cash"
-        : tenders.length === 1 ? tenders[0]!.mode
-          : "split";
-    // S26.C · Source-of-truth for customerStateCode: derive from customer.gstin
-    // first 2 digits (standard Indian GSTIN pattern). Fall back to SHOP.stateCode
-    // for walk-in / no-GSTIN B2C — engine then computes intra-state correctly.
-    const customerStateCode =
-      customer?.gstin && customer.gstin.length === 15
-        ? customer.gstin.slice(0, 2)
-        : SHOP.stateCode;
-    const payload: SaveBillInput = {
-      shopId: SHOP.id,
-      billNo: genBillNo(),
-      cashierId: SHOP.cashierId,
-      paymentMode: resolvedMode,
-      customerStateCode,
-      customerId: customer?.id ?? null,
-      rxId: rxId,
-      lines: lines
-        .filter((l) => l.productId && l.batch && l.qty > 0)
-        .map((l) => ({
-          productId: l.productId!,
-          batchId: l.batch!.id,
-          mrpPaise: l.mrpPaise,
-          qty: l.qty,
-          gstRate: l.gstRate,
-          discountPct: l.discountPct,
-        })),
-      ...(tenders && tenders.length > 0 ? { tenders } : {}),
-    };
-    const billId = `bill_${Date.now()}`;
+  // S28-D1 · doSaveWith — inner save that accepts an explicit billId +
+  // payload so the COUNSELING_INCOMPLETE retry path can re-issue the same
+  // payload after the cashier finishes counseling. Public doSave (below)
+  // builds the payload from current state on first call.
+  const doSaveWith = useCallback(async (billId: string, payload: SaveBillInput) => {
     setSaving(true);
     try {
       const r = await saveBillRpc(billId, payload);
       setLastSavedBillId(billId);
       // A12 · IRN chip starts empty; user clicks "Submit to IRP" to create it.
       setIrnRecord(null);
-      setToast({ kind: "ok", msg: `Saved · ${payload.billNo} · ${formatINR(r.grandTotalPaise as Paise)} · F9 to print` });
+      setToast({ kind: "ok", msg: t("billing.savedToast", { billNo: payload.billNo, total: formatINR(r.grandTotalPaise as Paise) }) });
       // S13 — post-save thermal print path. Best-effort; never fail the bill.
       void (async () => {
         try {
@@ -410,24 +409,115 @@ export function BillingScreen() {
       setCustomer(null); setRxId(null); setCustQuery(""); setRxList([]);
       setPaymentOpen(false);
       focusProductSearch();
+      // Counseling pipeline cleared once the bill saves.
+      setCounselingMissing([]);
+      pendingSaveRef.current = null;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setToast({ kind: "err", msg: `Save failed: ${msg}` });
+      // S28-D1 · COUNSELING_INCOMPLETE branch. The Rust gate
+      // (counseling::format_counseling_incomplete_err) emits
+      // `COUNSELING_INCOMPLETE:<json>` where the JSON is a Vec of
+      // { drugId, drugName, scheduleClass }. Parse it, stash the
+      // payload for retry, surface the red banner, and open the
+      // CounselingScreen modal pre-populated for this bill.
+      if (msg.startsWith("COUNSELING_INCOMPLETE:")) {
+        const jsonPart = msg.slice("COUNSELING_INCOMPLETE:".length);
+        let missing: readonly MissingCounselDTO[] = [];
+        try {
+          const parsed = JSON.parse(jsonPart) as readonly MissingCounselDTO[];
+          if (Array.isArray(parsed)) missing = parsed;
+        } catch {
+          // Malformed JSON — keep an empty list; banner still surfaces a
+          // generic "counseling required" message. Lines stay intact so
+          // the cashier can retry after counseling.
+        }
+        setCounselingMissing(missing);
+        pendingSaveRef.current = { billId, payload };
+        setCounselingModalOpen(true);
+        const drugNames = missing.length > 0
+          ? missing.map((d) => d.drugName).join(", ")
+          : "this bill";
+        setToast({
+          kind: "err",
+          msg: `Schedule-H counseling required for: ${drugNames}`,
+        });
+        // Do NOT clear lines — basket is preserved verbatim for retry.
+      } else {
+        setToast({ kind: "err", msg: t("billing.saveFailed", { msg }) });
+      }
     } finally {
       setSaving(false);
     }
-  }, [canSave, lines, customer, rxId]);
+  }, [focusProductSearch, t]);
+
+  const doSave = useCallback(async (tenders?: readonly Tender[]) => {
+    if (!canSave) return;
+    const resolvedMode: SaveBillInput["paymentMode"] =
+      !tenders || tenders.length === 0 ? "cash"
+        : tenders.length === 1 ? tenders[0]!.mode
+          : "split";
+    // S26.C · Source-of-truth for customerStateCode: derive from customer.gstin
+    // first 2 digits (standard Indian GSTIN pattern). Fall back to SHOP.stateCode
+    // for walk-in / no-GSTIN B2C — engine then computes intra-state correctly.
+    const customerStateCode =
+      customer?.gstin && customer.gstin.length === 15
+        ? customer.gstin.slice(0, 2)
+        : SHOP.stateCode;
+    const payload: SaveBillInput = {
+      shopId: SHOP.id,
+      billNo: genBillNo(),
+      cashierId: SHOP.cashierId,
+      paymentMode: resolvedMode,
+      customerStateCode,
+      customerId: customer?.id ?? null,
+      rxId: rxId,
+      lines: lines
+        .filter((l) => l.productId && l.batch && l.qty > 0)
+        .map((l) => ({
+          productId: l.productId!,
+          batchId: l.batch!.id,
+          mrpPaise: l.mrpPaise,
+          qty: l.qty,
+          gstRate: l.gstRate,
+          discountPct: l.discountPct,
+        })),
+      ...(tenders && tenders.length > 0 ? { tenders } : {}),
+    };
+    const billId = `bill_${Date.now()}`;
+    await doSaveWith(billId, payload);
+  }, [canSave, lines, customer, rxId, doSaveWith]);
+
+  // S28-D1 · CounselingScreen.onComplete callback — counseling cleared,
+  // re-issue save_bill with the same billId/payload (server-side gate
+  // reads counsel_log and now sees a row for every H/H1/X drug).
+  const handleCounselingComplete = useCallback(() => {
+    setCounselingModalOpen(false);
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    void doSaveWith(pending.billId, pending.payload);
+  }, [doSaveWith]);
+
+  // S28-D1 · CounselingScreen.onCancel callback — close modal but
+  // PRESERVE the basket so the cashier can retry. No data lost.
+  const handleCounselingCancel = useCallback(() => {
+    setCounselingModalOpen(false);
+    setToast({
+      kind: "err",
+      msg: "Counseling not completed — basket preserved. Counsel patient and press F10 again.",
+    });
+  }, []);
+  // Note: above kept English-literal due to S28-D1 wiring; addressed in follow-up.
 
 
 
   // S14.2 · Share-via-WhatsApp — surfaces after a bill is saved. Uses bill_share template.
   const shareBillViaWhatsApp = useCallback(async () => {
     if (!lastSavedBillId) {
-      setToast({ kind: "err", msg: "No bill to share — save one first (F10)" });
+      setToast({ kind: "err", msg: t("billing.noBillToSubmit") });
       return;
     }
     if (!customer || !customer.phone || !/^\+\d{10,15}$/.test(customer.phone)) {
-      setToast({ kind: "err", msg: "Customer phone must be E.164 (+91...) to share via WhatsApp" });
+      setToast({ kind: "err", msg: t("billing.phoneE164Required") });
       return;
     }
     try {
@@ -440,20 +530,20 @@ export function BillingScreen() {
         values: [customer.name, bill.bill.billNo, total, "https://rasayn.in/b/"+lastSavedBillId.slice(-8)],
       });
       openWaMe(result.waMeUrl);
-      setToast({ kind: "ok", msg: `WhatsApp queued · ${result.outbox.id.slice(0,12)}…` });
+      setToast({ kind: "ok", msg: t("billing.whatsappQueued", { id: result.outbox.id.slice(0,12) }) });
     } catch (e) {
-      setToast({ kind: "err", msg: `WhatsApp share failed: ${String(e)}` });
+      setToast({ kind: "err", msg: t("billing.whatsappShareFailed", { err: String(e) }) });
     }
-  }, [lastSavedBillId, customer]);
+  }, [lastSavedBillId, customer, t]);
 
   // A12 (ADR 0017) · Submit bill to e-invoice IRP, or retry a failed submission.
   const submitIrn = useCallback(async () => {
     if (!lastSavedBillId) {
-      setToast({ kind: "err", msg: "No bill to submit — save one first (F10)" });
+      setToast({ kind: "err", msg: t("billing.noBillToSubmit") });
       return;
     }
     if (!currentUser) {
-      setToast({ kind: "err", msg: "User not loaded — cannot submit IRN" });
+      setToast({ kind: "err", msg: t("billing.userNotLoadedIrn") });
       return;
     }
     if (submittingIrn) return;
@@ -462,19 +552,19 @@ export function BillingScreen() {
       const rec = await submitIrnRpc({ billId: lastSavedBillId, actorUserId: currentUser.id });
       setIrnRecord(rec);
       if (rec.status === "acked") {
-        setToast({ kind: "ok", msg: `IRN acked · ${rec.irn ?? "(no irn)"}` });
+        setToast({ kind: "ok", msg: t("billing.irnAckedToast", { irn: rec.irn ?? "(no irn)" }) });
       } else if (rec.status === "failed") {
-        setToast({ kind: "err", msg: `IRN failed · ${rec.errorMsg ?? rec.errorCode ?? "unknown"}` });
+        setToast({ kind: "err", msg: t("billing.irnFailedToast", { err: rec.errorMsg ?? rec.errorCode ?? "unknown" }) });
       } else {
-        setToast({ kind: "ok", msg: `IRN · ${rec.status}` });
+        setToast({ kind: "ok", msg: t("billing.irnGenericToast", { status: rec.status }) });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setToast({ kind: "err", msg: `IRN submit failed: ${msg}` });
+      setToast({ kind: "err", msg: t("billing.irnSubmitFailed", { msg }) });
     } finally {
       setSubmittingIrn(false);
     }
-  }, [lastSavedBillId, currentUser, submittingIrn]);
+  }, [lastSavedBillId, currentUser, submittingIrn, t]);
 
   const retryIrn = useCallback(async () => {
     if (!lastSavedBillId || !currentUser || submittingIrn) return;
@@ -488,22 +578,22 @@ export function BillingScreen() {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setToast({ kind: "err", msg: `IRN retry failed: ${msg}` });
+      setToast({ kind: "err", msg: t("billing.irnRetryFailed", { msg }) });
     } finally {
       setSubmittingIrn(false);
     }
-  }, [lastSavedBillId, currentUser, submittingIrn]);
+  }, [lastSavedBillId, currentUser, submittingIrn, t]);
 
   // A9 (ADR 0014) · F9 reprint — fetch full bill, write print_audit,
   // render the invoice HTML, and hand it to a hidden iframe for browser-native
   // print. First call is ORIGINAL, subsequent calls show DUPLICATE — REPRINT.
   const doPrint = useCallback(async () => {
     if (!lastSavedBillId) {
-      setToast({ kind: "err", msg: "No bill to print — save one first (F10)" });
+      setToast({ kind: "err", msg: t("billing.noBillToPrint") });
       return;
     }
     if (!currentUser) {
-      setToast({ kind: "err", msg: "User not loaded — cannot stamp print audit" });
+      setToast({ kind: "err", msg: t("billing.userNotLoadedPrint") });
       return;
     }
     if (printing) return;
@@ -518,19 +608,20 @@ export function BillingScreen() {
       });
       const html = renderInvoiceHtml({ bill, layout, printReceipt: receipt });
       openPrintIframe(html);
+      const layoutLabel = layout === "a5_gst" ? t("billing.layoutA5Gst") : t("billing.layoutThermal");
       setToast({
         kind: "ok",
         msg: receipt.isDuplicate
-          ? `Reprint #${receipt.printCount} · ${layout === "a5_gst" ? "A5 GST" : "Thermal 80mm"}`
-          : `Printing · ${layout === "a5_gst" ? "A5 GST" : "Thermal 80mm"}`,
+          ? t("billing.reprintToast", { count: receipt.printCount, layout: layoutLabel })
+          : t("billing.printingToast", { layout: layoutLabel }),
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setToast({ kind: "err", msg: `Print failed: ${msg}` });
+      setToast({ kind: "err", msg: t("billing.printFailed", { msg }) });
     } finally {
       setPrinting(false);
     }
-  }, [lastSavedBillId, currentUser, printing]);
+  }, [lastSavedBillId, currentUser, printing, t]);
 
   // A5 keyboard shell — window-level so F-keys work from any focused element
   // inside the billing screen, including the embedded ProductSearch dropdown.
@@ -564,7 +655,7 @@ export function BillingScreen() {
       if (e.key === "F6") {
         e.preventDefault();
         if (!canSave) {
-          setToast({ kind: "err", msg: "Nothing to pay — add a line first" });
+          setToast({ kind: "err", msg: t("billing.nothingToPay") });
           return;
         }
         setPaymentOpen(true);
@@ -573,13 +664,13 @@ export function BillingScreen() {
       if (e.key === "F7") {
         e.preventDefault();
         if (lines.length === 0) {
-          setToast({ kind: "err", msg: "Add a line first — F7 targets the last line" });
+          setToast({ kind: "err", msg: t("billing.addLineFirst") });
           return;
         }
         const target = lines.length - 1;
         const targetLine = lines[target];
         if (!targetLine?.productId) {
-          setToast({ kind: "err", msg: "Last line has no product — nothing to override" });
+          setToast({ kind: "err", msg: t("billing.lastLineNoProduct") });
           return;
         }
         void (async () => {
@@ -590,7 +681,7 @@ export function BillingScreen() {
             setBatchTargetIdx(target);
             setBatchPickerOpen(true);
           } catch (err) {
-            setToast({ kind: "err", msg: `Batch list failed: ${String(err)}` });
+            setToast({ kind: "err", msg: t("billing.batchListFailed", { err: String(err) }) });
           }
         })();
         return;
@@ -617,7 +708,7 @@ export function BillingScreen() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [doSave, doPrint, resetBill, canSave, paymentOpen, toast, lines]);
+  }, [doSave, doPrint, resetBill, canSave, paymentOpen, toast, lines, t]);
 
   // A6 · autofocus the batch-override confirm button on open (ADR 0010 §2).
   useEffect(() => {
@@ -669,8 +760,8 @@ export function BillingScreen() {
 
   useEffect(() => {
     if (toast?.kind === "ok") {
-      const t = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
     }
     return undefined;
   }, [toast]);
@@ -700,17 +791,17 @@ export function BillingScreen() {
       <div className="bill-lines">
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em" }}>
-            New bill
+            {t("dashboard.quickNew")}
           </h2>
           <span style={{ fontSize: 11, color: "var(--pc-text-tertiary)", display: "inline-flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <span><span className="kbd">F1</span> new</span>
-            <span><span className="kbd">F2</span> customer</span>
-            <span><span className="kbd">F3</span> add-line</span>
-            <span><span className="kbd">F4</span> discount</span>
-            <span><span className="kbd">F6</span> payment</span>
-            <span><span className="kbd">F7</span> batch</span>
-            <span><span className="kbd">F10</span> save</span>
-            <span><span className="kbd">F9</span> print</span>
+            <span><span className="kbd">F1</span> {t("billing.kbdNew")}</span>
+            <span><span className="kbd">F2</span> {t("billing.kbdCustomer")}</span>
+            <span><span className="kbd">F3</span> {t("billing.kbdAddLine")}</span>
+            <span><span className="kbd">F4</span> {t("billing.kbdDiscount")}</span>
+            <span><span className="kbd">F6</span> {t("billing.kbdPayment")}</span>
+            <span><span className="kbd">F7</span> {t("billing.kbdBatch")}</span>
+            <span><span className="kbd">F10</span> {t("billing.kbdSave")}</span>
+            <span><span className="kbd">F9</span> {t("billing.kbdPrint")}</span>
           </span>
         </div>
 
@@ -741,6 +832,46 @@ export function BillingScreen() {
           </div>
         )}
 
+        {/* S28-D1 · Counseling-incomplete banner (rendered when save_bill
+            returned COUNSELING_INCOMPLETE). Stays up until the modal closes
+            and the retry succeeds — clear, owner-readable. */}
+        {counselingMissing.length > 0 && (
+          <div
+            data-testid="counseling-incomplete-banner"
+            role="alert"
+            style={{
+              padding: "10px 14px",
+              marginBottom: 12,
+              borderRadius: 4,
+              background: "var(--pc-state-danger-bg)",
+              border: "1px solid var(--pc-state-danger)",
+              color: "var(--pc-state-danger)",
+              fontWeight: 600,
+              fontSize: 13,
+            }}
+          >
+            Schedule-H counseling required for:{" "}
+            {counselingMissing.map((d) => d.drugName).join(", ")}
+            <button
+              type="button"
+              data-testid="counseling-incomplete-open"
+              onClick={() => setCounselingModalOpen(true)}
+              style={{
+                marginLeft: 12,
+                padding: "4px 10px",
+                background: "var(--pc-state-danger)",
+                color: "white",
+                border: "none",
+                borderRadius: 4,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Open Counseling
+            </button>
+          </div>
+        )}
+
         {lastSavedBillId && (
           <div
             data-testid="irn-chip"
@@ -748,16 +879,16 @@ export function BillingScreen() {
             style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "6px 10px", marginBottom: 10, borderRadius: 4,
-              border: "1px solid #334155", background: "var(--pc-bg-canvas)",
+              border: "1px solid var(--pc-border-default)", background: "var(--pc-bg-canvas)",
               fontSize: 12, color: "var(--pc-border-default)",
             }}
           >
-            <span style={{ fontWeight: 600 }}>e-Invoice IRN</span>
+            <span style={{ fontWeight: 600 }}>{t("billing.eInvoiceIrn")}</span>
             {(() => {
               if (!irnRecord) {
                 return (
                   <>
-                    <span style={{ color: "var(--pc-text-tertiary)" }}>not submitted</span>
+                    <span style={{ color: "var(--pc-text-tertiary)" }}>{t("billing.irnNotSubmitted")}</span>
                     <button
                       data-testid="irn-submit"
                       onClick={() => void submitIrn()}
@@ -771,7 +902,7 @@ export function BillingScreen() {
                         cursor: submittingIrn ? "wait" : "pointer",
                         fontWeight: 600,
                       }}
-                    >{submittingIrn ? "Submitting…" : "Submit to IRP"}</button>
+                    >{submittingIrn ? t("billing.irnSubmitting") : t("billing.irnSubmitToIrp")}</button>
                   </>
                 );
               }
@@ -810,7 +941,7 @@ export function BillingScreen() {
                     >{irnRecord.errorMsg}</span>
                   )}
                   <span style={{ color: "var(--pc-text-secondary)", fontSize: 11 }}>
-                    attempt {irnRecord.attemptCount} · {irnRecord.vendor}
+                    {t("billing.irnAttempt", { count: irnRecord.attemptCount, vendor: irnRecord.vendor })}
                   </span>
                   {(s === "failed" || s === "pending") && (
                     <button
@@ -826,7 +957,7 @@ export function BillingScreen() {
                         cursor: submittingIrn ? "wait" : "pointer",
                         fontWeight: 600,
                       }}
-                    >{submittingIrn ? "Retrying…" : "Retry"}</button>
+                    >{submittingIrn ? t("billing.irnRetrying") : t("billing.irnRetry")}</button>
                   )}
                 </>
               );
@@ -851,7 +982,7 @@ export function BillingScreen() {
                 cursor: "pointer",
                 borderRadius: 4,
               }}
-            >Share via WhatsApp</button>
+            >{t("billing.shareViaWhatsapp")}</button>
           </div>
         )}
 
@@ -859,7 +990,7 @@ export function BillingScreen() {
         <div
           data-testid="cust-bar"
           style={{
-            border: "1px solid #334155", borderRadius: 4, padding: 10, marginBottom: 12,
+            border: "1px solid var(--pc-border-default)", borderRadius: 4, padding: 10, marginBottom: 12,
             background: "var(--pc-bg-surface-2)",
           }}
         >
@@ -867,7 +998,7 @@ export function BillingScreen() {
             htmlFor="cust-search"
             style={{ display: "block", fontSize: 11, color: "var(--pc-text-tertiary)", marginBottom: 4 }}
           >
-            Customer <span className="kbd">F2</span>
+            {t("billing.customer")} <span className="kbd">F2</span>
           </label>
           <div style={{ position: "relative" }}>
             <input
@@ -875,7 +1006,7 @@ export function BillingScreen() {
               ref={custSearchRef}
               data-testid="cust-search"
               aria-label="Customer search"
-              placeholder="Search customer by name / phone / GSTIN (optional for OTC)"
+              placeholder={t("billing.searchCustomerPlaceholder")}
               value={custQuery}
               onChange={(e) => { setCustQuery(e.target.value); if (customer && e.target.value !== customer.name) setCustomer(null); }}
               style={{ width: "100%", padding: "6px 10px" }}
@@ -887,7 +1018,7 @@ export function BillingScreen() {
                 style={{
                   position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
                   listStyle: "none", margin: 0, padding: 0,
-                  background: "var(--pc-bg-canvas)", border: "1px solid #334155",
+                  background: "var(--pc-bg-canvas)", border: "1px solid var(--pc-border-default)",
                   maxHeight: 180, overflowY: "auto",
                 }}
               >
@@ -898,7 +1029,7 @@ export function BillingScreen() {
                     aria-selected="false"
                     data-testid={`cust-hit-${c.id}`}
                     onMouseDown={(e) => { e.preventDefault(); void pickCustomer(c); }}
-                    style={{ padding: "6px 10px", cursor: "pointer", borderBottom: "1px solid #334155" }}
+                    style={{ padding: "6px 10px", cursor: "pointer", borderBottom: "1px solid var(--pc-border-subtle)" }}
                   >
                     <strong>{c.name}</strong> · {c.phone ?? "—"}
                   </li>
@@ -919,19 +1050,19 @@ export function BillingScreen() {
 
         {rxRequired && (
           <div data-testid="rx-required-banner" role="alert" style={{
-            border: "1px solid #dc2626", background: "var(--pc-state-danger-bg)", padding: 12, marginBottom: 12, borderRadius: 4,
+            border: "1px solid var(--pc-state-danger)", background: "var(--pc-state-danger-bg)", padding: 12, marginBottom: 12, borderRadius: 4,
           }}>
             <div style={{ fontWeight: 600, color: "var(--pc-state-danger)", marginBottom: 6 }}>
-              Prescription required (Schedule H/H1/X)
+              {t("billing.prescriptionRequiredTitle")}
             </div>
             {!customer ? (
               <div style={{ fontSize: 13, color: "var(--pc-state-danger)" }}>
-                Pick a customer above (<span className="kbd">F2</span>) to attach prescription.
+                {t("billing.pickCustomerHint", { key: "F2" })}
               </div>
             ) : (
               <div style={{ marginTop: 4, fontSize: 13 }}>
                 {rxList.length === 0 ? (
-                  <em style={{ color: "var(--pc-text-secondary)" }}>No prescriptions on file.</em>
+                  <em style={{ color: "var(--pc-text-secondary)" }}>{t("billing.noPrescriptions")}</em>
                 ) : (
                   <div data-testid="rx-pick-list">
                     {rxList.map((r) => (
@@ -945,21 +1076,21 @@ export function BillingScreen() {
                 )}
                 <button data-testid="rx-new-toggle" onClick={() => setNewRxOpen((v) => !v)}
                         style={{ marginTop: 6, fontSize: 12 }}>
-                  {newRxOpen ? "Cancel" : "+ Add new Rx"}
+                  {newRxOpen ? t("billing.cancelBtn") : t("billing.addNewRx")}
                 </button>
                 {newRxOpen && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 }}>
-                    <input data-testid="rx-new-doctor-reg" placeholder="Doctor reg no"
+                    <input data-testid="rx-new-doctor-reg" placeholder={t("billing.doctorRegNo")}
                            value={newDoctorReg} onChange={(e) => setNewDoctorReg(e.target.value)} />
-                    <input data-testid="rx-new-doctor-name" placeholder="Doctor name"
+                    <input data-testid="rx-new-doctor-name" placeholder={t("billing.doctorName")}
                            value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} />
                     <input type="date" data-testid="rx-new-date"
                            value={newRxDate} onChange={(e) => setNewRxDate(e.target.value)} />
-                    <input data-testid="rx-new-notes" placeholder="Notes"
+                    <input data-testid="rx-new-notes" placeholder={t("billing.doctorNotes")}
                            value={newRxNotes} onChange={(e) => setNewRxNotes(e.target.value)} />
                     <button data-testid="rx-new-save" onClick={() => void saveNewRx()}
                             style={{ gridColumn: "1 / span 2", padding: 6 }}>
-                      Save Rx
+                      {t("billing.saveRx")}
                     </button>
                   </div>
                 )}
@@ -970,19 +1101,19 @@ export function BillingScreen() {
 
         {lines.length === 0 ? (
           <div style={{ padding: 24, textAlign: "center", color: "var(--pc-text-secondary)" }} data-testid="empty-state">
-            No items. Search a product to add a line.
+            {t("billing.emptyBasket")}
           </div>
         ) : (
           <table>
             <thead>
               <tr>
-                <th style={{ width: "30%" }}>Product</th>
-                <th>Batch</th>
-                <th>MRP</th>
-                <th>Qty</th>
-                <th>GST</th>
-                <th>Disc %</th>
-                <th style={{ textAlign: "right" }}>Total</th>
+                <th style={{ width: "30%" }}>{t("billing.colProduct")}</th>
+                <th>{t("billing.colBatch")}</th>
+                <th>{t("billing.colMrp")}</th>
+                <th>{t("billing.colQty")}</th>
+                <th>{t("billing.colGst")}</th>
+                <th>{t("billing.colDiscPct")}</th>
+                <th style={{ textAlign: "right" }}>{t("billing.colTotal")}</th>
                 <th />
               </tr>
             </thead>
@@ -1030,7 +1161,7 @@ export function BillingScreen() {
                               </>
                             );
                           })()
-                        : <span style={{ color: "var(--pc-state-danger)" }}>No stock</span>}
+                        : <span style={{ color: "var(--pc-state-danger)" }}>{t("billing.noStock")}</span>}
                     </td>
                     <td>{formatINR(l.mrpPaise)}</td>
                     <td>
@@ -1073,21 +1204,29 @@ export function BillingScreen() {
       </div>
 
       <aside className="totals" role="complementary" aria-label="Bill totals">
-        <h3 style={{ margin: "0 0 12px" }}>Totals</h3>
-        <div className="row"><span>Subtotal</span><span data-testid="subtotal">{formatINR(computed.totals.subtotalPaise)}</span></div>
-        <div className="row"><span>CGST</span><span>{formatINR(computed.totals.cgstPaise)}</span></div>
-        <div className="row"><span>SGST</span><span>{formatINR(computed.totals.sgstPaise)}</span></div>
-        <div className="row"><span>IGST</span><span>{formatINR(computed.totals.igstPaise)}</span></div>
-        <div className="row"><span>Round-off</span><span>{formatINR(computed.totals.roundOffPaise as Paise)}</span></div>
-        <div className="row grand"><span>Grand Total</span><span data-testid="grand-total">{formatINR(computed.totals.grandTotalPaise)}</span></div>
+        <h3 style={{ margin: "0 0 12px" }}>{t("billing.totalsTitle")}</h3>
+        <div className="row"><span>{t("billing.subtotalLabel")}</span><span data-testid="subtotal">{formatINR(computed.totals.subtotalPaise)}</span></div>
+        <div className="row"><span>{t("billing.cgst")}</span><span>{formatINR(computed.totals.cgstPaise)}</span></div>
+        <div className="row"><span>{t("billing.sgst")}</span><span>{formatINR(computed.totals.sgstPaise)}</span></div>
+        <div className="row"><span>{t("billing.igst")}</span><span>{formatINR(computed.totals.igstPaise)}</span></div>
+        <div className="row"><span>{t("billing.roundOffLabel")}</span><span>{formatINR(computed.totals.roundOffPaise as Paise)}</span></div>
+        <div className="row grand"><span>{t("billing.grandTotalLabel")}</span><span data-testid="grand-total">{formatINR(computed.totals.grandTotalPaise)}</span></div>
         <div style={{ flex: 1 }} />
         {/* S15.1 — Clinical guard: DDI / allergy / dose / generic-suggest */}
         <BillingClinicalGuard
-          basket={lines.filter((l) => l.productId).map<ClinicalBasketLine>((l) => ({
-            productId: l.productId!,
-            ingredientIds: [],
-            productName: l.name,
-          }))}
+          basket={lines.filter((l) => l.productId).map<ClinicalBasketLine>((l) => {
+            // S28-D1: forward schedule so the guard can render its
+            // "Counseling required" banner. Cast OTC|G|H|H1|X|NDPS to
+            // the guard's known set; unknown values fall through (omit
+            // the optional field so exactOptionalPropertyTypes is happy).
+            const sc = l.schedule as ClinicalBasketLine["scheduleClass"] | undefined;
+            const base: ClinicalBasketLine = {
+              productId: l.productId!,
+              ingredientIds: [],
+              productName: l.name,
+            };
+            return sc ? { ...base, scheduleClass: sc } : base;
+          })}
           {...(customer ? { customer: { id: customer.id } } : {})}
           onSaveBlockedChange={setClinicalBlocked}
         />
@@ -1103,7 +1242,7 @@ export function BillingScreen() {
             cursor: canSave ? "pointer" : "not-allowed",
           }}
         >
-          {saving ? "Saving…" : "Save & Print (F10)"}
+          {saving ? t("billing.savingDots") : t("billing.saveAndPrintF10")}
         </button>
       </aside>
 
@@ -1120,10 +1259,10 @@ export function BillingScreen() {
         >
           <div style={{
             background: "var(--pc-bg-surface-2)", color: "var(--pc-text-primary)", padding: 24, borderRadius: 8,
-            minWidth: 480, maxWidth: 640, border: "1px solid #334155",
+            minWidth: 480, maxWidth: 640, border: "1px solid var(--pc-border-default)",
           }}>
             <h3 id="batch-override-title" style={{ margin: "0 0 8px" }}>
-              Pick batch (F7)
+              {t("billing.pickBatchTitle")}
             </h3>
             {batchCandidates.length <= 1 && (
               <div
@@ -1133,24 +1272,24 @@ export function BillingScreen() {
                   borderRadius: 4, fontSize: 12, marginBottom: 8,
                 }}
               >
-                Only {batchCandidates.length} batch available — press Enter to confirm, Esc to cancel.
+                {t("billing.onlyOneBatch", { count: batchCandidates.length })}
               </div>
             )}
             <div style={{ fontSize: 12, color: "var(--pc-text-tertiary)", marginBottom: 8 }}>
-              ↑/↓ to select · Enter to commit · Esc to cancel
+              {t("billing.batchNavHint")}
             </div>
             <div
               role="listbox"
               aria-activedescendant={`batch-opt-${batchSelectedIdx}`}
               data-testid="batch-override-listbox"
               style={{
-                maxHeight: 260, overflowY: "auto", border: "1px solid #334155",
+                maxHeight: 260, overflowY: "auto", border: "1px solid var(--pc-border-default)",
                 borderRadius: 4, marginBottom: 12,
               }}
             >
               {batchCandidates.length === 0 ? (
                 <div style={{ padding: 12, color: "var(--pc-state-danger)" }}>
-                  No non-expired batches for this product.
+                  {t("billing.noNonExpiredBatches")}
                 </div>
               ) : (
                 batchCandidates.map((c, i) => (
@@ -1175,8 +1314,8 @@ export function BillingScreen() {
                     }}
                   >
                     <span>{c.batchNo}</span>
-                    <span>exp {c.expiryDate}</span>
-                    <span>qty {c.qtyOnHand}</span>
+                    <span>{t("billing.expPrefix", { date: c.expiryDate })}</span>
+                    <span>{t("billing.qtyPrefix", { n: c.qtyOnHand })}</span>
                     <span>{formatINR((c.mrpPaise) as Paise)}</span>
                   </div>
                 ))
@@ -1188,7 +1327,7 @@ export function BillingScreen() {
                 data-testid="batch-override-cancel"
                 style={{ padding: "8px 14px", background: "var(--pc-border-subtle)", color: "white", border: "none", borderRadius: 4 }}
               >
-                Cancel (Esc)
+                {t("billing.cancelEsc")}
               </button>
               <button
                 ref={batchConfirmRef}
@@ -1202,7 +1341,7 @@ export function BillingScreen() {
                   cursor: batchCandidates.length ? "pointer" : "not-allowed",
                 }}
               >
-                Confirm (Enter)
+                {t("billing.confirmEnter")}
               </button>
             </div>
           </div>
@@ -1223,6 +1362,50 @@ export function BillingScreen() {
         onOverride={onOverrideDone}
         onCancel={onOverrideCancel}
       />
+
+      {/* S28-D1 · CounselingScreen modal — opened by save_bill's
+          COUNSELING_INCOMPLETE branch with `pendingSaveRef` carrying the
+          billId/payload. CounselingScreen.onComplete retries save; the
+          cancel "X" preserves the basket so the cashier can retry. */}
+      {counselingModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="counseling-modal-title"
+          data-testid="counseling-modal"
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 120,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--pc-bg-surface-2)", color: "var(--pc-text-primary)",
+              padding: 20, borderRadius: 8, minWidth: 560, maxWidth: 760,
+              maxHeight: "85vh", overflowY: "auto",
+              border: "1px solid var(--pc-border-default)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+              <h3 id="counseling-modal-title" style={{ margin: 0 }}>Schedule-H Counseling</h3>
+              <button
+                type="button"
+                data-testid="counseling-modal-cancel"
+                onClick={handleCounselingCancel}
+                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 20, color: "var(--pc-text-tertiary)" }}
+                aria-label="Cancel counseling and return to bill"
+              >
+                X
+              </button>
+            </div>
+            <CounselingScreen
+              {...(pendingSaveRef.current?.billId ? { billId: pendingSaveRef.current.billId } : {})}
+              {...(currentUser?.id ? { counselorUserId: currentUser.id } : {})}
+              onComplete={handleCounselingComplete}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

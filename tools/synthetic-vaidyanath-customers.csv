@@ -1,0 +1,201 @@
+﻿CustomerCode,CustomerName,Phone,GSTIN,Address,Balance
+VC-0001,Pooja Kulkarni,9999496693,,"566 Main Rd, Thane",0.00
+VC-0002,Asha Deshmukh,9145403316,27QEBKR8341R1Z7,"821 Main Rd, Navi Mumbai",4656.72
+VC-0003,Ramesh Verma,9367184880,27LJXWM1194D1Z9,"762 Main Rd, Dombivli",0.00
+VC-0004,Prakash Shah,9257721833,,"549 Main Rd, Navi Mumbai",1666.16
+VC-0005,Ramesh Verma,9479692721,27HIKFY9213B1Z3,"692 Main Rd, Kalyan",0.00
+VC-0006,Prakash Verma,9206878383,,"93 Main Rd, Thane",0.00
+VC-0007,"Iyer, Ravi",9562163688,27OHATW1900V1Z7,"736 Main Rd, Bhiwandi",0.00
+VC-0008,Sachin Mehta,9163927366,27QXSFR6986C1Z3,"212 Main Rd, Dombivli",2278.68
+VC-0009,Rajesh Gupta,9916390166,,"830 Main Rd, Bhiwandi",0.00
+VC-0010,Asha Joshi,9737184374,,"341 Main Rd, Thane",0.00
+VC-0011,Suresh Shah,9828636182,27TAGBK2758X1Z8,"120 Main Rd, Bhiwandi",1708.03
+VC-0012,Meera Joshi,9310015799,,"348 Main Rd, Navi Mumbai",0.00
+VC-0013,Meera Deshmukh,9944930146,27YIICH2823C1Z0,"456 Main Rd, Dombivli",0.00
+VC-0014,Sachin Mehta,9506746891,,"475 Main Rd, Navi Mumbai",3839.09
+VC-0015,Asha Naik,9803041772,27RGUHE5457H1Z5,"78 Main Rd, Dombivli",0.00
+VC-0016,Vijay Rao,9247359379,,"572 Main Rd, Ulhasnagar",0.00
+VC-0017,Prakash Singh,9251089918,,"32 Main Rd, Navi Mumbai",0.00
+VC-0018,Nilesh Rao,9936885139,,"923 Main Rd, Navi Mumbai",2797.88
+VC-0019,Manish Rao,9835089137,,"791 Main Rd, Bhiwandi",0.00
+VC-0020,Ravi Pawar,9847135550,,"841 Main Rd, Mumbai",0.00
+VC-0021,Sachin Naik,9636439962,27PWTFQ9547U1Z9,"708 Main Rd, Mumbai",1816.56
+VC-0022,Suresh Naik,9420931812,,"261 Main Rd, Dombivli",0.00
+VC-0023,Lata Joshi,9396702244,,"629 Main Rd, Mumbai",0.00
+VC-0024,Lata Deshmukh,9693598771,,"204 Main Rd, Kalyan",0.00
+VC-0025,Manish Verma,9883699523,,"164 Main Rd, Thane",3480.26
+VC-0026,Nilesh Pawar,9376352943,27PJHFD1318J1Z8,"960 Main Rd, Ulhasnagar",0.00
+VC-0027,Sachin Sharma,9459159434,,"471 Main Rd, Dombivli",0.00
+VC-0028,Amit Deshmukh,9869863769,,"24 Main Rd, Dombivli",346.19
+VC-0029,Lata Verma,9801500461,27UZHGY3142K1Z5,"160 Main Rd, Bhiwandi",0.00
+VC-0030,Lata Deshmukh,9801247878,,"264 Main Rd, Dombivli",3647.02
+VC-0031,Suresh Rao,9639196012,,"171 Main Rd, Ambernath",4232.06
+VC-0032,Manish Kulkarni,9751885388,,"320 Main Rd, Mumbai",0.00
+VC-0033,Nilesh Khan,9741182073,27ZZARW3452Z1Z2,"491 Main Rd, Thane",4189.32
+VC-0034,Manish Naik,9745908294,,"686 Main Rd, Ambernath",4809.72
+VC-0035,Sneha Iyer,9831331107,,"969 Main Rd, Dombivli",0.00
+VC-0036,Prakash Mehta,9359502689,,"445 Main Rd, Ambernath",0.00
+VC-0037,Sunita Patil,9472629925,,"222 Main Rd, Ambernath",0.00
+VC-0038,Sunita Shaikh,9476687512,,"68 Main Rd, Kalyan",0.00
+VC-0039,Pooja Kulkarni,9262185349,,"359 Main Rd, Navi Mumbai",0.00
+VC-0040,Asha Shaikh,9354923520,27LRAMI1001C1Z7,"49 Main Rd, Bhiwandi",0.00
+VC-0041,Manish Naik,9467273477,,"298 Main Rd, Dombivli",0.00
+VC-0042,Pooja Khan,9865729905,,"551 Main Rd, Navi Mumbai",0.00
+VC-0043,Ravi Shah,9586997822,,"355 Main Rd, Mumbai",1395.02
+VC-0044,Anita Mehta,9440693708,,"705 Main Rd, Navi Mumbai",0.00
+VC-0045,"Shaikh, Amit",9304705039,27JWPLQ6649I1Z1,"448 Main Rd, Ambernath",0.00
+VC-0046,Prakash Iyer,9717663583,,"723 Main Rd, Ulhasnagar",0.00
+VC-0047,Priya Kulkarni,9505067992,27QVXBB1724L1Z6,"413 Main Rd, Mumbai",449.92
+VC-0048,Vijay Sharma,9559584668,,"12 Main Rd, Ulhasnagar",3888.49
+VC-0049,Sachin Verma,9576340734,,"435 Main Rd, Ulhasnagar",0.00
+VC-0050,Rajesh Kulkarni,9697349647,27KNBLL8003M1Z1,"583 Main Rd, Mumbai",4978.63
+VC-0051,Rajesh Gupta,9859923570,,"259 Main Rd, Dombivli",0.00
+VC-0052,Sunita Iyer,9438903318,,"337 Main Rd, Mumbai",0.00
+VC-0053,Manish Gupta,9316559166,27BEOKW7644N1Z0,"761 Main Rd, Kalyan",0.00
+VC-0054,Ravi Rao,9191073610,,"53 Main Rd, Dombivli",1717.04
+VC-0055,"Pawar, Sachin",9201962531,,"564 Main Rd, Mumbai",0.00
+VC-0056,Manish Shah,9111813823,,"15 Main Rd, Ambernath",1183.40
+VC-0057,Pooja Rao,9512641877,,"110 Main Rd, Dombivli",0.00
+VC-0058,Kavita Rao,9925818679,,"222 Main Rd, Dombivli",0.00
+VC-0059,Sunita Singh,9391560895,,"392 Main Rd, Kalyan",1911.99
+VC-0060,Sunita Gupta,9773759177,,"611 Main Rd, Thane",0.00
+VC-0061,Pooja Pawar,9309104152,27KVDQP3124L1Z0,"610 Main Rd, Bhiwandi",1153.41
+VC-0062,Prakash Shah,9656745624,,"451 Main Rd, Navi Mumbai",0.00
+VC-0063,Meera Sharma,9570914187,,"634 Main Rd, Ambernath",4968.94
+VC-0064,Sachin Joshi,9397325629,27SKWMQ6531P1Z5,"748 Main Rd, Mumbai",0.00
+VC-0065,Prakash Mehta,9383600608,,"507 Main Rd, Bhiwandi",0.00
+VC-0066,Ravi Gupta,9743561046,,"569 Main Rd, Mumbai",3483.60
+VC-0067,Suresh Iyer,9720966950,,"549 Main Rd, Bhiwandi",363.40
+VC-0068,Vijay Verma,9893557532,27BXQCU2177K1Z3,"972 Main Rd, Ulhasnagar",0.00
+VC-0069,Lata Pawar,9532583778,,"266 Main Rd, Bhiwandi",0.00
+VC-0070,Sneha Kulkarni,9882351487,27HZSUT4731R1Z8,"577 Main Rd, Mumbai",3676.20
+VC-0071,Lata Pawar,9105237962,27FMRZA5202L1Z4,"388 Main Rd, Ambernath",3447.67
+VC-0072,Asha Patil,9331553529,27CTGCN7202J1Z4,"216 Main Rd, Bhiwandi",0.00
+VC-0073,"Singh, Sneha",9918907026,,"125 Main Rd, Kalyan",0.00
+VC-0074,Suresh Pawar,9178451149,,"491 Main Rd, Kalyan",0.00
+VC-0075,Kavita Pawar,9310514117,,"542 Main Rd, Bhiwandi",0.00
+VC-0076,Lata Mehta,9932369136,,"620 Main Rd, Navi Mumbai",2615.08
+VC-0077,Sunita Iyer,9101880965,27STUER8131B1Z7,"236 Main Rd, Bhiwandi",0.00
+VC-0078,Suresh Joshi,9223016051,,"741 Main Rd, Thane",4216.16
+VC-0079,Sachin Sharma,9529567114,,"163 Main Rd, Navi Mumbai",0.00
+VC-0080,Priya Naik,9379299432,,"697 Main Rd, Kalyan",0.00
+VC-0081,Manish Shah,9586807357,,"147 Main Rd, Mumbai",0.00
+VC-0082,Priya Pawar,9404732347,27WNHTY5784K1Z6,"621 Main Rd, Dombivli",0.00
+VC-0083,Sunita Verma,9561139654,27YVAPT1980X1Z8,"141 Main Rd, Mumbai",0.00
+VC-0084,Rajesh Naik,9512752752,27KAADK1479X1Z9,"815 Main Rd, Ambernath",0.00
+VC-0085,"Gupta, Nilesh",9623652551,,"221 Main Rd, Kalyan",3543.22
+VC-0086,Anita Shaikh,9572722464,,"657 Main Rd, Mumbai",2770.75
+VC-0087,Vijay Singh,9371936644,,"998 Main Rd, Thane",0.00
+VC-0088,Kavita Pawar,9704197493,,"111 Main Rd, Kalyan",1563.49
+VC-0089,Sneha Gupta,9614680152,,"626 Main Rd, Ulhasnagar",0.00
+VC-0090,Ramesh Joshi,9920076353,,"343 Main Rd, Ambernath",0.00
+VC-0091,Nilesh Iyer,9992140228,,"37 Main Rd, Ulhasnagar",0.00
+VC-0092,Anita Sharma,9778581366,,"22 Main Rd, Ambernath",0.00
+VC-0093,Nilesh Mehta,9731507904,27FZLKS9466K1Z0,"692 Main Rd, Mumbai",3762.14
+VC-0094,"Rao, Amit",9919726997,,"508 Main Rd, Mumbai",0.00
+VC-0095,Sneha Shah,9159204451,,"607 Main Rd, Navi Mumbai",0.00
+VC-0096,Ramesh Patil,9608471929,,"706 Main Rd, Ambernath",0.00
+VC-0097,"Mehta, Priya",9927463460,,"794 Main Rd, Mumbai",0.00
+VC-0098,Kavita Mehta,9934986557,27NGGVP9833O1Z4,"606 Main Rd, Kalyan",0.00
+VC-0099,Suresh Shah,9869202160,,"226 Main Rd, Ambernath",3970.38
+VC-0100,Nilesh Naik,9992398840,,"236 Main Rd, Kalyan",1244.59
+VC-0101,Suresh Verma,9334025245,,"455 Main Rd, Bhiwandi",4388.74
+VC-0102,Meera Joshi,9702825510,,"941 Main Rd, Kalyan",0.00
+VC-0103,Ramesh Gupta,9152819822,,"563 Main Rd, Navi Mumbai",1941.97
+VC-0104,"Naik, Sachin",9733123938,,"333 Main Rd, Navi Mumbai",0.00
+VC-0105,Manish Mehta,9515222855,,"659 Main Rd, Kalyan",0.00
+VC-0106,Lata Joshi,9194485287,,"753 Main Rd, Mumbai",0.00
+VC-0107,Geeta Naik,9556385452,,"41 Main Rd, Navi Mumbai",0.00
+VC-0108,Sachin Mehta,9329158236,27IFFRX4703S1Z7,"889 Main Rd, Thane",0.00
+VC-0109,Anita Deshmukh,9761244611,,"134 Main Rd, Bhiwandi",0.00
+VC-0110,Asha Deshmukh,9852606736,,"800 Main Rd, Ambernath",0.00
+VC-0111,Suresh Shah,9834308510,,"806 Main Rd, Dombivli",0.00
+VC-0112,Asha Verma,9870327436,,"558 Main Rd, Mumbai",0.00
+VC-0113,Vijay Shah,9847136406,,"338 Main Rd, Ambernath",0.00
+VC-0114,Sneha Pawar,9193517393,,"76 Main Rd, Ulhasnagar",0.00
+VC-0115,Sunita Deshmukh,9200369629,,"485 Main Rd, Bhiwandi",0.00
+VC-0116,Anita Rao,9265277774,,"398 Main Rd, Dombivli",3805.40
+VC-0117,Lata Singh,9793072564,,"813 Main Rd, Bhiwandi",0.00
+VC-0118,Nilesh Iyer,9118395302,,"83 Main Rd, Mumbai",407.75
+VC-0119,"Pawar, Anita",9687980028,,"759 Main Rd, Thane",0.00
+VC-0120,Kavita Mehta,9481737247,,"994 Main Rd, Bhiwandi",4977.69
+VC-0121,Manish Khan,9114490326,,"253 Main Rd, Kalyan",0.00
+VC-0122,Sachin Shaikh,9145278635,27PUOCG6293L1Z1,"711 Main Rd, Thane",2043.69
+VC-0123,Sunita Mehta,9203148084,,"450 Main Rd, Dombivli",0.00
+VC-0124,Sachin Rao,9708754518,,"503 Main Rd, Thane",0.00
+VC-0125,Asha Mehta,9352942225,,"20 Main Rd, Ulhasnagar",0.00
+VC-0126,Vijay Pawar,9505432725,,"805 Main Rd, Mumbai",0.00
+VC-0127,Sachin Iyer,9339134309,,"152 Main Rd, Bhiwandi",0.00
+VC-0128,Anita Naik,9363619111,,"15 Main Rd, Mumbai",0.00
+VC-0129,Anita Verma,9697603360,27EJDEB7086P1Z9,"423 Main Rd, Thane",0.00
+VC-0130,Sunita Shah,9397980290,,"125 Main Rd, Navi Mumbai",0.00
+VC-0131,"Shah, Vijay",9980642102,,"764 Main Rd, Bhiwandi",0.00
+VC-0132,Suresh Patil,9818025821,,"377 Main Rd, Thane",0.00
+VC-0133,Kavita Shaikh,9751637214,,"191 Main Rd, Ambernath",0.00
+VC-0134,Geeta Verma,9344727748,,"109 Main Rd, Kalyan",0.00
+VC-0135,Anita Shaikh,9254941182,,"596 Main Rd, Dombivli",0.00
+VC-0136,Geeta Verma,9242786426,,"849 Main Rd, Bhiwandi",0.00
+VC-0137,Manish Shah,9730037802,,"444 Main Rd, Kalyan",0.00
+VC-0138,Manish Verma,9590293207,,"489 Main Rd, Thane",0.00
+VC-0139,Geeta Shaikh,9518597582,,"291 Main Rd, Ambernath",3557.03
+VC-0140,Kavita Mehta,9958597511,,"446 Main Rd, Mumbai",0.00
+VC-0141,Asha Gupta,9535089208,,"65 Main Rd, Mumbai",1799.50
+VC-0142,Geeta Naik,9817468417,,"259 Main Rd, Thane",0.00
+VC-0143,Prakash Singh,9872869411,,"505 Main Rd, Thane",0.00
+VC-0144,Prakash Joshi,9501843127,,"891 Main Rd, Dombivli",0.00
+VC-0145,Suresh Naik,9137674051,,"878 Main Rd, Mumbai",0.00
+VC-0146,Sunita Joshi,9970209498,,"924 Main Rd, Kalyan",0.00
+VC-0147,Suresh Pawar,9238579475,,"987 Main Rd, Thane",0.00
+VC-0148,Suresh Pawar,9742988458,,"179 Main Rd, Kalyan",0.00
+VC-0149,Priya Khan,9716955264,,"572 Main Rd, Navi Mumbai",0.00
+VC-0150,Lata Gupta,9477695862,,"974 Main Rd, Dombivli",0.00
+VC-0151,Kavita Shaikh,9780300466,27UZTYQ6053C1Z3,"312 Main Rd, Navi Mumbai",0.00
+VC-0152,"Khan, Manish",9876684951,,"557 Main Rd, Kalyan",0.00
+VC-0153,Kavita Patil,9149684728,,"264 Main Rd, Dombivli",4710.09
+VC-0154,Nilesh Verma,9320412734,27JDAHQ3940I1Z7,"547 Main Rd, Bhiwandi",0.00
+VC-0155,Sneha Shah,9385192848,,"502 Main Rd, Navi Mumbai",666.70
+VC-0156,Manish Shah,9659519478,27XMOBT7285Z1Z1,"99 Main Rd, Navi Mumbai",3919.60
+VC-0157,Pooja Verma,9458032094,,"798 Main Rd, Kalyan",0.00
+VC-0158,Asha Iyer,9393832127,,"790 Main Rd, Ulhasnagar",0.00
+VC-0159,Prakash Patil,9444301708,,"600 Main Rd, Navi Mumbai",0.00
+VC-0160,Ramesh Pawar,9895286619,,"64 Main Rd, Mumbai",0.00
+VC-0161,Manish Kulkarni,9417739934,,"708 Main Rd, Ambernath",0.00
+VC-0162,Sachin Sharma,9221823115,27IHRIX4189Y1Z7,"901 Main Rd, Kalyan",1468.83
+VC-0163,Ravi Verma,9497247452,,"279 Main Rd, Kalyan",0.00
+VC-0164,Sachin Shah,9328897094,,"561 Main Rd, Navi Mumbai",3571.69
+VC-0165,Asha Singh,9598530606,27CLIZM8258R1Z1,"724 Main Rd, Ambernath",0.00
+VC-0166,Suresh Gupta,9213457756,,"998 Main Rd, Thane",0.00
+VC-0167,"Sharma, Ravi",9201729852,,"583 Main Rd, Dombivli",0.00
+VC-0168,Amit Mehta,9925724192,,"217 Main Rd, Ulhasnagar",0.00
+VC-0169,Geeta Shah,9453302960,27MQKZA8594X1Z4,"773 Main Rd, Dombivli",0.00
+VC-0170,Priya Kulkarni,9519066642,27TRMEE8253W1Z3,"295 Main Rd, Navi Mumbai",0.00
+VC-0171,Pooja Kulkarni,9458163664,,"483 Main Rd, Thane",0.00
+VC-0172,Asha Singh,9671146674,,"476 Main Rd, Mumbai",0.00
+VC-0173,Manish Khan,9946388703,,"130 Main Rd, Ulhasnagar",0.00
+VC-0174,Anita Sharma,9768687697,,"934 Main Rd, Ulhasnagar",0.00
+VC-0175,Prakash Shah,9653895785,27OWHAP2751M1Z9,"544 Main Rd, Ambernath",0.00
+VC-0176,Vijay Iyer,9411880808,,"559 Main Rd, Dombivli",0.00
+VC-0177,Rajesh Kulkarni,9514523775,,"370 Main Rd, Bhiwandi",0.00
+VC-0178,Priya Singh,9789042025,,"61 Main Rd, Navi Mumbai",0.00
+VC-0179,Asha Khan,9897066347,27VOBRE8100X1Z5,"162 Main Rd, Ambernath",0.00
+VC-0180,Kavita Shah,9857538508,,"345 Main Rd, Dombivli",0.00
+VC-0181,Ramesh Deshmukh,9884650947,,"151 Main Rd, Dombivli",0.00
+VC-0182,Kavita Verma,9398312818,27KFVLK4157F1Z0,"502 Main Rd, Ulhasnagar",0.00
+VC-0183,Kavita Kulkarni,9309616625,,"857 Main Rd, Navi Mumbai",1747.46
+VC-0184,Geeta Kulkarni,9838558973,27KRNMK5689R1Z4,"209 Main Rd, Bhiwandi",0.00
+VC-0185,Kavita Mehta,9290716280,,"999 Main Rd, Mumbai",4907.03
+VC-0186,Priya Patil,9292033781,,"148 Main Rd, Kalyan",0.00
+VC-0187,Prakash Kulkarni,9547846155,,"220 Main Rd, Mumbai",0.00
+VC-0188,Sunita Joshi,9228400090,,"386 Main Rd, Navi Mumbai",1501.34
+VC-0189,Sachin Patil,9845889670,27CCFQX6878W1Z1,"798 Main Rd, Bhiwandi",4694.18
+VC-0190,Ramesh Pawar,9580436825,27KMGAI9573S1Z0,"881 Main Rd, Bhiwandi",0.00
+VC-0191,Rajesh Iyer,9675902531,27WEKBN8570N1Z5,"251 Main Rd, Bhiwandi",0.00
+VC-0192,Priya Iyer,9981925081,,"215 Main Rd, Ulhasnagar",0.00
+VC-0193,Anita Verma,9337362819,,"309 Main Rd, Dombivli",2001.43
+VC-0194,Sunita Naik,9744025382,,"377 Main Rd, Thane",0.00
+VC-0195,Amit Iyer,9595478633,27QDBUD5703B1Z5,"883 Main Rd, Bhiwandi",0.00
+VC-0196,Sneha Rao,9215288598,27MYHNC9984T1Z7,"334 Main Rd, Mumbai",0.00
+VC-0197,Asha Verma,9465941782,,"126 Main Rd, Kalyan",0.00
+VC-0198,Kavita Gupta,9639022746,,"37 Main Rd, Ulhasnagar",0.00
+VC-0199,Sachin Verma,9305565286,,"98 Main Rd, Ulhasnagar",0.00
+VC-0200,Ravi Joshi,9198303055,,"408 Main Rd, Dombivli",0.00

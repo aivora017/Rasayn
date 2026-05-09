@@ -1,0 +1,144 @@
+{
+  "version": "0.1.0",
+  "generated": "2026-05-08",
+  "source": "S28-A1 wave-1 seed; full 33-module scaffold-out tracked in FORWARD_PLAN_v5 post-pilot",
+  "nodes": [
+    {
+      "id": "BillingScreen",
+      "module": "BillingScreen",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "core",
+      "kind": "screen",
+      "path": "apps/desktop/src/components/BillingScreen.tsx"
+    },
+    {
+      "id": "BillingClinicalGuard",
+      "module": "BillingClinicalGuard",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "core",
+      "kind": "component",
+      "path": "apps/desktop/src/components/BillingClinicalGuard.tsx"
+    },
+    {
+      "id": "CounselingScreen",
+      "module": "CounselingScreen",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "S28-A1",
+      "kind": "screen",
+      "path": "apps/desktop/src/components/CounselingScreen.tsx"
+    },
+    {
+      "id": "ComplianceScheduleHTab",
+      "module": "ComplianceScheduleHTab",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "core",
+      "kind": "screen",
+      "path": "apps/desktop/src/components/ComplianceScheduleHTab.tsx"
+    },
+    {
+      "id": "save_bill",
+      "module": "save_bill",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "core",
+      "kind": "tauri-command",
+      "path": "apps/desktop/src-tauri/src/commands.rs"
+    },
+    {
+      "id": "counsel_log",
+      "module": "counsel_log",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "S28-A1",
+      "kind": "sqlite-table",
+      "path": "packages/shared-db/migrations/0050_counseling_log.sql"
+    },
+    {
+      "id": "bills",
+      "module": "bills",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "core",
+      "kind": "sqlite-table",
+      "path": "packages/shared-db/migrations/0001_init.sql"
+    },
+    {
+      "id": "products",
+      "module": "products",
+      "layer": "desktop",
+      "status": "shipped",
+      "owner": "core",
+      "kind": "sqlite-table",
+      "path": "packages/shared-db/migrations/0001_init.sql"
+    }
+  ],
+  "edges": [
+    {
+      "from": "BillingScreen",
+      "to": "CounselingScreen",
+      "protocol": "route",
+      "payload": "{ bill_id }",
+      "note": "Triggered by ClinicalGuard 'Open Counseling' CTA"
+    },
+    {
+      "from": "BillingScreen",
+      "to": "BillingClinicalGuard",
+      "protocol": "props",
+      "payload": "{ basket, customer, scheduleClass... }",
+      "note": "Pre-existing wiring, extended in S28-A1 with scheduleClass prop"
+    },
+    {
+      "from": "CounselingScreen",
+      "to": "counsel_log",
+      "protocol": "sqlite-write",
+      "payload": "log_counseling",
+      "note": "Tauri command; one row per (bill_id, drug_id)"
+    },
+    {
+      "from": "CounselingScreen",
+      "to": "counsel_log",
+      "protocol": "sqlite-read",
+      "payload": "check_counseling_complete",
+      "note": "Returns Vec<MissingCounsel>"
+    },
+    {
+      "from": "save_bill",
+      "to": "counsel_log",
+      "protocol": "sqlite-read-gate",
+      "payload": "check_counseling_complete_for_basket(bill_id, product_ids)",
+      "note": "Aborts save with COUNSELING_INCOMPLETE on non-empty"
+    },
+    {
+      "from": "save_bill",
+      "to": "bills",
+      "protocol": "sqlite-write",
+      "payload": "INSERT",
+      "note": "Pre-existing"
+    },
+    {
+      "from": "ComplianceScheduleHTab",
+      "to": "counsel_log",
+      "protocol": "sqlite-read",
+      "payload": "list_counseling_for_bill",
+      "note": "Per-bill audit drill-down"
+    },
+    {
+      "from": "counsel_log",
+      "to": "bills",
+      "protocol": "fk",
+      "payload": "ON DELETE CASCADE",
+      "note": "Voiding a bill purges its counsel rows"
+    },
+    {
+      "from": "counsel_log",
+      "to": "products",
+      "protocol": "logical-ref",
+      "payload": "drug_id ~~ products.id",
+      "note": "No hard FK; products may be re-classified post-counseling"
+    }
+  ]
+}

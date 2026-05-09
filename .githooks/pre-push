@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# .githooks/pre-push — thin wrapper. Real logic in scripts/pre-push/pcall.sh.
+exec "$(git rev-parse --show-toplevel)/scripts/pre-push/pcall.sh" "$@"

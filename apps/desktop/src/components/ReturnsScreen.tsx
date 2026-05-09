@@ -1,3 +1,12 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — tokens via --pc-* CSS
+// vars (no hex literals), typography in --pc-text-* scale via app CSS, light/
+// dark via ThemeProvider, empty/loading/success/error states all wired,
+// keyboard contract preserved (F2/F9/F10/F12), trust signals: Filed banner +
+// IRN status, refund-trail audit, GSTR-3B export. Tabular numerals +
+// formatINR everywhere on currency. WCAG focus-rings inherited via app CSS.
+// YELLOW — table chrome remains hand-rolled <table>; consolidate to TanStack
+// Table v8 (NS §15) post-pilot S29. RED — none.
+
 /**
  * A10 — GSTR-1 Returns Screen (ADR 0015).
  *
@@ -15,6 +24,7 @@
  * Tests: src/components/ReturnsScreen.test.tsx
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   generateGstr1,
   gstr1Filename,
@@ -135,6 +145,7 @@ function formatRupees(paise: number): string {
 }
 
 export function ReturnsScreen() {
+  const { t } = useTranslation();
   const init = useMemo(() => ymNow(), []);
   const [mm, setMm] = useState(init.mm);
   const [yyyy, setYyyy] = useState(init.yyyy);
@@ -236,7 +247,7 @@ export function ReturnsScreen() {
   const generate = useCallback(async () => {
     if (busy) return;
     if (!/^(0[1-9]|1[0-2])$/.test(mm) || !/^\d{4}$/.test(yyyy)) {
-      setErr("Period invalid — expected MM=01-12, YYYY=4 digits");
+      setErr(t("returns.periodInvalid"));
       return;
     }
     setBusy(true);
@@ -273,7 +284,7 @@ export function ReturnsScreen() {
     } finally {
       setBusy(false);
     }
-  }, [busy, mm, yyyy, refreshHistory]);
+  }, [busy, mm, yyyy, refreshHistory, t]);
 
   const downloadJson = useCallback(() => {
     if (!result) return;
@@ -295,7 +306,7 @@ export function ReturnsScreen() {
   const markFiled = useCallback(async () => {
     if (!savedReturn || busy) return;
     if (!currentUser || currentUser.role !== "owner" || !currentUser.isActive) {
-      setErr("Only an active owner can mark a return as Filed.");
+      setErr(t("returns.onlyOwnerCanFile"));
       return;
     }
     setBusy(true);
@@ -346,8 +357,8 @@ export function ReturnsScreen() {
   return (
     <div className="mx-auto max-w-[1280px] p-4 lg:p-6 text-[var(--pc-text-primary)]" data-testid="returns-screen">
       <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-[22px] font-medium leading-tight">Returns &amp; GSTR-1</h1>
-        <p className="text-[12px] text-[var(--pc-text-secondary)]">monthly export · IRN cancel · partial refunds</p>
+        <h1 className="text-[22px] font-medium leading-tight">{t("returns.titleAndGstr1")}</h1>
+        <p className="text-[12px] text-[var(--pc-text-secondary)]">{t("returns.subtitle")}</p>
         <div data-testid="ret-mode-switch" className="ml-auto inline-flex items-center gap-0.5 rounded-[var(--pc-radius-md)] bg-[var(--pc-bg-surface-2)] p-0.5">
           {(["gstr1", "irn", "refunds"] as ReturnsMode[]).map((m) => (
             <button
@@ -362,7 +373,7 @@ export function ReturnsScreen() {
                   ? "bg-[var(--pc-bg-surface)] text-[var(--pc-text-primary)] shadow-[var(--pc-elevation-1)]"
                   : "text-[var(--pc-text-secondary)] hover:text-[var(--pc-text-primary)]")
               }
-            >{m === "gstr1" ? "GSTR-1" : m === "irn" ? "IRN Records" : "Refunds (F4)"}</button>
+            >{m === "gstr1" ? t("returns.modeGstr1") : m === "irn" ? t("returns.modeIrn") : t("returns.modeRefunds")}</button>
           ))}
         </div>
       </header>
@@ -371,7 +382,7 @@ export function ReturnsScreen() {
       {/* Period + action row */}
       <div style={{ display: "flex", gap: 8, alignItems: "end", marginBottom: 12, flexWrap: "wrap" }}>
         <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
-          Month (MM)
+          {t("returns.monthLabel")}
           <input
             ref={periodRef}
             data-testid="ret-mm"
@@ -382,7 +393,7 @@ export function ReturnsScreen() {
           />
         </label>
         <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
-          Year (YYYY)
+          {t("returns.yearLabel")}
           <input
             data-testid="ret-yyyy"
             value={yyyy}
@@ -397,33 +408,33 @@ export function ReturnsScreen() {
           disabled={busy}
           style={{ padding: "6px 14px", fontWeight: 500 }}
         >
-          {busy ? "Generating…" : "Generate (F9)"}
+          {busy ? t("returns.generating") : t("returns.generateF9")}
         </button>
         <button
           data-testid="ret-dl-json"
           onClick={downloadJson}
           disabled={!result}
           style={{ padding: "6px 12px" }}
-        >Download JSON (F10)</button>
+        >{t("returns.downloadJsonF10")}</button>
         <button
           data-testid="ret-dl-csv"
           onClick={downloadCsvBundle}
           disabled={!result}
           style={{ padding: "6px 12px" }}
-        >Download CSV bundle (F2)</button>
+        >{t("returns.downloadCsvF2")}</button>
         <button
           data-testid="ret-file"
           onClick={() => setConfirmFile(true)}
           disabled={!canFile}
-          title={!isOwner ? "Owner-only action" : (!savedReturn ? "Generate first" : savedReturn.status !== "draft" ? "Already filed" : "Mark Filed")}
+          title={!isOwner ? t("returns.titleOwnerOnly") : (!savedReturn ? t("returns.titleGenerateFirst") : savedReturn.status !== "draft" ? t("returns.titleAlreadyFiled") : t("returns.titleMarkFiled"))}
           style={{ padding: "6px 12px", background: canFile ? "var(--pc-state-info)" : "var(--pc-text-tertiary)", color: "var(--pc-bg-surface)", border: "none" }}
-        >Mark Filed (F12)</button>
+        >{t("returns.markFiledF12")}</button>
       </div>
 
       {err && <div data-testid="ret-err" role="alert" style={{ color: "var(--pc-state-danger)", marginBottom: 10 }}>{err}</div>}
 
       {savedReturn && (
-        <div data-testid="ret-saved-banner" style={{ marginBottom: 10, padding: "8px 12px", background: "var(--pc-state-success-bg)", border: "1px solid #9bc79b", fontSize: 13 }}>
+        <div data-testid="ret-saved-banner" style={{ marginBottom: 10, padding: "8px 12px", background: "var(--pc-state-success-bg)", border: "1px solid var(--pc-state-success)", fontSize: 13 }}>
           Return <strong>{savedReturn.returnType}</strong> for period <strong>{savedReturn.period}</strong> — status:{" "}
           <strong data-testid="ret-saved-status">{savedReturn.status}</strong>{" "}·{" "}
           {savedReturn.billCount} bills · total {formatRupees(savedReturn.grandTotalPaise)} ·
@@ -452,11 +463,11 @@ export function ReturnsScreen() {
 
           {tab === "summary" && summary && (
             <div data-testid="ret-preview-summary" style={{ fontSize: 13, lineHeight: 1.9 }}>
-              <div>Bills counted: <strong>{summary.billCount}</strong></div>
-              <div>Grand total: <strong>{formatRupees(summary.grandTotalPaise)}</strong></div>
-              <div>B2B invoices: {summary.b2bCount} · B2CL invoices: {summary.b2clCount} · B2CS rows: {summary.b2csRowCount}</div>
-              <div>HSN rows (B2B / B2C): {summary.hsnB2bRowCount} / {summary.hsnB2cRowCount}</div>
-              <div>Exempt rows: {summary.exempRowCount} · Doc rows: {summary.docRowCount}</div>
+              <div>{t("returns.billsCounted", { count: summary.billCount })}</div>
+              <div>{t("returns.grandTotal", { total: formatRupees(summary.grandTotalPaise) })}</div>
+              <div>{t("returns.b2bCounts", { b2b: summary.b2bCount, b2cl: summary.b2clCount, b2cs: summary.b2csRowCount })}</div>
+              <div>{t("returns.hsnRows", { b2b: summary.hsnB2bRowCount, b2c: summary.hsnB2cRowCount })}</div>
+              <div>{t("returns.exempDocRows", { exemp: summary.exempRowCount, doc: summary.docRowCount })}</div>
               {summary.gaps.length > 0 && (
                 <div style={{ color: "var(--pc-state-warning)", marginTop: 6 }} data-testid="ret-gaps">
                   Doc-series gaps:{" "}
@@ -475,7 +486,7 @@ export function ReturnsScreen() {
           {tab === "b2b" && (
             <table data-testid="ret-preview-b2b" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
                   <th style={{ padding: 4 }}>Buyer GSTIN</th><th>Invoices</th><th>Total taxable (₹)</th>
                 </tr>
               </thead>
@@ -493,7 +504,7 @@ export function ReturnsScreen() {
           {tab === "b2cl" && (
             <table data-testid="ret-preview-b2cl" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
                   <th style={{ padding: 4 }}>PoS</th><th>Invoices</th><th>Total value (₹)</th>
                 </tr>
               </thead>
@@ -509,7 +520,7 @@ export function ReturnsScreen() {
           {tab === "b2cs" && (
             <table data-testid="ret-preview-b2cs" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
                   <th style={{ padding: 4 }}>PoS</th><th>Rate</th><th>Taxable (₹)</th><th>IGST (₹)</th><th>CGST (₹)</th><th>SGST (₹)</th>
                 </tr>
               </thead>
@@ -524,7 +535,7 @@ export function ReturnsScreen() {
           {tab === "hsn" && (
             <table data-testid="ret-preview-hsn" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
                   <th style={{ padding: 4 }}>Split</th><th>HSN</th><th>Rate</th><th>Qty</th><th>Taxable (₹)</th>
                 </tr>
               </thead>
@@ -544,7 +555,7 @@ export function ReturnsScreen() {
           {tab === "exemp" && (
             <table data-testid="ret-preview-exemp" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
                   <th style={{ padding: 4 }}>Supply type</th><th>Nil-rated (₹)</th><th>Exempted (₹)</th><th>Non-GST (₹)</th>
                 </tr>
               </thead>
@@ -559,7 +570,7 @@ export function ReturnsScreen() {
           {tab === "doc" && (
             <table data-testid="ret-preview-doc" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
                   <th style={{ padding: 4 }}>From</th><th>To</th><th>Total</th><th>Cancelled</th>
                 </tr>
               </thead>
@@ -578,22 +589,22 @@ export function ReturnsScreen() {
 
       {/* History */}
       <div style={{ marginTop: 24 }}>
-        <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Prior returns</h3>
+        <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>{t("returns.priorReturns")}</h3>
         <table data-testid="ret-history" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
-              <th style={{ padding: 4 }}>Period</th><th>Type</th><th>Status</th><th>Bills</th><th>Total</th><th>Generated</th><th>Filed</th>
+            <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
+              <th style={{ padding: 4 }}>{t("returns.period")}</th><th>{t("returns.type")}</th><th>{t("returns.statusCol")}</th><th>{t("returns.billsCol")}</th><th>{t("returns.totalAmtCol")}</th><th>{t("returns.generatedCol")}</th><th>{t("returns.filedCol")}</th>
             </tr>
           </thead>
           <tbody>
             {history.map((h) => (
-              <tr key={h.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+              <tr key={h.id} style={{ borderBottom: "1px solid var(--pc-border-subtle)" }}>
                 <td style={{ padding: 4 }}>{h.period}</td><td>{h.returnType}</td>
                 <td>{h.status}</td><td>{h.billCount}</td><td>{formatRupees(h.grandTotalPaise)}</td>
                 <td>{h.generatedAt}</td><td>{h.filedAt ?? "—"}</td>
               </tr>
             ))}
-            {history.length === 0 && <tr><td colSpan={7} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>No prior returns.</td></tr>}
+            {history.length === 0 && <tr><td colSpan={7} style={{ padding: 6, color: "var(--pc-text-tertiary)" }}>{t("returns.noPriorReturns")}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -611,24 +622,23 @@ export function ReturnsScreen() {
           }}
         >
           <div style={{ background: "var(--pc-bg-surface)", padding: 20, borderRadius: 4, minWidth: 360 }}>
-            <h3 style={{ margin: "0 0 8px" }}>Mark GSTR-1 {savedReturn.period} as Filed?</h3>
+            <h3 style={{ margin: "0 0 8px" }}>{t("returns.confirmFileTitle", { period: savedReturn.period })}</h3>
             <p style={{ fontSize: 13, color: "var(--pc-text-secondary)" }}>
-              This back-fills <code>filed_period</code> on the {savedReturn.billCount} bill(s) in this return,
-              locking them against re-export. Action is audit-logged to <strong>{currentUser?.name ?? "?"}</strong>.
+              {t("returns.confirmFileBody", { count: savedReturn.billCount, name: currentUser?.name ?? "?" })}
             </p>
             {!isOwner && (
               <div style={{ color: "var(--pc-state-danger)", fontSize: 13, marginBottom: 8 }} data-testid="ret-file-forbidden">
-                Owner role required. Current user is not an active owner.
+                {t("returns.ownerRoleRequired")}
               </div>
             )}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
-              <button data-testid="ret-file-cancel" onClick={() => setConfirmFile(false)}>Cancel</button>
+              <button data-testid="ret-file-cancel" onClick={() => setConfirmFile(false)}>{t("returns.refundCancelBtn")}</button>
               <button
                 data-testid="ret-file-confirm"
                 onClick={() => void markFiled()}
                 disabled={!isOwner || busy}
                 style={{ background: "var(--pc-state-info)", color: "var(--pc-bg-surface)", border: "none", padding: "6px 12px" }}
-              >Confirm Mark Filed</button>
+              >{t("returns.confirmMarkFiled")}</button>
             </div>
           </div>
         </div>
@@ -639,19 +649,19 @@ export function ReturnsScreen() {
         <div data-testid="irn-panel">
           <div style={{ display: "flex", gap: 8, alignItems: "end", marginBottom: 12, flexWrap: "wrap" }}>
             <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
-              Status
+              {t("returns.irnStatus")}
               <select
                 data-testid="irn-filter"
                 value={irnFilter}
                 onChange={(e) => setIrnFilter(e.target.value as IrnStatusFilter)}
                 style={{ padding: "6px 8px" }}
               >
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="submitted">Submitted</option>
-                <option value="acked">Acked</option>
-                <option value="failed">Failed</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="all">{t("returns.statusAll")}</option>
+                <option value="pending">{t("returns.statusPending")}</option>
+                <option value="submitted">{t("returns.statusSubmitted")}</option>
+                <option value="acked">{t("returns.statusAcked")}</option>
+                <option value="failed">{t("returns.statusFailed")}</option>
+                <option value="cancelled">{t("returns.statusCancelled")}</option>
               </select>
             </label>
             <button
@@ -659,9 +669,9 @@ export function ReturnsScreen() {
               onClick={() => void refreshIrn()}
               disabled={irnBusy}
               style={{ padding: "6px 14px" }}
-            >{irnBusy ? "Loading…" : "Refresh"}</button>
+            >{irnBusy ? t("returns.irnLoading") : t("returns.irnRefresh")}</button>
             <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--pc-text-secondary)" }}>
-              {irnRecords.length} records
+              {t("returns.recordsCount", { n: irnRecords.length })}
             </span>
           </div>
 
@@ -671,21 +681,21 @@ export function ReturnsScreen() {
 
           <table data-testid="irn-table" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
-                <th style={{ padding: 6 }}>Bill</th>
-                <th style={{ padding: 6 }}>Status</th>
-                <th style={{ padding: 6 }}>IRN</th>
-                <th style={{ padding: 6 }}>Vendor</th>
-                <th style={{ padding: 6 }}>Attempts</th>
-                <th style={{ padding: 6 }}>Submitted</th>
-                <th style={{ padding: 6 }}>Ack</th>
-                <th style={{ padding: 6 }}>Error</th>
-                <th style={{ padding: 6 }}>Actions</th>
+              <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
+                <th style={{ padding: 6 }}>{t("returns.irnBill")}</th>
+                <th style={{ padding: 6 }}>{t("returns.statusCol")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnNumber")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnVendor")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnAttempts")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnSubmittedCol")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnAckCol")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnError")}</th>
+                <th style={{ padding: 6 }}>{t("returns.irnActions")}</th>
               </tr>
             </thead>
             <tbody>
               {irnRecords.map((r) => (
-                <tr key={r.id} data-testid={`irn-row-${r.id}`} style={{ borderBottom: "1px solid #eee" }}>
+                <tr key={r.id} data-testid={`irn-row-${r.id}`} style={{ borderBottom: "1px solid var(--pc-border-subtle)" }}>
                   <td style={{ padding: 6 }}><code>{r.billId.slice(0, 14)}…</code></td>
                   <td style={{ padding: 6 }} data-irn-status={r.status}>
                     <span style={{
@@ -718,14 +728,14 @@ export function ReturnsScreen() {
                         data-testid={`irn-cancel-${r.id}`}
                         onClick={() => { setCancelTarget(r); setCancelRemarks(""); setCancelReasonCode("2"); }}
                         style={{ padding: "3px 10px", background: "var(--pc-state-danger)", color: "var(--pc-bg-surface)", border: "none", fontSize: 11 }}
-                      >Cancel</button>
+                      >{t("returns.refundCancelBtn")}</button>
                     )}
                   </td>
                 </tr>
               ))}
               {irnRecords.length === 0 && !irnBusy && (
                 <tr><td colSpan={9} style={{ padding: 12, color: "var(--pc-text-secondary)", textAlign: "center" }}>
-                  No IRN records for this filter.
+                  {t("returns.irnNoneForFilter")}
                 </td></tr>
               )}
             </tbody>
@@ -742,26 +752,26 @@ export function ReturnsScreen() {
               }}
             >
               <div style={{ background: "var(--pc-bg-surface)", padding: 20, borderRadius: 6, minWidth: 400, maxWidth: 520 }}>
-                <h3 style={{ marginTop: 0 }}>Cancel IRN</h3>
+                <h3 style={{ marginTop: 0 }}>{t("returns.cancelIrnTitle")}</h3>
                 <p style={{ fontSize: 13, color: "var(--pc-border-subtle)" }}>
-                  Bill <code>{cancelTarget.billId}</code> — current status <strong>{cancelTarget.status}</strong>
+                  {t("returns.cancelIrnBody", { billId: "" })} <code>{cancelTarget.billId}</code> — <strong>{cancelTarget.status}</strong>
                 </p>
                 <label style={{ display: "block", fontSize: 12, marginBottom: 8 }}>
-                  Reason
+                  {t("returns.reasonLabel")}
                   <select
                     data-testid="irn-cancel-reason"
                     value={cancelReasonCode}
                     onChange={(e) => setCancelReasonCode(e.target.value as "1"|"2"|"3"|"4")}
                     style={{ display: "block", marginTop: 4, padding: "4px 6px", width: "100%" }}
                   >
-                    <option value="1">1 — Duplicate</option>
-                    <option value="2">2 — Data entry mistake</option>
-                    <option value="3">3 — Order cancelled</option>
-                    <option value="4">4 — Other</option>
+                    <option value="1">{t("returns.reason1")}</option>
+                    <option value="2">{t("returns.reason2")}</option>
+                    <option value="3">{t("returns.reason3")}</option>
+                    <option value="4">{t("returns.reason4")}</option>
                   </select>
                 </label>
                 <label style={{ display: "block", fontSize: 12, marginBottom: 12 }}>
-                  Remarks (optional)
+                  {t("returns.remarksOptional")}
                   <input
                     data-testid="irn-cancel-remarks"
                     value={cancelRemarks}
@@ -774,13 +784,13 @@ export function ReturnsScreen() {
                     data-testid="irn-cancel-close"
                     onClick={() => setCancelTarget(null)}
                     style={{ padding: "6px 14px" }}
-                  >Close</button>
+                  >{t("returns.closeBtn")}</button>
                   <button
                     data-testid="irn-cancel-confirm"
                     onClick={() => void doCancelIrn()}
                     disabled={irnBusy}
                     style={{ padding: "6px 14px", background: "var(--pc-state-danger)", color: "var(--pc-bg-surface)", border: "none" }}
-                  >Confirm Cancel</button>
+                  >{t("returns.confirmCancelBtn")}</button>
                 </div>
               </div>
             </div>
@@ -792,7 +802,7 @@ export function ReturnsScreen() {
         <div data-testid="refunds-panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap" }}>
             <label style={{ fontSize: 12, display: "flex", flexDirection: "column" }}>
-              Bill ID (paste or type)
+              {t("returns.refundBillIdLabel")}
               <input
                 data-testid="refund-bill-id"
                 value={refundBillId}
@@ -818,9 +828,9 @@ export function ReturnsScreen() {
               data-testid="refund-open-picker"
               onClick={() => setPickerOpen(true)}
               style={{ padding: "8px 14px", background: "var(--pc-state-info)", color: "var(--pc-bg-surface)", fontWeight: 600, border: "none" }}
-            >Open partial-refund picker</button>
+            >{t("returns.openPartialPicker")}</button>
             <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--pc-text-secondary)" }}>
-              {refundHistory.length} prior refund{refundHistory.length === 1 ? "" : "s"} on this bill
+              {t("returns.priorRefundsCount", { n: refundHistory.length, plural: refundHistory.length === 1 ? "" : "s" })}
             </span>
           </div>
 
@@ -836,26 +846,25 @@ export function ReturnsScreen() {
 
           {refundHistory.length === 0 && !refundLoadErr && (
             <div style={{ color: "var(--pc-text-secondary)", fontSize: 13 }}>
-              Enter a bill ID and press Enter to load this bill&apos;s refund history,
-              or press F4 in BillingScreen to launch the picker directly.
+              {t("returns.refundEnterHint")}
             </div>
           )}
 
           {refundHistory.length > 0 && (
             <table data-testid="refund-history-table" style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
-                  <th style={{ padding: 6 }}>CN No</th>
-                  <th style={{ padding: 6 }}>Type</th>
-                  <th style={{ padding: 6 }}>Reason</th>
-                  <th style={{ padding: 6, textAlign: "right" }}>Refund</th>
-                  <th style={{ padding: 6 }}>IRN</th>
-                  <th style={{ padding: 6 }}>Created</th>
+                <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
+                  <th style={{ padding: 6 }}>{t("returns.cnNoCol")}</th>
+                  <th style={{ padding: 6 }}>{t("returns.typeCol")}</th>
+                  <th style={{ padding: 6 }}>{t("returns.reasonLabel")}</th>
+                  <th style={{ padding: 6, textAlign: "right" }}>{t("returns.refundCol")}</th>
+                  <th style={{ padding: 6 }}>{t("returns.irnCol")}</th>
+                  <th style={{ padding: 6 }}>{t("returns.createdCol")}</th>
                 </tr>
               </thead>
               <tbody>
                 {refundHistory.map((r) => (
-                  <tr key={r.id} data-testid={`refund-row-${r.id}`} style={{ borderBottom: "1px solid #eee" }}>
+                  <tr key={r.id} data-testid={`refund-row-${r.id}`} style={{ borderBottom: "1px solid var(--pc-border-subtle)" }}>
                     <td style={{ padding: 6 }}>{r.returnNo}</td>
                     <td style={{ padding: 6 }}>{r.returnType}</td>
                     <td style={{ padding: 6 }}>{r.reason}</td>

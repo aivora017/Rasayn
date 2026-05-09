@@ -308,6 +308,31 @@ export interface DpdpUpdateDsrStatusInputDTO {
   readonly handledByUserId?: string;
 }
 
+// ─── S28-C1 DSR auto-respond (ADR-0077) ──────────────────────────────────
+export interface DsrExportResultDTO {
+  readonly requestId: string;
+  readonly files: readonly string[];
+}
+export interface DsrStatusDTO {
+  readonly requestId: string;
+  readonly status: "received" | "in-progress" | "done" | "failed" | "rejected";
+  readonly filesPath?: string;
+  readonly fulfilledAt?: string;
+  readonly createdAt: string;
+}
+export interface DsrExportDTO {
+  readonly id: number;
+  readonly requestId: string;
+  readonly customerId: string;
+  readonly requesterPhone?: string;
+  readonly reason?: string;
+  readonly kind: "access" | "correction" | "erasure" | "grievance" | "portability";
+  readonly status: "received" | "in-progress" | "done" | "failed" | "rejected";
+  readonly createdAt: string;
+  readonly fulfilledAt?: string;
+  readonly filesPath?: string;
+}
+
 // ─── System fingerprint + ABDM (S17) ─────────────────────────────────────
 export interface SystemFingerprintDTO {
   readonly fullHash: string;
@@ -527,6 +552,8 @@ export type IpcCall =
   | { cmd: "gmail_fetch_attachment"; args: { shopId: string; messageId: string; attachmentId: string; filename: string; mimeType: string } }
   | { cmd: "shop_get"; args: { id: string } }
   | { cmd: "shop_update"; args: { input: ShopUpdateInput } }
+  | { cmd: "get_locale"; args: { shopId: string } }
+  | { cmd: "set_locale"; args: { input: { shopId: string; locale: string } } }
   | { cmd: "db_backup"; args: { destPath: string } }
   | { cmd: "db_restore"; args: { sourcePath: string } }
   | { cmd: "upsert_product"; args: { input: ProductWriteDTO } }
@@ -624,6 +651,9 @@ export type IpcCall =
   | { cmd: "dpdp_open_dsr"; args: { input: DpdpOpenDsrInputDTO } }
   | { cmd: "dpdp_update_dsr_status"; args: { input: DpdpUpdateDsrStatusInputDTO } }
   | { cmd: "dpdp_list_dsr"; args: { openOnly?: boolean; limit?: number } }
+  | { cmd: "request_personal_data_export"; args: { customerId: string; requesterPhone: string; reason: string } }
+  | { cmd: "dsr_get_export_status"; args: { requestId: string } }
+  | { cmd: "dsr_list_exports"; args: { limit: number } }
   | { cmd: "shops_list"; args: Record<string, never> }
   | { cmd: "batches_list_by_shop"; args: { shopId: string; limit?: number } }
   | { cmd: "shops_inventory_summary"; args: Record<string, never> }
@@ -634,7 +664,14 @@ export type IpcCall =
   | { cmd: "list_schedule_register"; args: { periodStartIso: string; periodEndIso: string; schedule: "all" | "H" | "H1" | "X"; shopId: string } }
   | { cmd: "schedule_register_pdf_path"; args: { periodStartIso: string; periodEndIso: string; schedule: "all" | "H" | "H1" | "X"; shopId: string } }
   | { cmd: "list_reorder_suggestions"; args: { shopId: string; horizonDays: number } }
-  | { cmd: "generate_gstr3b_payload"; args: { periodYyyymm: string; shopId: string } };
+  | { cmd: "generate_gstr3b_payload"; args: { periodYyyymm: string; shopId: string } }
+  // ----- S28-A1 Schedule-H counseling gate (ADR-0073) -----
+  | { cmd: "log_counseling"; args: { billId: string; drugId: string; drugName: string; scheduleClass: "H" | "H1" | "X"; notes?: string; patientConsented: boolean; counselorUserId?: string } }
+  | { cmd: "list_counseling_for_bill"; args: { billId: string } }
+  | { cmd: "check_counseling_complete"; args: { billId: string } }
+  // ----- S28-B3 Onboarding wizard server-side validators -----
+  | { cmd: "validate_retail_license_format"; args: { licenseNo: string } }
+  | { cmd: "attach_retail_license_pdf"; args: { shopId: string; path: string } };
 
 export type IpcHandler = (call: IpcCall) => Promise<unknown>;
 
@@ -1078,6 +1115,22 @@ export async function shopGetRpc(id: string): Promise<Shop | null> {
 
 export async function shopUpdateRpc(input: ShopUpdateInput): Promise<Shop> {
   return (await handler({ cmd: "shop_update", args: { input } })) as Shop;
+}
+
+// --- Locale (S28-B2) ----------------------------------------------------
+
+export type LocaleCode = "en" | "hi" | "mr";
+
+export interface LocaleResponse {
+  readonly locale: LocaleCode;
+}
+
+export async function getLocaleRpc(shopId: string): Promise<LocaleResponse> {
+  return (await handler({ cmd: "get_locale", args: { shopId } })) as LocaleResponse;
+}
+
+export async function setLocaleRpc(shopId: string, locale: LocaleCode): Promise<LocaleResponse> {
+  return (await handler({ cmd: "set_locale", args: { input: { shopId, locale } } })) as LocaleResponse;
 }
 
 // --- F7 backup / restore ------------------------------------------------
@@ -2109,6 +2162,31 @@ export async function dpdpListDsrRpc(args: { openOnly?: boolean; limit?: number 
   return (await handler({ cmd: "dpdp_list_dsr", args })) as readonly DpdpDsrRequestDTO[];
 }
 
+export async function requestPersonalDataExportRpc(
+  customerId: string,
+  requesterPhone: string,
+  reason: string,
+): Promise<DsrExportResultDTO> {
+  return (await handler({
+    cmd: "request_personal_data_export",
+    args: { customerId, requesterPhone, reason },
+  })) as DsrExportResultDTO;
+}
+
+export async function dsrGetExportStatusRpc(requestId: string): Promise<DsrStatusDTO | null> {
+  return (await handler({
+    cmd: "dsr_get_export_status",
+    args: { requestId },
+  })) as DsrStatusDTO | null;
+}
+
+export async function dsrListExportsRpc(limit: number): Promise<readonly DsrExportDTO[]> {
+  return (await handler({
+    cmd: "dsr_list_exports",
+    args: { limit },
+  })) as readonly DsrExportDTO[];
+}
+
 // ─── Multi-shop inventory RPCs (S22a) ────────────────────────────────────
 export async function shopsListRpc(): Promise<readonly ShopRowDTO[]> {
   return (await handler({ cmd: "shops_list", args: {} })) as readonly ShopRowDTO[];
@@ -2227,4 +2305,72 @@ export async function generateGstr3bPayloadRpc(args: {
   shopId: string;
 }): Promise<Gstr3bPayloadDTO> {
   return (await handler({ cmd: "generate_gstr3b_payload", args })) as Gstr3bPayloadDTO;
+}
+
+
+// ===== S28-A1 Schedule-H counseling gate (ADR-0073) =====
+// Per-line counseling evidence consulted by save_bill. Counsel-log is
+// the per-line proof a Schedule-H/H1/X drug was counseled; the cashier
+// UI calls log_counseling for each missing drug, then save_bill.
+
+export interface CounselLogRowDTO {
+  readonly id: number;
+  readonly billId: string;
+  readonly drugId: string;
+  readonly drugName: string;
+  readonly scheduleClass: "H" | "H1" | "X";
+  readonly counseledAt: string;
+  readonly counselorUserId: string | null;
+  readonly notes: string | null;
+  readonly patientConsented: boolean;
+  readonly createdAt: string;
+}
+
+export interface MissingCounselDTO {
+  readonly drugId: string;
+  readonly drugName: string;
+  readonly scheduleClass: "H" | "H1" | "X";
+}
+
+export async function logCounselingRpc(args: {
+  billId: string;
+  drugId: string;
+  drugName: string;
+  scheduleClass: "H" | "H1" | "X";
+  notes?: string;
+  patientConsented: boolean;
+  counselorUserId?: string;
+}): Promise<number> {
+  return (await handler({ cmd: "log_counseling", args })) as number;
+}
+
+export async function listCounselingForBillRpc(billId: string): Promise<readonly CounselLogRowDTO[]> {
+  return (await handler({ cmd: "list_counseling_for_bill", args: { billId } })) as readonly CounselLogRowDTO[];
+}
+
+export async function checkCounselingCompleteRpc(billId: string): Promise<readonly MissingCounselDTO[]> {
+  return (await handler({ cmd: "check_counseling_complete", args: { billId } })) as readonly MissingCounselDTO[];
+}
+
+// ===== S28-D1 onboarding validators =====
+// Used by the onboarding flow to validate retail-drug-license format and
+// attach the scanned license PDF before the shop record is saved.
+
+export async function validateRetailLicenseFormatRpc(
+  licenseNo: string,
+): Promise<{ ok: boolean; normalized?: string; reason?: string }> {
+  return (await handler({
+    cmd: "validate_retail_license_format",
+    args: { licenseNo },
+  })) as { ok: boolean; normalized?: string; reason?: string };
+}
+
+export async function attachRetailLicensePdfRpc(args: {
+  shopId: string;
+  path: string;
+}): Promise<{ ok: boolean; path?: string; reason?: string }> {
+  return (await handler({
+    cmd: "attach_retail_license_pdf",
+    args,
+  })) as { ok: boolean; path?: string; reason?: string };
 }

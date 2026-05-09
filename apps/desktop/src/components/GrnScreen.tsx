@@ -1,3 +1,12 @@
+// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — tokens via --pc-* CSS
+// vars, semantic state colors (success/warning/danger via state-* tokens),
+// confidence chips three-tier (≥95 green / 80-95 amber / <80 red per NS §13.3),
+// keyboard contract (Shift+Enter bulk-accept, Y/N per-line), Photo-bill X3
+// drop-zone integrated, light/dark via ThemeProvider. RED — no useTranslation
+// wired (B2 i18n sweep skipped GrnScreen — owner-mostly screen on bilingual
+// vocabulary fallback); SCHEDULED for S28-B2 follow-up. YELLOW — split-view
+// parsed-vs-image (NS §13.3) deferred to S29 visual polish; current single-rail
+// list ships for May 13.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatINR, type Paise } from "@pharmacare/shared-types";
 import {
@@ -291,7 +300,7 @@ export function GrnScreen() {
         <div
           data-testid="grn-imported-banner"
           style={{
-            background: "var(--pc-state-info-bg)", border: "1px solid #9ec5ff", padding: 8,
+            background: "var(--pc-state-info-bg)", border: "1px solid var(--pc-state-info)", padding: 8,
             marginBottom: 12, fontSize: 12, borderRadius: 4,
           }}
         >
@@ -451,7 +460,7 @@ export function GrnScreen() {
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+            <tr style={{ borderBottom: "1px solid var(--pc-border-default)", textAlign: "left" }}>
               <th style={{ padding: 6 }}>Product</th>
               <th style={{ padding: 6 }}>Batch #</th>
               <th style={{ padding: 6 }}>Mfg</th>
@@ -465,7 +474,7 @@ export function GrnScreen() {
           </thead>
           <tbody>
             {lines.map((l, i) => (
-              <tr key={l.key} data-testid={`grn-row-${i}`} style={{ borderBottom: "1px solid #eee" }}>
+              <tr key={l.key} data-testid={`grn-row-${i}`} style={{ borderBottom: "1px solid var(--pc-border-subtle)" }}>
                 <td style={{ padding: 6 }}>{l.name}</td>
                 <td style={{ padding: 6 }}>
                   <input

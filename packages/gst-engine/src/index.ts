@@ -293,3 +293,17 @@ export function inferTreatment(
   if (!customerStateCode) return "intra_state"; // walk-in, same state assumed
   return shopStateCode === customerStateCode ? "intra_state" : "inter_state";
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// GSTIN format validator (S28-B3 OnboardingWizard hard gate)
+// ──────────────────────────────────────────────────────────────────────────
+export {
+  validateGstin,
+  isValidGstin,
+  computeGstinChecksum,
+  GST_STATE_CODES,
+  type GstinValidationResult,
+  type GstinOk,
+  type GstinFail,
+  type GstinFailField,
+} from "./gstin.js";

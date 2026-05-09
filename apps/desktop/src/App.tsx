@@ -167,7 +167,8 @@ export function App({ initialMode = "billing" }: AppProps = {}) {
         {mode === "khata"              && FEATURE_FLAGS.khata              && <KhataScreen />}
         {mode === "doctorReport"       && FEATURE_FLAGS.doctorReport       && <DoctorReportScreen />}
         {mode === "loyalty"            && FEATURE_FLAGS.loyalty            && <LoyaltyScreen />}
-        {mode === "counseling"         && FEATURE_FLAGS.counseling         && (isScaffoldHidden("counseling") ? <UpcomingFeature name="Patient Counseling Records" note="Schedule-H counseling logs ship in the next release. TODO(S26.K): real impl — Schedule-H mandate." /> : <CounselingScreen />)}
+        {/* S28-D1: counseling is now real per S28-A1 (ADR-0073) — scaffold gate removed. */}
+        {mode === "counseling"         && FEATURE_FLAGS.counseling         && <CounselingScreen />}
         {mode === "rbac"               && FEATURE_FLAGS.rbac               && <RBACScreen />}
         {mode === "stockTransfer"      && FEATURE_FLAGS.stockTransfer      && <StockTransferScreen />}
         {mode === "multiStore"         && FEATURE_FLAGS.multiStore         && <MultiStoreScreen />}

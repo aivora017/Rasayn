@@ -380,6 +380,26 @@ pub fn save_bill(
         }
     }
 
+    // S28-A1 . Schedule-H counseling gate (ADR-0073). After all
+    // per-line guards (NPPA, Rx-required, expiry) and BEFORE the
+    // transaction opens, we hard-block save when any H/H1/X drug in
+    // the basket has no counsel_log row for this bill_id. The
+    // cashier UI MUST call log_counseling for each H/H1/X line
+    // first; the user-facing flow is BillingClinicalGuard banner ->
+    // CounselingScreen -> save_bill. D&C s.22/s.27 mandate.
+    // Pre-existing DPDP consent gate above is unchanged. Walk-in
+    // bills + bills with no Schedule-H lines short-circuit because
+    // the helper returns an empty Vec for empty product list / no
+    // matches.
+    let product_ids: Vec<String> = input.lines.iter().map(|l| l.product_id.clone()).collect();
+    let missing =
+        crate::counseling::check_counseling_complete_for_basket(&c, &bill_id, &product_ids)?;
+    if !missing.is_empty() {
+        return Err(crate::counseling::format_counseling_incomplete_err(
+            &missing,
+        ));
+    }
+
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let mut subtotal = 0i64;
     let mut cgst = 0i64;

@@ -1,6 +1,6 @@
 # ADR-0065: Telemetry stack (Sentry + OTel + Grafana)
 
-**Status**: Draft (scaffold)  ·  **Date**: 2026-04-28  ·  **Deciders**: Sourav (founder), tech-lead
+**Status**: Draft (Sentry portion superseded by ADR-0072 on 2026-05-08; OTel + Grafana remain Draft)  ·  **Date**: 2026-04-28  ·  **Deciders**: Sourav (founder), tech-lead
 
 ## Context
 Cannot operate 100 shops without observability. Cannot do predictive maintenance without telemetry.
@@ -30,4 +30,5 @@ OTel SDK in desktop + cloud. Sentry for errors. Grafana Cloud for metrics + trac
 - Scaffold index: `pharmacare-pro/SCAFFOLD_INDEX.md`
 
 ## Supersedes / Superseded-by
-- None at scaffold time.
+- Sentry-specific portion superseded by ADR-0072 on 2026-05-08 (S27.E real wireup with PII redaction + per-shop opt-in via migration 0049).
+- OTel + Grafana portions remain Draft; deferred to S29+.
