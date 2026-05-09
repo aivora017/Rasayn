@@ -83,6 +83,7 @@ struct MissingCounsel {
 }
 
 /// Mirror of counseling::log_counseling_inner.
+#[allow(clippy::too_many_arguments)]
 fn log_counseling(
     c: &Connection,
     bill_id: &str,
