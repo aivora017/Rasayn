@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Integration test for the DR module (S28.A6).
 //!
 //! Spins up an in-memory-style on-disk SQLite, writes a snapshot via the
@@ -16,7 +17,7 @@ mod backup_scheduler;
 #[path = "../src/dr.rs"]
 mod dr;
 
-// dr.rs imports `crate::db::DbState` — provide a stub so the integration
+// dr.rs imports `crate::db::DbState` â€” provide a stub so the integration
 // test target compiles standalone.
 mod db {
     use std::sync::{Arc, Mutex};

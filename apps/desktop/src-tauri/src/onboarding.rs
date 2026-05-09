@@ -1,10 +1,11 @@
-// onboarding.rs — Tauri-side helpers for the OnboardingWizard (S28-B3).
+#![allow(dead_code)]
+// onboarding.rs â€” Tauri-side helpers for the OnboardingWizard (S28-B3).
 //
 // The wizard does its own rich validation in TS (so the user gets fast
 // inline error feedback), but anything that touches the filesystem
 // (license-PDF attestation) or that the cloud licence-mint side will
 // later cross-check (retail-licence format) lives here. Both are HARD
-// REQUIREMENTS of the Drugs & Cosmetics Rules 1945 + DPDP Act 2023 §8
+// REQUIREMENTS of the Drugs & Cosmetics Rules 1945 + DPDP Act 2023 Â§8
 // audit trail.
 //
 // Migration 0052 adds `retail_license_pdf_path` and `schedule_h_license_no`
@@ -26,7 +27,7 @@ const MAX_PDF_BYTES: u64 = 10 * 1024 * 1024;
 /// Joint Commissioner / Drug Controller and follow the convention
 /// `<STATE>-DRG-<digits>` where STATE is the 2-letter state code (MH, KA,
 /// GJ, TN, ...). A small fraction of older numbers omit the "DRG-" prefix
-/// and use just digits — we accept both forms, but the regex MUST start
+/// and use just digits â€” we accept both forms, but the regex MUST start
 /// with a 2-letter state prefix to satisfy the audit's "issuer-traceable"
 /// requirement.
 ///
@@ -117,7 +118,7 @@ pub struct AttachLicenseResult {
 }
 
 /// Persist a retail-licence PDF path into `shops.retail_license_pdf_path`.
-/// We DO NOT copy the file ourselves — the founder's runbook stores PDFs
+/// We DO NOT copy the file ourselves â€” the founder's runbook stores PDFs
 /// inside the same backup-folder root as the SQLite file, so a
 /// re-image of the device pulls the PDF along. We only verify the file
 /// exists, has a `.pdf` extension, and is under MAX_PDF_BYTES.

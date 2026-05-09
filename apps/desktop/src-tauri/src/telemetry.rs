@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! F6 telemetry. LAN-first per Playbook v2.0 Principle #6.
 //! S27.E: Sentry crash reporting wired (cfg-gated `telemetry-sentry`).
 //! ADR-0072 supersedes ADR-0065 for the Sentry-specific portion. OTel +
@@ -14,7 +15,7 @@
 //! - `before_send` callback applies PII redaction (regex list below) as a
 //!   defence-in-depth layer on top of the SDK's own scrubbers.
 //!
-//! Cross-border DPDP §16: Sentry SaaS is hosted in EU/US. The
+//! Cross-border DPDP Â§16: Sentry SaaS is hosted in EU/US. The
 //! `cross_border_opinion_at` column (migration 0048) MUST be non-null
 //! before opt-in is allowed. UI layer enforces; this module just refuses
 //! egress when `shop_opt_in == false`.
@@ -23,7 +24,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-/// PII redaction regex set (ADR-0072 §3). Order matters: GSTIN is checked
+/// PII redaction regex set (ADR-0072 Â§3). Order matters: GSTIN is checked
 /// BEFORE the bare 10-digit phone pattern because GSTIN contains digits
 /// that would otherwise match. PAN is checked AFTER GSTIN for the same
 /// reason (5-letter prefix overlap).

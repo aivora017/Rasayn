@@ -1,7 +1,8 @@
-//! Disaster recovery (DR) module — S28.A6
+#![allow(dead_code)]
+//! Disaster recovery (DR) module â€” S28.A6
 //!
 //! Wraps the existing `backup_scheduler` snapshot primitive into three
-//! Tauri-callable commands aligned to PROJECT_INSTRUCTIONS §10 GA gate
+//! Tauri-callable commands aligned to PROJECT_INSTRUCTIONS Â§10 GA gate
 //! (RTO <= 30 minutes, RPO <= 5 minutes) and CERT-In 6-hour reporting.
 //!
 //! Output naming: `pharmacare-snapshot-YYYY-MM-DD-HHmm-{shop_id}.tar.zst`
@@ -233,7 +234,7 @@ fn prune(dir: &Path) -> Result<usize, String> {
 /// pathway: take a VACUUM INTO snapshot, then store the .sqlite file as
 /// `<basename>.sqlite` inside a single-entry tar.zst. This keeps the dep
 /// surface flat (no new tar/zstd crate) while still satisfying the
-/// "tar.zst with sha256" naming contract — the OS-level scripts/dr/*.{sh,ps1}
+/// "tar.zst with sha256" naming contract â€” the OS-level scripts/dr/*.{sh,ps1}
 /// know how to consume both shapes during restore.
 pub fn snapshot_to(
     conn: &rusqlite::Connection,
