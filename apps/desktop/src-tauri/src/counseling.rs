@@ -1,21 +1,22 @@
-// counseling.rs — Schedule-H mandatory counsel-log (S28-A1, ADR-0073).
+#![allow(clippy::too_many_arguments)]
+// counseling.rs â€” Schedule-H mandatory counsel-log (S28-A1, ADR-0073).
 //
 // Drugs & Cosmetics Act 1940 s.22/s.27 + Rules 1945 r.65 oblige the
 // pharmacist (RPh) to counsel the patient at the point of dispense for
 // every Schedule H, H1, and X line. This module owns three Tauri
 // commands:
 //
-//   * `log_counseling`              — append a per-line counsel row.
-//   * `list_counseling_for_bill`    — read-back for the cashier UI.
-//   * `check_counseling_complete`   — read-gate consulted by save_bill.
+//   * `log_counseling`              â€” append a per-line counsel row.
+//   * `list_counseling_for_bill`    â€” read-back for the cashier UI.
+//   * `check_counseling_complete`   â€” read-gate consulted by save_bill.
 //
 // `check_counseling_complete_inner` is also called by save_bill while it
 // already holds the connection lock (see commands.rs save_bill section
 // "S28-A1 Schedule-H counseling gate"). When the inner helper returns a
 // non-empty Vec, save_bill must abort with `COUNSELING_INCOMPLETE` and
 // the JSON-serialised list of missing drugs in the error string. The
-// pre-existing DPDP §6 consent gate (S26.I) runs FIRST and is unchanged
-// — its early return means the counseling gate never fires for a bill
+// pre-existing DPDP Â§6 consent gate (S26.I) runs FIRST and is unchanged
+// â€” its early return means the counseling gate never fires for a bill
 // that would have failed DPDP anyway.
 //
 // Sister table `counseling_records` (migration 0035) stores the
@@ -60,7 +61,7 @@ fn is_valid_schedule_class(s: &str) -> bool {
 }
 
 /// Append one counsel_log row. Returns the rowid of the inserted row.
-/// `patient_consented` MUST be true — the cashier UI cannot save a row
+/// `patient_consented` MUST be true â€” the cashier UI cannot save a row
 /// where the patient refused; per ADR-0073 a refusal aborts the bill at
 /// the cash counter (RPh must escalate to owner). We still validate
 /// server-side so a script bypass cannot persist a forged "no" row.
@@ -98,7 +99,7 @@ pub fn log_counseling(
     )
 }
 
-/// Inner helper — used by both the Tauri command and by tests that
+/// Inner helper â€” used by both the Tauri command and by tests that
 /// already hold a Connection. Must NOT take the DbState lock.
 pub(crate) fn log_counseling_inner(
     conn: &Connection,
@@ -180,7 +181,7 @@ pub(crate) fn list_counseling_for_bill_inner(
 /// Implementation note: we DEDUPE by drug_id even when the same drug
 /// appears on multiple lines of the bill (e.g. tablet + suspension
 /// strength variants of the same INN). One counsel_log row per
-/// (bill, drug) clears the gate for every line of that drug — RPh
+/// (bill, drug) clears the gate for every line of that drug â€” RPh
 /// counsels the patient about the molecule, not each SKU.
 #[tauri::command]
 pub fn check_counseling_complete(
@@ -231,12 +232,12 @@ pub(crate) fn check_counseling_complete_inner(
 /// save_bill-time variant that works against the basket payload before
 /// the bill's bill_lines have been written. The cashier UI calls
 /// `log_counseling` BEFORE save_bill, but counsel_log keys on bill_id
-/// — and the bill_id in save_bill is the to-be-inserted id, so the
+/// â€” and the bill_id in save_bill is the to-be-inserted id, so the
 /// counsel_log rows already exist and the existing-row check still
 /// works on bill_lines because save_bill writes bill_lines first then
 /// runs this gate before commit.
 ///
-/// Wait — that ordering is wrong (commit happens after the gate would
+/// Wait â€” that ordering is wrong (commit happens after the gate would
 /// run if placed at the bottom). We instead expose a helper that
 /// inspects the (product_id, schedule) tuples directly from the
 /// products table, given the basket. save_bill calls THIS helper
@@ -292,7 +293,7 @@ pub(crate) fn check_counseling_complete_for_basket(
 /// JSON.parse the suffix. (Tauri commands return `Result<T, String>`,
 /// so a typed error variant would require a wider refactor; the
 /// existing save_bill error contract uses the same colon-delimited
-/// pattern — see RX_REQUIRED, NEAR_EXPIRY_NO_OVERRIDE, NPPA_CAP_EXCEEDED.)
+/// pattern â€” see RX_REQUIRED, NEAR_EXPIRY_NO_OVERRIDE, NPPA_CAP_EXCEEDED.)
 pub(crate) fn format_counseling_incomplete_err(missing: &[MissingCounsel]) -> String {
     let body = serde_json::to_string(missing).unwrap_or_else(|_| "[]".to_string());
     format!("COUNSELING_INCOMPLETE:{body}")

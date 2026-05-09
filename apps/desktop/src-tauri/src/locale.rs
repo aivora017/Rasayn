@@ -1,4 +1,4 @@
-// locale.rs — owner UI locale persistence (S28-B2).
+// locale.rs â€” owner UI locale persistence (S28-B2).
 //
 // Reads/writes the `shops.locale` column added by migration 0051. The
 // default value is 'mr' (Marathi) per Q-007 because the first pilot shop
@@ -32,7 +32,7 @@ pub struct SetLocaleInput {
 }
 
 fn validate(loc: &str) -> Result<(), String> {
-    if SUPPORTED.iter().any(|s| *s == loc) {
+    if SUPPORTED.contains(&loc) {
         Ok(())
     } else {
         Err(format!(

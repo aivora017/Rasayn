@@ -1,20 +1,21 @@
-//! dsr_export.rs — DPDP §11 + §13(2) data principal export auto-respond.
+#![allow(clippy::too_many_arguments)]
+//! dsr_export.rs â€” DPDP Â§11 + Â§13(2) data principal export auto-respond.
 //!
 //! S28-C1 (ADR-0077). Pairs with migration `0053_dsr_audit.sql` and the
 //! existing `dpdp_dsr_requests` queue (migration 0033, dpdp.rs).
 //!
-//! DPDP Act 2023 §11 grants the Data Principal (the customer) the right
+//! DPDP Act 2023 Â§11 grants the Data Principal (the customer) the right
 //! to access a summary of their personal data being processed by the
-//! Data Fiduciary (the pharmacy owner). §13(2) sets a 30-day SLA. This
+//! Data Fiduciary (the pharmacy owner). Â§13(2) sets a 30-day SLA. This
 //! module fulfils an "access" DSR by producing a deterministic snapshot
 //! folder containing:
 //!
-//!   * `customer_<id>.json` — typed JSON of every row keyed to the
+//!   * `customer_<id>.json` â€” typed JSON of every row keyed to the
 //!     customer (bills, bill_lines, returns, prescriptions, dpdp
 //!     consents).
-//!   * `customer_<id>.csv` — flat CSV the principal can open in Excel.
-//!   * `README.txt` — human-readable explanation of the bundle's
-//!     contents, the principal's rights under §11, the retention period,
+//!   * `customer_<id>.csv` â€” flat CSV the principal can open in Excel.
+//!   * `README.txt` â€” human-readable explanation of the bundle's
+//!     contents, the principal's rights under Â§11, the retention period,
 //!     and the grievance officer contact.
 //!
 //! The bundle lives under `<backup_dir>/dsr_exports/<YYYY-MM-DD>_<request_id>/`.
@@ -87,7 +88,7 @@ pub struct DsrExport {
 }
 
 // ---------------------------------------------------------------------------
-// Internal record shapes — used to build the JSON bundle.
+// Internal record shapes â€” used to build the JSON bundle.
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize)]
@@ -220,7 +221,7 @@ fn csv_escape(s: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Data collection — per-table reads keyed on customer_id.
+// Data collection â€” per-table reads keyed on customer_id.
 // ---------------------------------------------------------------------------
 
 fn read_customer(c: &Connection, customer_id: &str) -> Result<Option<CustomerRow>, String> {
@@ -351,7 +352,7 @@ fn read_consents(c: &Connection, customer_id: &str) -> Result<Vec<ConsentRow>, S
 }
 
 // ---------------------------------------------------------------------------
-// Bundle builder — JSON + CSV + README, atomic-ish (each file write checked).
+// Bundle builder â€” JSON + CSV + README, atomic-ish (each file write checked).
 // ---------------------------------------------------------------------------
 
 fn write_json(dir: &Path, customer_id: &str, bundle: &Bundle) -> Result<PathBuf, String> {
@@ -442,7 +443,7 @@ fn write_csv(dir: &Path, customer_id: &str, bundle: &Bundle) -> Result<PathBuf, 
 fn write_readme(dir: &Path, request_id: &str, customer_id: &str) -> Result<PathBuf, String> {
     let path = dir.join("README.txt");
     let body = format!(
-        "DPDP Act 2023 — Personal Data Export\n\
+        "DPDP Act 2023 â€” Personal Data Export\n\
          =====================================\n\
          \n\
          Request ID: {request_id}\n\
@@ -452,12 +453,12 @@ fn write_readme(dir: &Path, request_id: &str, customer_id: &str) -> Result<PathB
          WHAT THIS BUNDLE CONTAINS\n\
          -------------------------\n\
          This folder contains every row of personal data this pharmacy holds\n\
-         about you, exported under §11 of the Digital Personal Data Protection\n\
+         about you, exported under Â§11 of the Digital Personal Data Protection\n\
          Act, 2023. The two data files are equivalent; pick whichever you can\n\
          open:\n\
          \n\
-           * customer_<id>.json  — machine-readable, full schema.\n\
-           * customer_<id>.csv   — opens in Excel, Google Sheets, or Notepad.\n\
+           * customer_<id>.json  â€” machine-readable, full schema.\n\
+           * customer_<id>.csv   â€” opens in Excel, Google Sheets, or Notepad.\n\
          \n\
          The data covers:\n\
          \n\
@@ -467,14 +468,14 @@ fn write_readme(dir: &Path, request_id: &str, customer_id: &str) -> Result<PathB
            * every refund or return processed against your bills;\n\
            * every DPDP consent you granted or withdrew, with evidence.\n\
          \n\
-         YOUR RIGHTS UNDER §11–§14\n\
+         YOUR RIGHTS UNDER Â§11â€“Â§14\n\
          -------------------------\n\
          You may at any time:\n\
          \n\
-           * ask for corrections to incorrect data (§12);\n\
-           * ask for erasure of data no longer required (§12);\n\
-           * nominate a representative to exercise these rights (§14);\n\
-           * file a grievance with the Data Protection Officer below (§13).\n\
+           * ask for corrections to incorrect data (Â§12);\n\
+           * ask for erasure of data no longer required (Â§12);\n\
+           * nominate a representative to exercise these rights (Â§14);\n\
+           * file a grievance with the Data Protection Officer below (Â§13).\n\
          \n\
          The pharmacy must respond within thirty (30) days. Some data must\n\
          be retained for tax (Income-tax Act, 6 years) and pharmacy\n\
@@ -485,14 +486,14 @@ fn write_readme(dir: &Path, request_id: &str, customer_id: &str) -> Result<PathB
          -----------------\n\
          The pharmacy's Data Protection Officer (DPO) and grievance officer\n\
          contact details are printed on every receipt and on the shop notice\n\
-         board, as required by §10. If you cannot find them, ask the cashier\n\
+         board, as required by Â§10. If you cannot find them, ask the cashier\n\
          to show you the DPO contact card.\n\
          \n\
          If the pharmacy fails to respond within 30 days, you may escalate\n\
          to the Data Protection Board of India.\n\
          \n\
          ----------------------------------------------------------\n\
-         Generated by PharmaCare Pro (S28-C1, ADR-0077, DPDP §11+§13).\n",
+         Generated by PharmaCare Pro (S28-C1, ADR-0077, DPDP Â§11+Â§13).\n",
         request_id = request_id,
         customer_id = customer_id,
         now = now_iso()
