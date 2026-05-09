@@ -64,7 +64,7 @@ describe("cli runImport", () => {
     expect(() => new Database(db, { fileMustExist: true })).toThrow();
   });
 
-  it.skip("idempotent â€” running twice gives same row count (INSERT OR IGNORE)", () => {
+  it("idempotent â€” running twice gives same row count (INSERT OR IGNORE)", () => {
     seedShop(db);
     writeFileSync(csv, [HEADER,
       "X1,One,M,1,B1,2027-06-30,10.00,8,1,30049099,12,OTC,x",

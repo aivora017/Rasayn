@@ -34,7 +34,22 @@ export function listMigrations(dir: string = MIGRATIONS_DIR): readonly { version
     });
 }
 
+// Connection-level pragmas (e.g. journal_mode=WAL) cannot run inside a
+// transaction — SQLite throws `cannot change into wal mode from within a
+// transaction`. We strip these from migration SQL and apply them via
+// db.pragma() BEFORE the BEGIN. See ADR-0078.
+const PRAGMA_JOURNAL_MODE_RE = /^[ \t]*PRAGMA[ \t]+journal_mode[ \t]*=[ \t]*[A-Za-z_]+[ \t]*;?[ \t]*\r?\n?/gim;
+
+export function stripJournalModePragmas(sql: string): string {
+  return sql.replace(PRAGMA_JOURNAL_MODE_RE, "");
+}
+
 export function runMigrations(db: Database.Database, dir: string = MIGRATIONS_DIR): number {
+  // Apply WAL once at the connection level, before any BEGIN. SQLite forbids
+  // journal_mode changes inside a transaction, so any `PRAGMA journal_mode=...`
+  // line in a migration .sql is stripped below and applied here instead.
+  db.pragma("journal_mode = WAL");
+
   // Ensure _migrations table exists (idempotent).
   db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
     version    INTEGER PRIMARY KEY,
@@ -47,7 +62,7 @@ export function runMigrations(db: Database.Database, dir: string = MIGRATIONS_DI
   let ran = 0;
   for (const m of listMigrations(dir)) {
     if (applied.has(m.version)) continue;
-    const sql = readFileSync(m.path, "utf8");
+    const sql = stripJournalModePragmas(readFileSync(m.path, "utf8"));
     db.exec("BEGIN");
     try {
       db.exec(sql);

@@ -139,3 +139,22 @@ describe("shared-db · bill round-off CHECK", () => {
       .toThrow(/CHECK/);
   });
 });
+
+describe("shared-db · runMigrations strips PRAGMA journal_mode", () => {
+  let db: Database.Database;
+  beforeEach(() => {
+    db = openDb({ path: ":memory:" });
+  });
+
+  it("runs a migration containing PRAGMA journal_mode=wal without erroring", () => {
+    // 0001_init.sql contains `PRAGMA journal_mode = WAL;` on line 6, which
+    // SQLite forbids inside a transaction. Pre-fix this threw
+    // `SqliteError: cannot change into wal mode from within a transaction`.
+    expect(() => runMigrations(db)).not.toThrow();
+    // journal_mode must still be set to wal at the connection level.
+    const { journal_mode } = db.prepare("PRAGMA journal_mode").get() as { journal_mode: string };
+    // memory dbs report "memory"; file dbs would report "wal". Either is
+    // acceptable — what matters is that the runner did not throw.
+    expect(["wal", "memory"]).toContain(String(journal_mode).toLowerCase());
+  });
+});

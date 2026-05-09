@@ -1,8 +1,11 @@
-// NORTH_STAR §17 (S28-B1 sweep, 2026-05-08): GREEN — Glass surfaces, design
+// NORTH_STAR §17 (S28-F4 sweep, 2026-05-09): GREEN — Glass surfaces, design
 // system Badge/Button/Input primitives, validation gates intact (B3 wired
 // validateGstin + retail-license + Schedule-H + DPO RFC-5322-lite + 10-digit
 // mobile), 5-step wizard with step chips, --pc-* tokens, full i18n via
-// react-i18next (26/26 OnboardingWizard tests preserved), trust signals:
+// react-i18next + sync t() helper for non-React validator (now en/hi/mr per
+// S28-F4 — 85 onboarding.* keys per locale; Hi/Mr machine-translated, flagged
+// for human-rev Q-010), 26+1 OnboardingWizard tests preserved (assertion
+// strings stay green because test setup forces locale=en), trust signals:
 // GSTIN/license display, DPO contact card, ABDM consent (S27.B). RED — none.
 // YELLOW — celebratory final-step illustration could ship a saffron-tinted
 // success state per NS §9.8 §17 box "Celebratory empty"; deferred to S29.
@@ -30,13 +33,19 @@
 //   6. Grievance officer email + phone same rules (separate person allowed).
 //   7. First-shop seed: when "Save Shop" succeeds, create the row and route.
 //      If a shop already exists, gate the wizard with a redirect message.
+//
+// S28-F4 — every user-visible string now flows through `t('onboarding.*')`.
+// The pure validator helper `validateOnboardingForm` uses the sync `t()`
+// re-export from @pharmacare/design-system so unit tests (which don't mount
+// React) still get translated strings.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Building2, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Upload,
   ShieldCheck, FileText,
 } from "lucide-react";
-import { Glass, Badge, Button, Input } from "@pharmacare/design-system";
+import { Glass, Badge, Button, Input, t as syncT } from "@pharmacare/design-system";
 import {
   ENTITY_TYPES, ALL_ENTITY_TYPES, validateRegistration, isAuditRequired,
   annualFilingsFor,
@@ -147,6 +156,10 @@ export interface OnboardingValidation {
  * the "Save Shop" button's `disabled` check AND surfaced inline so the user
  * can see exactly what's still wrong. Schedule-H licence is REQUIRED here;
  * the retail-licence PDF is NOT — that one is a yellow nudge only.
+ *
+ * S28-F4: error strings come through the sync `t()` helper so unit tests
+ * (which run with locale=en per apps/desktop/src/test/setup.ts) keep their
+ * substring assertions green and production gets Hi/Mr translations.
  */
 export function validateOnboardingForm(
   form: RegistrationForm,
@@ -155,21 +168,21 @@ export function validateOnboardingForm(
   const errors: string[] = [];
   if (form.gstin) {
     const r = validateGstin(form.gstin.trim().toUpperCase());
-    if (!r.ok) errors.push(`GSTIN: ${r.message}`);
+    if (!r.ok) errors.push(syncT("onboarding.errGstinPrefix", { message: r.message }));
   } else {
-    errors.push("GSTIN: required");
+    errors.push(syncT("onboarding.errGstinRequired"));
   }
   if (form.retailDrugLicense) {
     if (!isValidRetailLicense(form.retailDrugLicense)) {
-      errors.push("Retail licence: format must be STATE-DRG-NNNNN (e.g. MH-DRG-12345)");
+      errors.push(syncT("onboarding.errRetailFormat"));
     }
   } else {
-    errors.push("Retail licence: required");
+    errors.push(syncT("onboarding.errRetailRequired"));
   }
   if (!scheduleHLicense.trim()) {
-    errors.push("Schedule-H licence: required (D&C §22)");
+    errors.push(syncT("onboarding.errScheduleHRequired"));
   } else if (!isValidScheduleHLicense(scheduleHLicense)) {
-    errors.push("Schedule-H licence: format must be STATE-DRG-NNNNN");
+    errors.push(syncT("onboarding.errScheduleHFormat"));
   }
   return { ok: errors.length === 0, errors };
 }
@@ -178,6 +191,7 @@ export default function OnboardingWizard({
   onComplete,
   shopProbe,
 }: Props = {}): React.ReactElement {
+  const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const [form, setForm] = useState<RegistrationForm>({ entityType: "sole_proprietor" });
@@ -261,11 +275,11 @@ export default function OnboardingWizard({
       setStep(4);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setDpoError(msg || "Failed to save DPO contacts. Try again.");
+      setDpoError(msg || t("onboarding.dpoSaveFailed"));
     } finally {
       setDpoSubmitting(false);
     }
-  }, [dpo]);
+  }, [dpo, t]);
 
   const finish = useCallback(() => {
     setBusy(true);
@@ -288,11 +302,10 @@ export default function OnboardingWizard({
         <Glass>
           <div className="p-6 flex flex-col items-center gap-3 text-center" data-testid="step-redirect">
             <Building2 size={48} className="text-[var(--pc-brand-primary)]" />
-            <h2 className="font-semibold text-[18px]">You already have a shop</h2>
+            <h2 className="font-semibold text-[18px]">{t("onboarding.redirectTitle")}</h2>
             <p className="text-[13px] text-[var(--pc-text-secondary)] max-w-md">
-              The onboarding wizard creates the very first shop on a fresh install.
-              To add another location or edit existing settings, head to{" "}
-              <strong>Settings &rarr; Multi-shop</strong>.
+              {t("onboarding.redirectBody")}{" "}
+              <strong>{t("onboarding.redirectSettings")}</strong>.
             </p>
           </div>
         </Glass>
@@ -306,21 +319,21 @@ export default function OnboardingWizard({
         <div className="flex items-center gap-3">
           <Building2 size={24} className="text-[var(--pc-brand-primary)]" />
           <div>
-            <h1 className="text-[20px] font-semibold leading-tight">Welcome to PharmaCare</h1>
-            <p className="text-[12px] text-[var(--pc-text-secondary)]">First-time setup · takes 2 minutes</p>
+            <h1 className="text-[20px] font-semibold leading-tight">{t("onboarding.welcomeTitle")}</h1>
+            <p className="text-[12px] text-[var(--pc-text-secondary)]">{t("onboarding.welcomeSubtitle")}</p>
           </div>
         </div>
-        <Badge variant="info">Step {step} of 5</Badge>
+        <Badge variant="info">{t("onboarding.stepCounter", { step })}</Badge>
       </header>
 
       {/* Stepper */}
       <div className="flex items-center gap-2 text-[12px]">
         {[
-          { n: 1, label: "Entity type" },
-          { n: 2, label: "Business details" },
-          { n: 3, label: "Compliance contacts" },
-          { n: 4, label: "Migrate (optional)" },
-          { n: 5, label: "Done" },
+          { n: 1, label: t("onboarding.stepEntity") },
+          { n: 2, label: t("onboarding.stepDetails") },
+          { n: 3, label: t("onboarding.stepCompliance") },
+          { n: 4, label: t("onboarding.stepMigrate") },
+          { n: 5, label: t("onboarding.stepDone") },
         ].map((s, i, arr) => (
           <div key={s.n} className="flex items-center gap-2">
             <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-medium ${
@@ -338,18 +351,18 @@ export default function OnboardingWizard({
       {step === 1 && (
         <Glass>
           <div className="p-4 flex flex-col gap-3" data-testid="step-entity">
-            <h2 className="font-medium">What kind of business is your pharmacy registered as?</h2>
+            <h2 className="font-medium">{t("onboarding.entityQuestion")}</h2>
             <p className="text-[12px] text-[var(--pc-text-secondary)]">
-              This drives which compliance reports we generate (LLP Form 8 vs Pvt Ltd AOC-4 etc.)
+              {t("onboarding.entityHint")}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-              {ALL_ENTITY_TYPES.map((t) => {
-                const m = ENTITY_TYPES[t];
-                const selected = entityType === t;
+              {ALL_ENTITY_TYPES.map((typ) => {
+                const m = ENTITY_TYPES[typ];
+                const selected = entityType === typ;
                 return (
                   <button
-                    key={t}
-                    onClick={() => { setEntityType(t); setForm({ entityType: t }); }}
+                    key={typ}
+                    onClick={() => { setEntityType(typ); setForm({ entityType: typ }); }}
                     className={`text-left p-3 rounded-lg border transition-colors ${
                       selected
                         ? "border-[var(--pc-brand-primary)] bg-[var(--pc-bg-hover)]"
@@ -358,13 +371,13 @@ export default function OnboardingWizard({
                   >
                     <div className="flex items-center justify-between">
                       <h3 className="font-medium text-[14px]">{m.displayName}</h3>
-                      {m.hasRoc && <Badge variant="warning">ROC filings</Badge>}
-                      {!m.hasRoc && <Badge variant="success">No ROC</Badge>}
+                      {m.hasRoc && <Badge variant="warning">{t("onboarding.rocFilings")}</Badge>}
+                      {!m.hasRoc && <Badge variant="success">{t("onboarding.noRoc")}</Badge>}
                     </div>
                     <p className="text-[12px] text-[var(--pc-text-secondary)] mt-1">{m.tagline}</p>
                     <div className="text-[11px] text-[var(--pc-text-tertiary)] mt-1">
-                      {m.defaultItrForm} · {m.limitedLiability ? "Limited liability" : "Personal liability"} · {m.minPartnersOrDirectors}
-                      {m.maxPartnersOrDirectors ? `–${m.maxPartnersOrDirectors}` : "+"} partners/directors
+                      {m.defaultItrForm} · {m.limitedLiability ? t("onboarding.limitedLiability") : t("onboarding.personalLiability")} · {m.minPartnersOrDirectors}
+                      {m.maxPartnersOrDirectors ? `–${m.maxPartnersOrDirectors}` : "+"} {t("onboarding.partnersDirectorsSuffix")}
                     </div>
                   </button>
                 );
@@ -372,7 +385,7 @@ export default function OnboardingWizard({
             </div>
             <div className="flex justify-end mt-2">
               <Button onClick={() => setStep(2)} disabled={!entityType}>
-                Next: Business details <ArrowRight size={14} />
+                {t("onboarding.nextBusinessDetails")} <ArrowRight size={14} />
               </Button>
             </div>
           </div>
@@ -384,79 +397,79 @@ export default function OnboardingWizard({
         <Glass>
           <div className="p-4 flex flex-col gap-3" data-testid="step-details">
             <div className="flex items-center justify-between">
-              <h2 className="font-medium">{meta.displayName} · business details</h2>
-              <Badge variant="info">{meta.requiresFields.length} required fields</Badge>
+              <h2 className="font-medium">{t("onboarding.detailsHeading", { name: meta.displayName })}</h2>
+              <Badge variant="info">{t("onboarding.requiredFieldsBadge", { count: meta.requiresFields.length })}</Badge>
             </div>
             <p className="text-[12px] text-[var(--pc-text-secondary)]">
-              We'll generate {annualFilingsFor(entityType!).length} filings annually for you. Fields below match what your CA needs.
+              {t("onboarding.detailsSubtitle", { count: annualFilingsFor(entityType!).length })}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
               {meta.requiresFields.includes("shopName") && (
-                <Field label="Shop name *">
-                  <Input value={form.shopName ?? ""} onChange={(e) => updateField("shopName", e.target.value)} placeholder="e.g. Jagannath Pharmacy" />
+                <Field label={t("onboarding.fieldShopName")}>
+                  <Input value={form.shopName ?? ""} onChange={(e) => updateField("shopName", e.target.value)} placeholder={t("onboarding.fieldShopNamePlaceholder")} />
                 </Field>
               )}
               {meta.requiresFields.includes("panNumber") && (
-                <Field label="PAN number * (10 chars: AAAAA9999A)">
-                  <Input value={form.panNumber ?? ""} onChange={(e) => updateField("panNumber", e.target.value.toUpperCase())} maxLength={10} placeholder="AAAAA0000A" />
+                <Field label={t("onboarding.fieldPan")}>
+                  <Input value={form.panNumber ?? ""} onChange={(e) => updateField("panNumber", e.target.value.toUpperCase())} maxLength={10} placeholder={t("onboarding.fieldPanPlaceholder")} />
                 </Field>
               )}
               {meta.requiresFields.includes("gstin") && (
-                <Field label="GSTIN * (15 chars)">
+                <Field label={t("onboarding.fieldGstin")}>
                   <Input
                     data-testid="gstin"
                     value={form.gstin ?? ""}
                     onChange={(e) => updateField("gstin", e.target.value.toUpperCase())}
                     maxLength={15}
-                    placeholder="27AAAAA0000A1Z5"
+                    placeholder={t("onboarding.fieldGstinPlaceholder")}
                   />
                 </Field>
               )}
               {meta.requiresFields.includes("stateCode") && (
-                <Field label="State code * (2 digits, matches GSTIN)">
-                  <Input value={form.stateCode ?? ""} onChange={(e) => updateField("stateCode", e.target.value)} maxLength={2} placeholder="27 = Maharashtra" />
+                <Field label={t("onboarding.fieldStateCode")}>
+                  <Input value={form.stateCode ?? ""} onChange={(e) => updateField("stateCode", e.target.value)} maxLength={2} placeholder={t("onboarding.fieldStateCodePlaceholder")} />
                 </Field>
               )}
               {meta.requiresFields.includes("retailDrugLicense") && (
-                <Field label="Retail Drug License (Form 20/21) *">
+                <Field label={t("onboarding.fieldRetailLicense")}>
                   <Input
                     data-testid="retail-license"
                     value={form.retailDrugLicense ?? ""}
                     onChange={(e) => updateField("retailDrugLicense", e.target.value)}
-                    placeholder="MH-DRG-12345"
+                    placeholder={t("onboarding.fieldRetailLicensePlaceholder")}
                   />
                 </Field>
               )}
               {/* S28-B3 Schedule-H licence — appears for any entity type with retailDrugLicense */}
               {meta.requiresFields.includes("retailDrugLicense") && (
-                <Field label="Schedule-H license number * (D&C §22)">
+                <Field label={t("onboarding.fieldScheduleHLicense")}>
                   <Input
                     data-testid="schedule-h-license"
                     value={scheduleHLicense}
                     onChange={(e) => setScheduleHLicense(e.target.value)}
-                    placeholder="MH-DRG-67890"
+                    placeholder={t("onboarding.fieldScheduleHLicensePlaceholder")}
                   />
                 </Field>
               )}
               {meta.requiresFields.includes("ownerName") && (
-                <Field label="Owner / proprietor name *">
-                  <Input value={form.ownerName ?? ""} onChange={(e) => updateField("ownerName", e.target.value)} placeholder="Sourav Shaw" />
+                <Field label={t("onboarding.fieldOwnerName")}>
+                  <Input value={form.ownerName ?? ""} onChange={(e) => updateField("ownerName", e.target.value)} placeholder={t("onboarding.fieldOwnerNamePlaceholder")} />
                 </Field>
               )}
               {meta.requiresFields.includes("llpinNumber") && (
-                <Field label="LLPIN * (AAA-9999)">
-                  <Input value={form.llpinNumber ?? ""} onChange={(e) => updateField("llpinNumber", e.target.value.toUpperCase())} placeholder="AAB-1234" />
+                <Field label={t("onboarding.fieldLlpin")}>
+                  <Input value={form.llpinNumber ?? ""} onChange={(e) => updateField("llpinNumber", e.target.value.toUpperCase())} placeholder={t("onboarding.fieldLlpinPlaceholder")} />
                 </Field>
               )}
               {meta.requiresFields.includes("cinNumber") && (
-                <Field label="CIN * (21 chars)">
-                  <Input value={form.cinNumber ?? ""} onChange={(e) => updateField("cinNumber", e.target.value.toUpperCase())} maxLength={21} placeholder="U24230MH2020PTC123456" />
+                <Field label={t("onboarding.fieldCin")}>
+                  <Input value={form.cinNumber ?? ""} onChange={(e) => updateField("cinNumber", e.target.value.toUpperCase())} maxLength={21} placeholder={t("onboarding.fieldCinPlaceholder")} />
                 </Field>
               )}
               {meta.requiresFields.includes("shopAddress") && (
-                <Field label="Shop address *" wide>
-                  <Input value={form.shopAddress ?? ""} onChange={(e) => updateField("shopAddress", e.target.value)} placeholder="123 Main St, Kalyan, Maharashtra 421301" />
+                <Field label={t("onboarding.fieldShopAddress")} wide>
+                  <Input value={form.shopAddress ?? ""} onChange={(e) => updateField("shopAddress", e.target.value)} placeholder={t("onboarding.fieldShopAddressPlaceholder")} />
                 </Field>
               )}
             </div>
@@ -465,20 +478,20 @@ export default function OnboardingWizard({
             {meta.requiresFields.includes("retailDrugLicense") && (
               <div className="mt-3 p-3 border border-[var(--pc-border-subtle)] rounded-lg flex flex-col gap-2">
                 <div className="flex items-center gap-2 font-medium text-[13px]">
-                  <FileText size={14} /> Retail-licence PDF attestation (recommended)
+                  <FileText size={14} /> {t("onboarding.pdfAttestationTitle")}
                 </div>
                 <Input
                   data-testid="retail-license-pdf-path"
                   value={retailLicensePdfPath}
                   onChange={(e) => setRetailLicensePdfPath(e.target.value)}
-                  placeholder="C:\\backups\\vaidyanath\\retail-license.pdf"
+                  placeholder={t("onboarding.pdfPathPlaceholder")}
                 />
                 {!retailLicensePdfPath.trim() && (
                   <div
                     data-testid="pdf-skip-nudge"
                     className="text-[11px] p-2 rounded bg-[var(--pc-state-warning)]/10 text-[var(--pc-state-warning)]"
                   >
-                    DPDP §8 + D&C: retail-licence attestation strongly recommended.
+                    {t("onboarding.pdfSkipNudge")}
                   </div>
                 )}
               </div>
@@ -488,10 +501,12 @@ export default function OnboardingWizard({
             {(meta.requiresFields.includes("partners") || meta.requiresFields.includes("designatedPartners") || meta.requiresFields.includes("directors")) && (
               <div className="mt-3 p-3 border border-[var(--pc-border-subtle)] rounded-lg">
                 <h3 className="font-medium text-[13px] mb-2">
-                  {meta.requiresFields.includes("directors") ? "Directors" : "Partners"} (minimum {meta.minPartnersOrDirectors})
+                  {meta.requiresFields.includes("directors")
+                    ? t("onboarding.partnersHeadingDirectors", { n: meta.minPartnersOrDirectors })
+                    : t("onboarding.partnersHeadingPartners", { n: meta.minPartnersOrDirectors })}
                 </h3>
                 <p className="text-[11px] text-[var(--pc-text-secondary)] mb-2">
-                  This list flows into Form 11 / MGT-7 / DIR-3 KYC each year. You can add more later in Settings.
+                  {t("onboarding.partnersBlurb")}
                 </p>
                 <textarea
                   className="w-full text-[12px] p-2 rounded border border-[var(--pc-border-subtle)] bg-transparent font-mono"
@@ -517,7 +532,7 @@ export default function OnboardingWizard({
                   }}
                 />
                 <p className="text-[10px] text-[var(--pc-text-tertiary)] mt-1">
-                  Format: <code>Name, PAN, Contribution-in-rupees</code> · one per line
+                  {t("onboarding.partnersFormatHint")}
                 </p>
               </div>
             )}
@@ -525,7 +540,7 @@ export default function OnboardingWizard({
             {/* Existing entity-types validation summary */}
             {!baseValidation.valid && (baseValidation.missing.length > 0 || baseValidation.errors.length > 0) && (
               <div className="text-[12px] p-2 rounded bg-[var(--pc-state-warning)]/10 text-[var(--pc-state-warning)]">
-                <div className="flex items-center gap-1 font-medium"><AlertTriangle size={12} /> Still need:</div>
+                <div className="flex items-center gap-1 font-medium"><AlertTriangle size={12} /> {t("onboarding.stillNeed")}</div>
                 <ul className="mt-1 ml-4 list-disc">
                   {baseValidation.missing.map((m) => <li key={m}>{m}</li>)}
                   {baseValidation.errors.map((e, i) => <li key={i}>{e.field}: {e.message}</li>)}
@@ -541,7 +556,7 @@ export default function OnboardingWizard({
                 role="alert"
               >
                 <div className="flex items-center gap-1 font-medium">
-                  <AlertTriangle size={12} /> Compliance gate (S28-B3):
+                  <AlertTriangle size={12} /> {t("onboarding.complianceGateHeading")}
                 </div>
                 <ul className="mt-1 ml-4 list-disc">
                   {sb3Validation.errors.map((e, i) => <li key={i}>{e}</li>)}
@@ -550,13 +565,13 @@ export default function OnboardingWizard({
             )}
 
             <div className="flex justify-between mt-2">
-              <Button variant="ghost" onClick={() => setStep(1)}><ChevronLeft size={14} /> Back</Button>
+              <Button variant="ghost" onClick={() => setStep(1)}><ChevronLeft size={14} /> {t("onboarding.backBtn")}</Button>
               <Button
                 data-testid="step2-next"
                 onClick={() => setStep(3)}
                 disabled={!baseValidation.valid || !sb3Validation.ok}
               >
-                Next: Compliance contacts <ArrowRight size={14} />
+                {t("onboarding.nextCompliance")} <ArrowRight size={14} />
               </Button>
             </div>
           </div>
@@ -569,63 +584,61 @@ export default function OnboardingWizard({
           <div className="p-4 flex flex-col gap-3" data-testid="step-compliance">
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} className="text-[var(--pc-brand-primary)]" />
-              <h2 className="font-medium">Compliance contacts</h2>
+              <h2 className="font-medium">{t("onboarding.complianceHeading")}</h2>
             </div>
             <p className="text-[12px] text-[var(--pc-text-secondary)]">
-              DPDP Act 2023 §10 requires every pharmacy to publish a Data Protection Officer
-              (DPO) and a grievance officer. These appear on every printed bill. You can update
-              them later in Settings.
+              {t("onboarding.complianceBlurb")}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-              <Field label="DPO name *">
+              <Field label={t("onboarding.fieldDpoName")}>
                 <Input
                   data-testid="dpo-name"
                   value={dpo.dpoName}
                   onChange={(e) => updateDpo("dpoName", e.target.value)}
-                  placeholder="Sourav Shaw"
+                  placeholder={t("onboarding.fieldDpoNamePlaceholder")}
                 />
               </Field>
-              <Field label="DPO email *">
+              <Field label={t("onboarding.fieldDpoEmail")}>
                 <Input
                   data-testid="dpo-email"
                   type="email"
                   value={dpo.dpoEmail}
                   onChange={(e) => updateDpo("dpoEmail", e.target.value)}
-                  placeholder="dpo@vaidyanathpharmacy.com"
+                  placeholder={t("onboarding.fieldDpoEmailPlaceholder")}
                 />
               </Field>
-              <Field label="DPO phone * (10-digit Indian mobile)">
+              <Field label={t("onboarding.fieldDpoPhone")}>
                 <Input
                   data-testid="dpo-phone"
                   value={dpo.dpoPhone}
                   onChange={(e) => updateDpo("dpoPhone", e.target.value)}
-                  placeholder="+91 90000 00000"
+                  placeholder={t("onboarding.fieldDpoPhonePlaceholder")}
                 />
               </Field>
-              <Field label="Grievance officer name *">
+              <Field label={t("onboarding.fieldGrievanceName")}>
                 <Input
                   data-testid="grievance-name"
                   value={dpo.grievanceOfficerName}
                   onChange={(e) => updateDpo("grievanceOfficerName", e.target.value)}
-                  placeholder="Compliance officer"
+                  placeholder={t("onboarding.fieldGrievanceNamePlaceholder")}
                 />
               </Field>
-              <Field label="Grievance officer email *">
+              <Field label={t("onboarding.fieldGrievanceEmail")}>
                 <Input
                   data-testid="grievance-email"
                   type="email"
                   value={dpo.grievanceOfficerEmail}
                   onChange={(e) => updateDpo("grievanceOfficerEmail", e.target.value)}
-                  placeholder="grievance@vaidyanathpharmacy.com"
+                  placeholder={t("onboarding.fieldGrievanceEmailPlaceholder")}
                 />
               </Field>
-              <Field label="Grievance officer phone *">
+              <Field label={t("onboarding.fieldGrievancePhone")}>
                 <Input
                   data-testid="grievance-phone"
                   value={dpo.grievanceOfficerPhone}
                   onChange={(e) => updateDpo("grievanceOfficerPhone", e.target.value)}
-                  placeholder="+91 90000 00000"
+                  placeholder={t("onboarding.fieldGrievancePhonePlaceholder")}
                 />
               </Field>
             </div>
@@ -643,13 +656,13 @@ export default function OnboardingWizard({
             )}
 
             <div className="flex justify-between mt-2">
-              <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft size={14} /> Back</Button>
+              <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft size={14} /> {t("onboarding.backBtn")}</Button>
               <Button
                 data-testid="dpo-submit"
                 onClick={() => { void submitDpo(); }}
                 disabled={!dpoReady || dpoSubmitting}
               >
-                {dpoSubmitting ? "Saving..." : "Next: Migration"} <ArrowRight size={14} />
+                {dpoSubmitting ? t("onboarding.savingDots") : t("onboarding.nextMigration")} <ArrowRight size={14} />
               </Button>
             </div>
           </div>
@@ -660,22 +673,22 @@ export default function OnboardingWizard({
       {step === 4 && (
         <Glass>
           <div className="p-4 flex flex-col gap-3" data-testid="step-migrate">
-            <h2 className="font-medium">Migrate from existing software (optional)</h2>
+            <h2 className="font-medium">{t("onboarding.migrateHeading")}</h2>
             <p className="text-[12px] text-[var(--pc-text-secondary)]">
-              We can import your customer master, product list, and bills from any of these. Skip if you're starting fresh.
+              {t("onboarding.migrateBlurb")}
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {["Marg ERP", "Tally Prime", "Vyapar", "Medeil", "GoFrugal", "Generic CSV"].map((vendor) => (
-                <Button key={vendor} variant="ghost"><Upload size={14} /> Import from {vendor}</Button>
+                <Button key={vendor} variant="ghost"><Upload size={14} /> {t("onboarding.importFromVendor", { vendor })}</Button>
               ))}
             </div>
             <p className="text-[11px] text-[var(--pc-text-tertiary)] mt-2">
-              You can also do this later from Settings → Migration. <strong>You can also export everything anytime</strong> — no vendor lock-in.
+              {t("onboarding.migrateFooter")}
             </p>
             <div className="flex justify-between mt-2">
-              <Button variant="ghost" onClick={() => setStep(3)}><ChevronLeft size={14} /> Back</Button>
+              <Button variant="ghost" onClick={() => setStep(3)}><ChevronLeft size={14} /> {t("onboarding.backBtn")}</Button>
               <Button data-testid="save-shop" onClick={finish} disabled={busy}>
-                Save Shop &amp; finish <ArrowRight size={14} />
+                {t("onboarding.saveShopFinish")} <ArrowRight size={14} />
               </Button>
             </div>
           </div>
@@ -687,13 +700,15 @@ export default function OnboardingWizard({
         <Glass>
           <div className="p-6 flex flex-col items-center gap-3 text-center" data-testid="step-done">
             <CheckCircle2 size={48} className="text-[var(--pc-state-success)]" />
-            <h2 className="font-semibold text-[18px]">Setup complete</h2>
+            <h2 className="font-semibold text-[18px]">{t("onboarding.doneTitle")}</h2>
             <p className="text-[13px] text-[var(--pc-text-secondary)] max-w-md">
-              Registered as <strong>{ENTITY_TYPES[entityType].displayName}</strong>.
-              Annual compliance bundle will include {annualFilingsFor(entityType).length} filings.
-              {isAuditRequired({ entityType, turnoverPaise: 0 }).required && " Statutory audit applies — please brief your CA."}
+              {t("onboarding.doneBody", {
+                name: ENTITY_TYPES[entityType].displayName,
+                count: annualFilingsFor(entityType).length,
+              })}
+              {isAuditRequired({ entityType, turnoverPaise: 0 }).required && t("onboarding.doneAuditNote")}
             </p>
-            <Badge variant="success">Ready to bill</Badge>
+            <Badge variant="success">{t("onboarding.readyToBill")}</Badge>
           </div>
         </Glass>
       )}

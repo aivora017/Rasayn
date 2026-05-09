@@ -1,5 +1,5 @@
 /**
- * S27.B + S28-B3 — OnboardingWizard validation tests.
+ * S27.B + S28-B3 + S28-F4 — OnboardingWizard validation tests.
  *
  * S27.B base test: `isDpoComplete` helper guards the "Compliance contacts"
  * step; if any required text is empty or either email malformed, the Next
@@ -13,9 +13,17 @@
  *   - success path: all valid → onComplete dispatched with full payload
  *   - pre-existing shop → wizard renders redirect screen
  *
+ * S28-F4 addition:
+ *   - grep-style assertion that no hardcoded "GSTIN" / "Retail license" /
+ *     "DPO" English literal remains in the component's JSX. Every such
+ *     string must reach the user via t('onboarding.*').
+ *
  * Pattern mirrors BillingScreen.test.tsx — vitest + plain imports, no
  * vi.resetModules() per WORKING_PATTERNS §12.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import OnboardingWizard, {
@@ -208,5 +216,51 @@ describe("OnboardingWizard component · S28-B3", () => {
     fireEvent.change(gstin, { target: { value: "BOGUS" } });
     const next = screen.getByTestId("step2-next");
     expect(next).toBeDisabled();
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// S28-F4 — i18n discipline test: no hardcoded English in JSX
+// ──────────────────────────────────────────────────────────────────────────
+
+describe("OnboardingWizard · S28-F4 t() migration discipline", () => {
+  it("does not contain hardcoded English literals like 'GSTIN', 'Retail license', or 'DPO' inside JSX text", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = readFileSync(join(here, "OnboardingWizard.tsx"), "utf8");
+
+    // Strip block + line comments before scanning so the file's leading
+    // header comments (which legitimately mention GSTIN/DPO/etc) don't
+    // false-positive the gate.
+    const stripped = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    // Forbidden literals: any user-visible English copy that should be
+    // funneled through t(). Exclude:
+    //   - placeholder example values still inline (MH-DRG-12345 etc) —
+    //     these are vendor names / format examples, not English copy.
+    //   - imports + Tauri RPC names + JSX prop attributes.
+    // We scan ONLY for substrings that historically appeared as JSX text
+    // children or inside Field labels / button copy.
+    const FORBIDDEN: { needle: RegExp; reason: string }[] = [
+      { needle: />[^<{}]*\bGSTIN\b[^<{}]*</, reason: "GSTIN as raw JSX text" },
+      { needle: />[^<{}]*\bRetail Drug License\b[^<{}]*</, reason: "'Retail Drug License' as raw JSX text" },
+      { needle: />[^<{}]*\bDPO name\b[^<{}]*</, reason: "'DPO name' as raw JSX text" },
+      { needle: />[^<{}]*\bSchedule-H license\b[^<{}]*</, reason: "'Schedule-H license' as raw JSX text" },
+      { needle: />[^<{}]*\bGrievance officer\b[^<{}]*</, reason: "'Grievance officer' as raw JSX text" },
+      { needle: />[^<{}]*\bWelcome to PharmaCare\b[^<{}]*</, reason: "Welcome heading as raw JSX text" },
+      { needle: />[^<{}]*\bSetup complete\b[^<{}]*</, reason: "Done heading as raw JSX text" },
+      { needle: />[^<{}]*\bReady to bill\b[^<{}]*</, reason: "Ready badge as raw JSX text" },
+      { needle: />[^<{}]*\bSave Shop\b[^<{}]*</, reason: "'Save Shop' as raw JSX text" },
+      { needle: />[^<{}]*\bMigrate from existing software\b[^<{}]*</, reason: "Migrate heading as raw JSX text" },
+      { needle: /label="[^"]*\bGSTIN\b[^"]*"/, reason: "Field label= containing GSTIN" },
+      { needle: /label="[^"]*\bDPO\b[^"]*"/, reason: "Field label= containing DPO" },
+    ];
+
+    const offenders = FORBIDDEN
+      .filter((rule) => rule.needle.test(stripped))
+      .map((rule) => rule.reason);
+
+    expect(offenders).toEqual([]);
   });
 });
